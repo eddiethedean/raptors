@@ -5,10 +5,10 @@
 #![allow(clippy::arc_with_non_send_sync)] // Arc used for Python reference counting, not thread safety
 
 use pyo3::prelude::*;
-use pyo3::types::{PyAny, PyList, PyTuple};
+use pyo3::types::{PyAny, PyList, PyTuple, PySlice};
 use raptors_core::{Array, empty, zeros, ones};
 use raptors_core::types::{DType, NpyType};
-use raptors_core::indexing::index_array;
+use raptors_core::indexing::{index_array, slice_array, Slice};
 use raptors_core::operations::{add, subtract, multiply, divide};
 use raptors_core::operations::{equal, not_equal, less, greater, less_equal, greater_equal};
 use std::sync::Arc;
@@ -39,6 +39,35 @@ impl PyArray {
     pub(crate) fn get_inner_from_bound<'a>(bound: &Bound<'a, PyArray>) -> &'a Arc<Array> {
         // SAFETY: Bound ensures the reference is valid for its lifetime
         unsafe { &*(&bound.borrow().inner as *const Arc<Array>) }
+    }
+    
+    /// Convert PySlice to internal Slice type
+    fn py_slice_to_slice(py_slice: &Bound<'_, PySlice>) -> PyResult<Slice> {
+        // Get start, stop, step attributes from Python slice object
+        let start_attr = py_slice.getattr("start")?;
+        let stop_attr = py_slice.getattr("stop")?;
+        let step_attr = py_slice.getattr("step")?;
+        
+        // Convert to Option<i64> (None in Python becomes None, otherwise extract as i64)
+        let start = if start_attr.is_none() {
+            None
+        } else {
+            Some(start_attr.extract::<i64>()?)
+        };
+        
+        let stop = if stop_attr.is_none() {
+            None
+        } else {
+            Some(stop_attr.extract::<i64>()?)
+        };
+        
+        let step = if step_attr.is_none() {
+            None
+        } else {
+            Some(step_attr.extract::<i64>()?)
+        };
+        
+        Ok(Slice::new(start, stop, step))
     }
 }
 
@@ -455,6 +484,23 @@ impl PyArray {
             } else {
                 return Err(PyErr::new::<pyo3::exceptions::PyIndexError, _>(
                     format!("Expected {} indices, got {}", ndim, tuple.len())
+                ));
+            }
+        }
+        
+        // Try slice indexing (1D: arr[1:3])
+        if let Ok(py_slice) = index.cast::<PySlice>() {
+            if self.inner.ndim() == 1 {
+                let slice = Self::py_slice_to_slice(&py_slice)?;
+                let sliced_array = slice_array(self.get_inner(), &[slice])
+                    .map_err(|e| PyErr::new::<pyo3::exceptions::PyIndexError, _>(format!("{}", e)))?;
+                let result = PyArray {
+                    inner: Arc::new(sliced_array),
+                };
+                return Ok(Py::new(py, result)?.into());
+            } else {
+                return Err(PyErr::new::<pyo3::exceptions::PyIndexError, _>(
+                    format!("Single slice provided but array has {} dimensions", self.inner.ndim())
                 ));
             }
         }
