@@ -29,7 +29,9 @@ fn raptors(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(ones, m)?)?;
     m.add_function(wrap_pyfunction!(empty, m)?)?;
     // Register array function with name "array" in Python
-    m.add_function(wrap_pyfunction!(array_from_list, m)?)?;
+    // Explicitly register with name "array" instead of relying on name attribute
+    let array_func = wrap_pyfunction!(array_from_list, m)?;
+    m.add("array", array_func)?;
     
     // Add DType class alias
     m.add("DType", m.getattr("PyDType")?)?;
@@ -112,9 +114,9 @@ fn empty(shape: Vec<i64>, dtype: Option<&dtype::PyDType>) -> PyResult<array::PyA
 }
 
 /// Create an array from a Python list (module-level function)
-#[pyfunction(name = "array")]
+#[pyfunction]
 #[pyo3(signature = (data, dtype=None))]
-fn array_from_list(py: Python, data: &Bound<'_, PyAny>, dtype: Option<&dtype::PyDType>) -> PyResult<array::PyArray> {
+pub fn array_from_list(py: Python, data: &Bound<'_, PyAny>, dtype: Option<&dtype::PyDType>) -> PyResult<array::PyArray> {
     use raptors_core::{Array, DType};
     use raptors_core::types::NpyType;
     use std::sync::Arc;

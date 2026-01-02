@@ -91,20 +91,11 @@ impl PyArray {
     
     /// Get the shape of the array
     #[getter]
-    fn shape(&self, py: Python) -> PyResult<Py<PyAny>> {
+    fn shape(&self, py: Python) -> PyResult<Py<PyTuple>> {
         // Return as tuple for NumPy compatibility
-        // For PyO3 0.27, create Python integers using FFI and collect into tuple
         let shape_vec = self.get_inner().shape().to_vec();
-        let mut items: Vec<Py<PyAny>> = Vec::new();
-        for &x in &shape_vec {
-            let val = x as i64;
-            // Create Python int using FFI
-            let py_int = unsafe { pyo3::ffi::PyLong_FromLongLong(val) };
-            if py_int.is_null() {
-                return Err(PyErr::fetch(py));
-            }
-            items.push(unsafe { Py::from_owned_ptr(py, py_int) });
-        }
+        // Convert to Vec<i64> for PyTuple::new (i64 implements ToPyObject)
+        let items: Vec<i64> = shape_vec.iter().map(|&x| x as i64).collect();
         let tuple = PyTuple::new(py, items)?;
         Ok(tuple.into())
     }
@@ -433,7 +424,7 @@ impl PyArray {
         // Try tuple indexing (multi-dimensional: arr[0, 0])
         // In Python, arr[0, 0] is passed as a tuple to __getitem__
         // For PyO3 0.27, use Bound::cast instead of downcast
-        if let Ok(tuple) = index.downcast::<PyTuple>() {
+        if let Ok(tuple) = index.cast::<PyTuple>() {
             let ndim = self.inner.ndim();
             if tuple.len() == ndim {
                 let mut indices = Vec::new();
@@ -465,66 +456,6 @@ impl PyArray {
                 return Err(PyErr::new::<pyo3::exceptions::PyIndexError, _>(
                     format!("Expected {} indices, got {}", ndim, tuple.len())
                 ));
-            }
-        }
-        
-        // Fallback: Try to extract as tuple directly (for 2D case)
-        // This handles cases where downcast doesn't work
-        if let Ok((mut idx0, mut idx1)) = index.extract::<(i64, i64)>() {
-            let ndim = self.inner.ndim();
-            if ndim == 2 {
-                let shape = self.inner.shape();
-                
-                // Normalize negative indices
-                if idx0 < 0 {
-                    idx0 += shape[0] as i64;
-                }
-                if idx1 < 0 {
-                    idx1 += shape[1] as i64;
-                }
-                
-                // Bounds check
-                if idx0 < 0 || idx0 >= shape[0] as i64 || idx1 < 0 || idx1 >= shape[1] as i64 {
-                    return Err(PyErr::new::<pyo3::exceptions::PyIndexError, _>(
-                        format!("Index out of bounds")
-                    ));
-                }
-                
-                let indices = vec![idx0, idx1];
-                let ptr = index_array(&self.inner, &indices)
-                    .map_err(|e| PyErr::new::<pyo3::exceptions::PyIndexError, _>(format!("{}", e)))?;
-                
-                return self.extract_value(py, ptr);
-            }
-        }
-        
-        // Fallback: Try to extract as tuple directly (for 2D case)
-        // This handles cases where downcast doesn't work
-        if let Ok((mut idx0, mut idx1)) = index.extract::<(i64, i64)>() {
-            let ndim = self.inner.ndim();
-            if ndim == 2 {
-                let shape = self.inner.shape();
-                
-                // Normalize negative indices
-                if idx0 < 0 {
-                    idx0 += shape[0] as i64;
-                }
-                if idx1 < 0 {
-                    idx1 += shape[1] as i64;
-                }
-                
-                // Bounds check
-                if idx0 < 0 || idx0 >= shape[0] as i64 || idx1 < 0 || idx1 >= shape[1] as i64 {
-                    return Err(PyErr::new::<pyo3::exceptions::PyIndexError, _>(
-                        format!("Index out of bounds")
-                    ));
-                }
-                
-                let indices = vec![idx0, idx1];
-                let ptr = index_array(&self.inner, &indices)
-                    .map_err(|e| PyErr::new::<pyo3::exceptions::PyIndexError, _>(format!("{}", e)))?;
-                
-                return self.extract_value(py, ptr);
             }
         }
         
