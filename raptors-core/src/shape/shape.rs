@@ -28,10 +28,61 @@ pub fn compute_size(shape: &[i64]) -> i64 {
     shape.iter().product()
 }
 
+/// Resolve -1 dimension in reshape shape by auto-calculating the size
+///
+/// In NumPy, -1 means "calculate this dimension automatically" such that
+/// the total size matches the original array size.
+/// Returns a new shape with -1 replaced by the calculated dimension.
+pub fn resolve_reshape_shape(old_shape: &[i64], new_shape: &[i64]) -> Result<Vec<i64>, ShapeError> {
+    let old_size = compute_size(old_shape);
+    
+    // Count how many -1 dimensions we have (should be at most 1)
+    let minus_one_count = new_shape.iter().filter(|&&x| x == -1).count();
+    if minus_one_count > 1 {
+        return Err(ShapeError::InvalidShape);
+    }
+    
+    if minus_one_count == 0 {
+        // No -1 dimension, just validate
+        let new_size = compute_size(new_shape);
+        if old_size != new_size {
+            return Err(ShapeError::SizeMismatch);
+        }
+        return Ok(new_shape.to_vec());
+    }
+    
+    // We have exactly one -1 dimension, calculate it
+    let mut resolved_shape = new_shape.to_vec();
+    let known_size: i64 = new_shape.iter()
+        .filter(|&&x| x != -1 && x > 0)
+        .product();
+    
+    if known_size == 0 {
+        return Err(ShapeError::InvalidShape);
+    }
+    
+    if old_size % known_size != 0 {
+        return Err(ShapeError::SizeMismatch);
+    }
+    
+    let calculated_dim = old_size / known_size;
+    
+    // Replace -1 with calculated dimension
+    for dim in &mut resolved_shape {
+        if *dim == -1 {
+            *dim = calculated_dim;
+            break;
+        }
+    }
+    
+    Ok(resolved_shape)
+}
+
 /// Validate that a reshape shape matches the total size
 pub fn validate_reshape_shape(old_shape: &[i64], new_shape: &[i64]) -> Result<(), ShapeError> {
+    let resolved_shape = resolve_reshape_shape(old_shape, new_shape)?;
     let old_size = compute_size(old_shape);
-    let new_size = compute_size(new_shape);
+    let new_size = compute_size(&resolved_shape);
     
     if old_size != new_size {
         return Err(ShapeError::SizeMismatch);
