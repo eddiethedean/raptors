@@ -214,15 +214,16 @@ impl PyArray {
     
     /// Reshape the array
     fn reshape(&self, shape: Vec<i64>) -> PyResult<Self> {
-        use raptors_core::shape::shape::validate_reshape_shape;
-        validate_reshape_shape(self.get_inner().shape(), &shape)
+        use raptors_core::shape::shape::resolve_reshape_shape;
+        // Resolve -1 dimensions (auto-calculate)
+        let resolved_shape = resolve_reshape_shape(self.get_inner().shape(), &shape)
             .map_err(|e| PyErr::new::<pyo3::exceptions::PyValueError, _>(format!("{}", e)))?;
         
         // Create new array with new shape using view
         let itemsize = self.get_inner().itemsize();
-        let new_strides = raptors_core::shape::shape::compute_reshape_strides(&shape, itemsize);
+        let new_strides = raptors_core::shape::shape::compute_reshape_strides(&resolved_shape, itemsize);
         
-        let reshaped = self.get_inner().view(shape, new_strides)
+        let reshaped = self.get_inner().view(resolved_shape, new_strides)
             .map_err(|e| PyErr::new::<pyo3::exceptions::PyValueError, _>(format!("{}", e)))?;
         
         Ok(PyArray {
