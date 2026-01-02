@@ -29,7 +29,7 @@ class TestUfuncBasic:
             assert result[1] == 7
             assert result[2] == 9
         except (AttributeError, NotImplementedError):
-            pytest.skip("add ufunc not yet implemented")
+            pytest.fail("add ufunc not yet implemented")
     
     def test_subtract_ufunc(self):
         """Test subtract ufunc"""
@@ -42,7 +42,7 @@ class TestUfuncBasic:
             assert result[1] == 5
             assert result[2] == 6
         except (AttributeError, NotImplementedError):
-            pytest.skip("subtract ufunc not yet implemented")
+            pytest.fail("subtract ufunc not yet implemented")
     
     def test_multiply_ufunc(self):
         """Test multiply ufunc"""
@@ -55,7 +55,7 @@ class TestUfuncBasic:
             assert result[1] == 18
             assert result[2] == 28
         except (AttributeError, NotImplementedError):
-            pytest.skip("multiply ufunc not yet implemented")
+            pytest.fail("multiply ufunc not yet implemented")
     
     def test_divide_ufunc(self):
         """Test divide ufunc"""
@@ -68,7 +68,7 @@ class TestUfuncBasic:
             assert abs(result[1] - 6.0) < 1e-10
             assert abs(result[2] - 7.0) < 1e-10
         except (AttributeError, NotImplementedError):
-            pytest.skip("divide ufunc not yet implemented")
+            pytest.fail("divide ufunc not yet implemented")
 
 
 class TestUfuncBroadcasting:
@@ -82,7 +82,7 @@ class TestUfuncBroadcasting:
             assert result.shape == (2, 3)
             assert result[0, 0] == 11
         except (AttributeError, NotImplementedError):
-            pytest.skip("Broadcasting in ufuncs not yet implemented")
+            pytest.fail("Broadcasting in ufuncs not yet implemented")
     
     def test_multiply_broadcast_shapes(self):
         """Test multiply with shape broadcasting"""
@@ -92,7 +92,7 @@ class TestUfuncBroadcasting:
             result = raptors.multiply(a, b)
             assert result.shape == (3, 3)
         except (AttributeError, NotImplementedError):
-            pytest.skip("Broadcasting in ufuncs not yet implemented")
+            pytest.fail("Broadcasting in ufuncs not yet implemented")
 
 
 class TestUfuncTypePromotion:
@@ -106,7 +106,7 @@ class TestUfuncTypePromotion:
             result = raptors.add(a, b)
             assert result.dtype.name == "float64"
         except (AttributeError, NotImplementedError, TypeError):
-            pytest.skip("Type promotion not yet implemented")
+            pytest.fail("Type promotion not yet implemented")
     
     def test_same_type_preservation(self):
         """Test that same types don't promote unnecessarily"""
@@ -131,7 +131,7 @@ class TestUfuncEdgeCases:
             result = raptors.add(a, b)
             assert result.shape == (0,)
         except (AttributeError, NotImplementedError):
-            pytest.skip("Empty array ufuncs not yet implemented")
+            pytest.fail("Empty array ufuncs not yet implemented")
     
     def test_zero_dimensional_ufunc(self):
         """Test ufunc with 0-d arrays"""
@@ -142,7 +142,7 @@ class TestUfuncEdgeCases:
             assert result.ndim == 0
             assert result.item() == 8
         except (AttributeError, NotImplementedError):
-            pytest.skip("0-d array ufuncs not yet implemented")
+            pytest.fail("0-d array ufuncs not yet implemented")
     
     def test_nan_handling(self):
         """Test NaN handling in ufuncs"""
@@ -154,7 +154,7 @@ class TestUfuncEdgeCases:
             assert np.isnan(result[1])
             assert result[2] == 6.0
         except (AttributeError, NotImplementedError):
-            pytest.skip("NaN handling not yet implemented")
+            pytest.fail("NaN handling not yet implemented")
     
     def test_infinity_handling(self):
         """Test infinity handling in ufuncs"""
@@ -166,7 +166,7 @@ class TestUfuncEdgeCases:
             assert np.isinf(result[1])
             assert result[2] == 6.0
         except (AttributeError, NotImplementedError):
-            pytest.skip("Infinity handling not yet implemented")
+            pytest.fail("Infinity handling not yet implemented")
 
 
 class TestUfuncComparison:
@@ -183,7 +183,7 @@ class TestUfuncComparison:
             assert result[1] == False
             assert result[2] == True
         except (AttributeError, NotImplementedError):
-            pytest.skip("equal ufunc not yet implemented")
+            pytest.fail("equal ufunc not yet implemented")
     
     def test_less_ufunc(self):
         """Test less than ufunc"""
@@ -196,7 +196,7 @@ class TestUfuncComparison:
             assert result[1] == False
             assert result[2] == True
         except (AttributeError, NotImplementedError):
-            pytest.skip("less ufunc not yet implemented")
+            pytest.fail("less ufunc not yet implemented")
     
     def test_greater_ufunc(self):
         """Test greater than ufunc"""
@@ -209,5 +209,5 @@ class TestUfuncComparison:
             assert result[1] == False
             assert result[2] == True
         except (AttributeError, NotImplementedError):
-            pytest.skip("greater ufunc not yet implemented")
+            pytest.fail("greater ufunc not yet implemented")
 

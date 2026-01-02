@@ -81,3 +81,39 @@ pub fn less(a1: &Array, a2: &Array) -> Result<Array, ArrayError> {
     Ok(output)
 }
 
+/// Greater than comparison
+pub fn greater(a1: &Array, a2: &Array) -> Result<Array, ArrayError> {
+    // Greater is less with swapped arguments
+    less(a2, a1)
+}
+
+/// Less than or equal comparison
+pub fn less_equal(a1: &Array, a2: &Array) -> Result<Array, ArrayError> {
+    // less_equal = not greater
+    let mut greater_result = greater(a1, a2)?;
+    // Negate the result
+    unsafe {
+        let out_ptr = greater_result.data_ptr_mut() as *mut bool;
+        let size = greater_result.size();
+        for i in 0..size {
+            *out_ptr.add(i) = !*out_ptr.add(i);
+        }
+    }
+    Ok(greater_result)
+}
+
+/// Greater than or equal comparison
+pub fn greater_equal(a1: &Array, a2: &Array) -> Result<Array, ArrayError> {
+    // greater_equal = not less
+    let mut less_result = less(a1, a2)?;
+    // Negate the result
+    unsafe {
+        let out_ptr = less_result.data_ptr_mut() as *mut bool;
+        let size = less_result.size();
+        for i in 0..size {
+            *out_ptr.add(i) = !*out_ptr.add(i);
+        }
+    }
+    Ok(less_result)
+}
+

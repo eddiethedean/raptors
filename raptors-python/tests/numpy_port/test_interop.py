@@ -25,7 +25,7 @@ class TestArrayConversion:
             assert isinstance(np_arr, np.ndarray)
             np.testing.assert_array_equal(np_arr, [1, 2, 3, 4, 5])
         except (TypeError, AttributeError):
-            pytest.skip("Raptors to NumPy conversion not yet implemented")
+            pytest.fail("Raptors to NumPy conversion not yet implemented")
     
     def test_numpy_to_raptors(self):
         """Test converting NumPy array to Raptors array"""
@@ -36,7 +36,7 @@ class TestArrayConversion:
             assert arr[0] == 1
             assert arr[4] == 5
         except (AttributeError, NotImplementedError):
-            pytest.skip("NumPy to Raptors conversion not yet implemented")
+            pytest.fail("NumPy to Raptors conversion not yet implemented")
     
     def test_roundtrip_conversion(self):
         """Test roundtrip conversion"""
@@ -47,7 +47,7 @@ class TestArrayConversion:
             back_to_numpy = np.asarray(raptors_arr)
             np.testing.assert_array_equal(original, back_to_numpy)
         except (AttributeError, NotImplementedError, TypeError):
-            pytest.skip("Roundtrip conversion not yet implemented")
+            pytest.fail("Roundtrip conversion not yet implemented")
 
 
 class TestSharedMemory:
@@ -66,7 +66,7 @@ class TestSharedMemory:
                 # If not, it should remain unchanged
                 pass  # Implementation-dependent
         except (AttributeError, NotImplementedError):
-            pytest.skip("Memory sharing not yet implemented")
+            pytest.fail("Memory sharing not yet implemented")
 
 
 class TestNumPyFunctionsWithRaptors:
@@ -79,7 +79,7 @@ class TestNumPyFunctionsWithRaptors:
             result = np.sum(arr)
             assert result == 15
         except (TypeError, AttributeError):
-            pytest.skip("NumPy functions with Raptors arrays not yet implemented")
+            pytest.fail("NumPy functions with Raptors arrays not yet implemented")
     
     def test_numpy_mean(self):
         """Test NumPy mean with Raptors array"""
@@ -88,7 +88,7 @@ class TestNumPyFunctionsWithRaptors:
             result = np.mean(arr)
             assert abs(result - 3.0) < 1e-10
         except (TypeError, AttributeError):
-            pytest.skip("NumPy functions with Raptors arrays not yet implemented")
+            pytest.fail("NumPy functions with Raptors arrays not yet implemented")
     
     def test_numpy_max_min(self):
         """Test NumPy max/min with Raptors array"""
@@ -99,7 +99,7 @@ class TestNumPyFunctionsWithRaptors:
             assert max_val == 9
             assert min_val == 1
         except (TypeError, AttributeError):
-            pytest.skip("NumPy functions with Raptors arrays not yet implemented")
+            pytest.fail("NumPy functions with Raptors arrays not yet implemented")
 
 
 class TestProtocolCompliance:
@@ -115,7 +115,7 @@ class TestProtocolCompliance:
             protocol_arr = np.asarray(arr)
             assert isinstance(protocol_arr, np.ndarray)
         except (AttributeError, TypeError):
-            pytest.skip("Array protocol not yet implemented")
+            pytest.fail("Array protocol not yet implemented")
     
     def test_dlpack_protocol(self):
         """Test DLPack protocol support"""
@@ -126,7 +126,7 @@ class TestProtocolCompliance:
                 capsule = arr.__dlpack__()
                 assert capsule is not None
         except (AttributeError, NotImplementedError):
-            pytest.skip("DLPack protocol not yet implemented")
+            pytest.fail("DLPack protocol not yet implemented")
 
 
 class TestTypeCompatibility:
@@ -140,7 +140,7 @@ class TestTypeCompatibility:
             # Check dtype compatibility
             assert raptors_arr.dtype.name in ["int32", "int64"]
         except (AttributeError, NotImplementedError):
-            pytest.skip("Dtype compatibility not yet implemented")
+            pytest.fail("Dtype compatibility not yet implemented")
     
     def test_shape_compatibility(self):
         """Test that shapes are compatible"""
@@ -149,5 +149,5 @@ class TestTypeCompatibility:
             raptors_arr = raptors.from_numpy(np_arr)
             assert raptors_arr.shape == (2, 2)
         except (AttributeError, NotImplementedError):
-            pytest.skip("Shape compatibility not yet implemented")
+            pytest.fail("Shape compatibility not yet implemented")
 

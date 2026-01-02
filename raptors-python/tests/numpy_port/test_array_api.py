@@ -108,7 +108,7 @@ class TestArrayIndexing:
             sliced = arr[1:4]
             assert sliced.shape == (3,)
         except (NotImplementedError, AttributeError):
-            pytest.skip("Slicing not yet implemented")
+            pytest.fail("Slicing not yet implemented")
     
     def test_negative_indexing(self):
         """Test negative indexing"""
@@ -117,7 +117,7 @@ class TestArrayIndexing:
         try:
             assert arr[-1] == 50
         except (IndexError, NotImplementedError):
-            pytest.skip("Negative indexing not yet implemented")
+            pytest.fail("Negative indexing not yet implemented")
 
 
 class TestArrayOperations:
@@ -135,7 +135,7 @@ class TestArrayOperations:
             assert result[1] == 7
             assert result[2] == 9
         except (TypeError, NotImplementedError):
-            pytest.skip("Array addition not yet implemented")
+            pytest.fail("Array addition not yet implemented")
     
     def test_multiply_arrays(self):
         """Test array multiplication"""
@@ -148,7 +148,7 @@ class TestArrayOperations:
             assert result[1] == 18
             assert result[2] == 28
         except (TypeError, NotImplementedError):
-            pytest.skip("Array multiplication not yet implemented")
+            pytest.fail("Array multiplication not yet implemented")
     
     def test_scalar_operations(self):
         """Test scalar operations"""
@@ -160,7 +160,7 @@ class TestArrayOperations:
             assert result[1] == 4
             assert result[2] == 6
         except (TypeError, NotImplementedError):
-            pytest.skip("Scalar operations not yet implemented")
+            pytest.fail("Scalar operations not yet implemented")
 
 
 class TestArrayMethods:
@@ -173,7 +173,7 @@ class TestArrayMethods:
             reshaped = arr.reshape((2, 3))
             assert reshaped.shape == (2, 3)
         except (AttributeError, NotImplementedError):
-            pytest.skip("Reshape not yet implemented")
+            pytest.fail("Reshape not yet implemented")
     
     def test_flatten(self):
         """Test flatten method"""
@@ -182,7 +182,7 @@ class TestArrayMethods:
             flattened = arr.flatten()
             assert flattened.shape == (6,)
         except (AttributeError, NotImplementedError):
-            pytest.skip("Flatten not yet implemented")
+            pytest.fail("Flatten not yet implemented")
     
     def test_sum(self):
         """Test sum method"""
@@ -191,7 +191,7 @@ class TestArrayMethods:
             total = arr.sum()
             assert total == 15
         except (AttributeError, NotImplementedError):
-            pytest.skip("Sum not yet implemented")
+            pytest.fail("Sum not yet implemented")
     
     def test_max_min(self):
         """Test max and min methods"""
@@ -202,7 +202,7 @@ class TestArrayMethods:
             assert max_val == 9
             assert min_val == 1
         except (AttributeError, NotImplementedError):
-            pytest.skip("Max/min not yet implemented")
+            pytest.fail("Max/min not yet implemented")
 
 
 class TestArrayBroadcasting:
@@ -216,7 +216,7 @@ class TestArrayBroadcasting:
             assert result.shape == (2, 3)
             assert result[0, 0] == 11
         except (TypeError, NotImplementedError):
-            pytest.skip("Broadcasting not yet implemented")
+            pytest.fail("Broadcasting not yet implemented")
     
     def test_broadcast_shapes(self):
         """Test broadcasting with compatible shapes"""
@@ -226,7 +226,7 @@ class TestArrayBroadcasting:
             result = a + b
             assert result.shape == (3, 3)
         except (TypeError, NotImplementedError):
-            pytest.skip("Broadcasting not yet implemented")
+            pytest.fail("Broadcasting not yet implemented")
 
 
 class TestArrayConversion:
@@ -239,7 +239,7 @@ class TestArrayConversion:
             lst = arr.tolist()
             assert lst == [1, 2, 3]
         except (AttributeError, NotImplementedError):
-            pytest.skip("tolist not yet implemented")
+            pytest.fail("tolist not yet implemented")
     
     def test_to_numpy(self):
         """Test converting to NumPy array"""
@@ -249,7 +249,7 @@ class TestArrayConversion:
             assert isinstance(np_arr, np.ndarray)
             np.testing.assert_array_equal(np_arr, [1, 2, 3])
         except (AttributeError, NotImplementedError):
-            pytest.skip("to_numpy not yet implemented")
+            pytest.fail("to_numpy not yet implemented")
 
 
 class TestArrayInteroperability:
@@ -262,7 +262,7 @@ class TestArrayInteroperability:
             arr = raptors.from_numpy(np_arr)
             assert arr.shape == (5,)
         except (AttributeError, NotImplementedError):
-            pytest.skip("from_numpy not yet implemented")
+            pytest.fail("from_numpy not yet implemented")
     
     def test_numpy_compatibility(self):
         """Test that Raptors arrays work with NumPy functions"""
@@ -272,7 +272,7 @@ class TestArrayInteroperability:
             result = np.sum(arr)
             assert result == 15
         except (TypeError, AttributeError):
-            pytest.skip("NumPy compatibility not yet implemented")
+            pytest.fail("NumPy compatibility not yet implemented")
 
 
 class TestArrayEdgeCases:
@@ -326,7 +326,7 @@ class TestArrayDtypeOperations:
             float_arr = arr.astype('float64')
             assert float_arr.dtype.name == "float64"
         except (AttributeError, NotImplementedError):
-            pytest.skip("astype not yet implemented")
+            pytest.fail("astype not yet implemented")
     
     def test_dtype_preservation(self):
         """Test that dtype is preserved in operations"""
@@ -336,5 +336,5 @@ class TestArrayDtypeOperations:
             # Result dtype may be promoted or preserved
             assert hasattr(result, 'dtype')
         except (TypeError, NotImplementedError):
-            pytest.skip("Dtype operations not yet implemented")
+            pytest.fail("Dtype operations not yet implemented")
 
