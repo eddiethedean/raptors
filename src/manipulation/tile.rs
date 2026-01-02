@@ -41,12 +41,12 @@ pub fn tile(array: &Array, reps: &[usize]) -> Result<Array, ManipulationError> {
     }
     
     // Multiply each dimension by its repeat count
-    for i in 0..ndim {
+    for (i, &dim_size) in shape.iter().enumerate().take(ndim) {
         let rep_idx = extra_dims + i;
         if rep_idx < full_reps.len() {
-            output_shape.push(shape[i] * full_reps[rep_idx] as i64);
+            output_shape.push(dim_size * full_reps[rep_idx] as i64);
         } else {
-            output_shape.push(shape[i]);
+            output_shape.push(dim_size);
         }
     }
     

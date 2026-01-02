@@ -9,10 +9,12 @@
 
 pub mod array;
 pub mod broadcasting;
+pub mod buffer;
 pub mod concatenation;
 pub mod conversion;
 pub mod datetime;
 pub mod dlpack;
+pub mod einsum;
 pub mod ffi;
 pub mod indexing;
 pub mod io;

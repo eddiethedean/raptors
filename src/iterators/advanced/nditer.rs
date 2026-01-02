@@ -107,6 +107,7 @@ impl<'a> NdIter<'a> {
     /// Advance all iterators to the next element
     ///
     /// Returns true if successful, false if iterator is exhausted
+    #[allow(clippy::should_implement_trait)] // This is an intentional iterator-like API, not Iterator trait
     pub fn next(&mut self) -> bool {
         if self.exhausted || self.index >= self.size {
             self.exhausted = true;

@@ -4,6 +4,7 @@
 //! equivalent to NumPy's indexing implementation
 
 mod advanced;
+#[allow(clippy::module_inception)]
 mod indexing;
 mod slicing;
 

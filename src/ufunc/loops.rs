@@ -6,6 +6,9 @@
 use crate::types::NpyType;
 
 /// Add loop for double precision
+///
+/// # Safety
+/// Caller must ensure all pointers are valid and aligned, and that `count * stride` doesn't overflow.
 pub unsafe fn add_loop_double(
     in1: *const u8,
     in2: *const u8,
@@ -27,6 +30,9 @@ pub unsafe fn add_loop_double(
 }
 
 /// Add loop for float precision
+///
+/// # Safety
+/// Caller must ensure all pointers are valid and aligned, and that `count * stride` doesn't overflow.
 pub unsafe fn add_loop_float(
     in1: *const u8,
     in2: *const u8,
@@ -48,6 +54,9 @@ pub unsafe fn add_loop_float(
 }
 
 /// Add loop for integers
+///
+/// # Safety
+/// Caller must ensure all pointers are valid and aligned, and that `count * stride` doesn't overflow.
 pub unsafe fn add_loop_int(
     in1: *const u8,
     in2: *const u8,
@@ -69,6 +78,9 @@ pub unsafe fn add_loop_int(
 }
 
 /// Subtract loop for double precision
+///
+/// # Safety
+/// Caller must ensure all pointers are valid and aligned, and that `count * stride` doesn't overflow.
 pub unsafe fn subtract_loop_double(
     in1: *const u8,
     in2: *const u8,
@@ -90,6 +102,9 @@ pub unsafe fn subtract_loop_double(
 }
 
 /// Multiply loop for double precision
+///
+/// # Safety
+/// Caller must ensure all pointers are valid and aligned, and that `count * stride` doesn't overflow.
 pub unsafe fn multiply_loop_double(
     in1: *const u8,
     in2: *const u8,
@@ -111,6 +126,9 @@ pub unsafe fn multiply_loop_double(
 }
 
 /// Divide loop for double precision
+///
+/// # Safety
+/// Caller must ensure all pointers are valid and aligned, and that `count * stride` doesn't overflow.
 pub unsafe fn divide_loop_double(
     in1: *const u8,
     in2: *const u8,
@@ -132,6 +150,9 @@ pub unsafe fn divide_loop_double(
 }
 
 /// Equal comparison loop for double precision
+///
+/// # Safety
+/// Caller must ensure all pointers are valid and aligned, and that `count * stride` doesn't overflow.
 pub unsafe fn equal_loop_double(
     in1: *const u8,
     in2: *const u8,
@@ -153,6 +174,9 @@ pub unsafe fn equal_loop_double(
 }
 
 /// Less than comparison loop for double precision
+///
+/// # Safety
+/// Caller must ensure all pointers are valid and aligned, and that `count * stride` doesn't overflow.
 pub unsafe fn less_loop_double(
     in1: *const u8,
     in2: *const u8,
@@ -174,6 +198,7 @@ pub unsafe fn less_loop_double(
 }
 
 /// Get loop function for a type (simplified dispatch)
+#[allow(clippy::type_complexity)] // Function pointer types are inherently complex
 pub fn get_add_loop(ty: NpyType) -> Option<unsafe fn(*const u8, *const u8, *mut u8, usize, usize, usize, usize)> {
     match ty {
         NpyType::Double => Some(add_loop_double),
@@ -184,6 +209,7 @@ pub fn get_add_loop(ty: NpyType) -> Option<unsafe fn(*const u8, *const u8, *mut 
 }
 
 /// Get the subtract loop function for a given type
+#[allow(clippy::type_complexity)] // Function pointer types are inherently complex
 pub fn get_subtract_loop(ty: NpyType) -> Option<unsafe fn(*const u8, *const u8, *mut u8, usize, usize, usize, usize)> {
     match ty {
         NpyType::Double => Some(subtract_loop_double),
@@ -192,6 +218,7 @@ pub fn get_subtract_loop(ty: NpyType) -> Option<unsafe fn(*const u8, *const u8, 
 }
 
 /// Get the multiply loop function for a given type
+#[allow(clippy::type_complexity)] // Function pointer types are inherently complex
 pub fn get_multiply_loop(ty: NpyType) -> Option<unsafe fn(*const u8, *const u8, *mut u8, usize, usize, usize, usize)> {
     match ty {
         NpyType::Double => Some(multiply_loop_double),
@@ -200,6 +227,7 @@ pub fn get_multiply_loop(ty: NpyType) -> Option<unsafe fn(*const u8, *const u8, 
 }
 
 /// Get the divide loop function for a given type
+#[allow(clippy::type_complexity)] // Function pointer types are inherently complex
 pub fn get_divide_loop(ty: NpyType) -> Option<unsafe fn(*const u8, *const u8, *mut u8, usize, usize, usize, usize)> {
     match ty {
         NpyType::Double => Some(divide_loop_double),

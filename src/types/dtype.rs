@@ -76,6 +76,11 @@ pub struct DType {
     align: usize,
     /// Type name
     name: String,
+    /// Custom type ID (if this is a custom type)
+    custom_type_id: Option<u32>,
+    /// Custom type metadata (optional)
+    #[allow(dead_code)] // Reserved for future use
+    custom_metadata: Option<String>,
 }
 
 impl DType {
@@ -110,6 +115,8 @@ impl DType {
             itemsize,
             align,
             name,
+            custom_type_id: None,
+            custom_metadata: None,
         }
     }
     
@@ -133,6 +140,23 @@ impl DType {
         self.type_
     }
     
+    /// Get custom type ID (if this is a custom type)
+    pub fn custom_type_id(&self) -> Option<u32> {
+        self.custom_type_id
+    }
+    
+    /// Create a custom dtype
+    pub fn custom(custom_type_id: u32, itemsize: usize, align: usize, name: String) -> Self {
+        DType {
+            type_: NpyType::Void, // Use Void as placeholder for custom types
+            itemsize,
+            align,
+            name,
+            custom_type_id: Some(custom_type_id),
+            custom_metadata: None,
+        }
+    }
+    
     /// Create a string dtype with custom itemsize
     /// 
     /// This is used for fixed-width string arrays where all strings
@@ -143,6 +167,8 @@ impl DType {
             itemsize,
             align: 1,
             name: format!("string{}", itemsize),
+            custom_type_id: None,
+            custom_metadata: None,
         }
     }
 }

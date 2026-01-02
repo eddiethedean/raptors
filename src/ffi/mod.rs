@@ -13,6 +13,7 @@ mod sorting;
 mod linalg;
 mod io;
 mod operations;
+mod einsum;
 
 pub use array_api::*;
 pub use conversion::*;
@@ -24,6 +25,7 @@ pub use sorting::*;
 pub use linalg::*;
 pub use io::*;
 pub use operations::*;
+pub use einsum::*;
 
 use libc::{c_int, c_void, size_t};
 

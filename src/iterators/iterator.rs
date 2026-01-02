@@ -111,6 +111,7 @@ impl<'a> ArrayIterator<'a> {
     /// Advance to next element
     ///
     /// Returns true if successful, false if iterator is exhausted
+    #[allow(clippy::should_implement_trait)] // This is an intentional iterator-like API, not Iterator trait
     pub fn next(&mut self) -> bool {
         if self.index >= self.size {
             return false;
@@ -231,6 +232,7 @@ impl<'a> FlatIterator<'a> {
     }
     
     /// Advance to next element
+    #[allow(clippy::should_implement_trait)] // This is an intentional iterator-like API, not Iterator trait
     pub fn next(&mut self) -> bool {
         self.iterator.next()
     }
@@ -267,6 +269,7 @@ impl<'a> StridedIterator<'a> {
     }
     
     /// Advance to next element with stride
+    #[allow(clippy::should_implement_trait)] // This is an intentional iterator-like API, not Iterator trait
     pub fn next(&mut self) -> bool {
         if self.iterator.is_exhausted() {
             return false;

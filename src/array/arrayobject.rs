@@ -454,7 +454,7 @@ impl Array {
             let data = unsafe {
                 let layout = std::alloc::Layout::from_size_align(size, layout_align)
                     .unwrap();
-                let ptr = std::alloc::alloc(layout) as *mut u8;
+                let ptr: *mut u8 = std::alloc::alloc(layout);
                 if ptr.is_null() {
                     panic!("Failed to allocate memory for array copy");
                 }
@@ -587,6 +587,28 @@ impl Array {
             }
             _ => Ok(self.clone()),
         }
+    }
+    
+    /// Export array as buffer protocol
+    ///
+    /// Returns buffer information for sharing with other libraries.
+    pub fn to_buffer(&self) -> Result<crate::buffer::BufferInfo, crate::buffer::BufferError> {
+        crate::buffer::export_buffer(self)
+    }
+    
+    /// Create array from buffer protocol (unsafe)
+    ///
+    /// # Safety
+    /// The caller must ensure that `ptr` is valid for the lifetime of the returned array,
+    /// or that proper memory management is handled externally.
+    pub unsafe fn from_buffer(
+        ptr: *mut u8,
+        format: &str,
+        shape: Vec<i64>,
+        strides: Option<Vec<i64>>,
+        read_only: bool,
+    ) -> Result<Self, crate::buffer::BufferError> {
+        crate::buffer::import_buffer(ptr, format, shape, strides, read_only)
     }
 }
 
@@ -722,7 +744,7 @@ impl Clone for Array {
             let data = unsafe {
                 let layout = std::alloc::Layout::from_size_align(size, layout_align)
                     .unwrap();
-                let ptr = std::alloc::alloc(layout) as *mut u8;
+                let ptr: *mut u8 = std::alloc::alloc(layout);
                 if ptr.is_null() {
                     panic!("Failed to allocate memory for array clone");
                 }

@@ -3,6 +3,7 @@
 //! This module provides DateTime dtype and operations
 
 mod dtype;
+#[allow(clippy::module_inception)]
 mod datetime;
 mod timedelta;
 mod arithmetic;

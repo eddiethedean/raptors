@@ -9,6 +9,7 @@ mod comparison;
 mod loop_exec;
 mod loops;
 mod reduction;
+#[allow(clippy::module_inception)]
 mod ufunc;
 
 pub use advanced::*;
