@@ -139,9 +139,7 @@ pub fn compute_slice_shape(
     }
     
     // Add remaining dimensions unchanged
-    for i in slices.len()..array_shape.len() {
-        result_shape.push(array_shape[i]);
-    }
+    result_shape.extend_from_slice(&array_shape[slices.len()..]);
     
     Ok(result_shape)
 }

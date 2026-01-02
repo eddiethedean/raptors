@@ -1,4 +1,5 @@
-//! Integration tests for raptors-core
+//! Integration tests
+#![allow(unused_unsafe)]
 //!
 //! These tests verify C API compatibility and basic functionality
 

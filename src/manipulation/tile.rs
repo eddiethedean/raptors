@@ -21,20 +21,12 @@ pub fn tile(array: &Array, reps: &[usize]) -> Result<Array, ManipulationError> {
     let mut full_reps = vec![1; ndim.max(reps_len)];
     if reps_len < ndim {
         // Prepend 1s if reps is shorter
-        for i in 0..(ndim - reps_len) {
-            full_reps[i] = 1;
-        }
-        for i in 0..reps_len {
-            full_reps[ndim - reps_len + i] = reps[i];
-        }
+        full_reps[0..(ndim - reps_len)].fill(1);
+        full_reps[(ndim - reps_len)..].copy_from_slice(&reps[0..reps_len]);
     } else {
         // Use reps as-is if longer or equal
-        for i in 0..reps_len {
-            if i < ndim {
-                full_reps[i] = reps[i];
-            } else {
-                full_reps[i] = reps[i];
-            }
+        for (i, &rep) in reps.iter().enumerate() {
+            full_reps[i] = rep;
         }
     }
     

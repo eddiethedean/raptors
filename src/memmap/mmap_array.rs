@@ -1,8 +1,10 @@
 //! Memory-mapped array structure
 
-use crate::array::{Array, ArrayError};
+use crate::array::{Array, ArrayError, ArrayFlags};
 use crate::types::DType;
 use std::path::Path;
+use memmap2::{Mmap, MmapMut, MmapOptions};
+use std::fs::File;
 
 /// Memory mapping mode
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -53,6 +55,13 @@ impl From<ArrayError> for MemMapError {
 pub struct MemMapArray {
     /// The underlying array
     array: Array,
+    /// Memory map (read-only) - kept alive for lifetime management
+    #[allow(dead_code)]
+    mmap: Option<Mmap>,
+    /// Memory map (read-write or copy-on-write)
+    mmap_mut: Option<MmapMut>,
+    /// File handle (kept alive for the mapping)
+    _file: Option<File>,
     /// File path (for reference)
     file_path: std::path::PathBuf,
     /// Mapping mode
@@ -77,34 +86,92 @@ impl MemMapArray {
         shape: Vec<i64>,
         mode: MapMode,
     ) -> Result<Self, MemMapError> {
-        // For now, simplified implementation that reads file into memory
-        // Full implementation would use memmap2 crate for actual memory mapping
-        
-        // Check if file exists
-        if !file_path.exists() {
-            return Err(MemMapError::FileNotFound);
-        }
-        
-        // Read file data (simplified - full impl would memory-map)
-        let data = std::fs::read(file_path)
-            .map_err(|e| MemMapError::IoError(e.to_string()))?;
-        
         let itemsize = dtype.itemsize();
         let total_elements: usize = shape.iter().product::<i64>() as usize;
         let required_size = total_elements * itemsize;
         
-        if data.len() < required_size {
+        // Open file
+        let file = if file_path.exists() {
+            match mode {
+                MapMode::ReadOnly => {
+                    File::open(file_path)
+                        .map_err(|e| MemMapError::IoError(e.to_string()))?
+                }
+                MapMode::ReadWrite | MapMode::CopyOnWrite => {
+                    File::options()
+                        .read(true)
+                        .write(mode == MapMode::ReadWrite)
+                        .open(file_path)
+                        .map_err(|e| MemMapError::IoError(e.to_string()))?
+                }
+            }
+        } else {
+            return Err(MemMapError::FileNotFound);
+        };
+        
+        // Check file size
+        let file_size = file.metadata()
+            .map_err(|e| MemMapError::IoError(e.to_string()))?
+            .len() as usize;
+        
+        if file_size < required_size {
             return Err(MemMapError::IoError("File too small".to_string()));
         }
         
-        // Create array and copy data
-        let mut array = Array::new(shape, dtype)?;
-        unsafe {
-            std::ptr::copy_nonoverlapping(data.as_ptr(), array.data_ptr_mut(), required_size);
+        // Create memory mapping based on mode
+        let (mmap, mmap_mut, data_ptr): (Option<Mmap>, Option<MmapMut>, *mut u8) = match mode {
+            MapMode::ReadOnly => {
+                let mmap = unsafe {
+                    MmapOptions::new()
+                        .len(required_size)
+                        .map(&file)
+                        .map_err(|e| MemMapError::MappingFailed(e.to_string()))?
+                };
+                let ptr = mmap.as_ptr() as *mut u8;
+                (Some(mmap), None, ptr)
+            }
+            MapMode::ReadWrite => {
+                let mmap_mut = unsafe {
+                    MmapOptions::new()
+                        .len(required_size)
+                        .map_mut(&file)
+                        .map_err(|e| MemMapError::MappingFailed(e.to_string()))?
+                };
+                let ptr = mmap_mut.as_ptr() as *mut u8;
+                (None, Some(mmap_mut), ptr)
+            }
+            MapMode::CopyOnWrite => {
+                let mmap_mut = unsafe {
+                    MmapOptions::new()
+                        .len(required_size)
+                        .map_copy(&file)
+                        .map_err(|e| MemMapError::MappingFailed(e.to_string()))?
+                };
+                let ptr = mmap_mut.as_ptr() as *mut u8;
+                (None, Some(mmap_mut), ptr)
+            }
+        };
+        
+        // Create array from memory-mapped data
+        let mut array = unsafe {
+            Array::from_external_memory(
+                data_ptr,
+                shape,
+                dtype,
+                false, // Does not own data (memory map owns it)
+            )?
+        };
+        
+        // Set writeable flag based on mode
+        if mode == MapMode::ReadOnly {
+            array.setflags(ArrayFlags::WRITEABLE, false);
         }
         
         Ok(MemMapArray {
             array,
+            mmap,
+            mmap_mut,
+            _file: Some(file),
             file_path: file_path.to_path_buf(),
             mode,
         })
@@ -136,16 +203,29 @@ impl MemMapArray {
     /// * `Ok(())` if successful
     /// * `Err(MemMapError)` if flush fails
     pub fn flush(&self) -> Result<(), MemMapError> {
-        // For simplified implementation, write data to file
         if self.mode == MapMode::ReadOnly {
             return Ok(()); // No-op for read-only
         }
         
-        let data_size = self.array.size() * self.array.itemsize();
-        unsafe {
-            let data = std::slice::from_raw_parts(self.array.data_ptr(), data_size);
-            std::fs::write(&self.file_path, data)
-                .map_err(|e| MemMapError::IoError(e.to_string()))?;
+        if let Some(ref mmap_mut) = self.mmap_mut {
+            mmap_mut.flush()
+                .map_err(|e| MemMapError::MappingFailed(e.to_string()))?;
+        }
+        
+        Ok(())
+    }
+    
+    /// Sync changes to file asynchronously
+    ///
+    /// Similar to flush, but uses async sync (platform-specific)
+    pub fn flush_async(&self) -> Result<(), MemMapError> {
+        if self.mode == MapMode::ReadOnly {
+            return Ok(());
+        }
+        
+        if let Some(ref mmap_mut) = self.mmap_mut {
+            mmap_mut.flush_async()
+                .map_err(|e| MemMapError::MappingFailed(e.to_string()))?;
         }
         
         Ok(())
@@ -153,7 +233,7 @@ impl MemMapArray {
     
     /// Sync changes to file
     ///
-    /// Similar to flush, but ensures data is written to disk
+    /// Alias for flush (synchronous)
     pub fn sync(&self) -> Result<(), MemMapError> {
         self.flush()
     }

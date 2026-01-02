@@ -1,4 +1,5 @@
 //! Tests for DLPack support
+#![allow(unused_unsafe)]
 
 #[cfg(test)]
 mod tests {

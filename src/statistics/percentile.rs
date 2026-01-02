@@ -15,7 +15,7 @@ use super::StatisticsError;
 /// * `Ok(Array)` - Percentile value(s)
 /// * `Err(StatisticsError)` if computation fails
 pub fn percentile(array: &Array, q: f64, axis: Option<usize>) -> Result<Array, StatisticsError> {
-    if q < 0.0 || q > 100.0 {
+    if !(0.0..=100.0).contains(&q) {
         return Err(StatisticsError::InvalidPercentile);
     }
     

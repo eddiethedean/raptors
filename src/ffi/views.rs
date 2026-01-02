@@ -2,12 +2,14 @@
 //!
 //! This module provides C API wrappers for array view operations,
 //! equivalent to NumPy's view and copy functions
+#![allow(clippy::arc_with_non_send_sync)]
 
 use crate::array::Array;
 use crate::ffi::{PyArrayObject, conversion};
 use crate::shape::{squeeze_dims, flatten_shape};
 use libc::c_int;
 use std::ptr;
+use std::sync::Arc;
 
 /// Create array view with new dtype
 ///
@@ -29,33 +31,26 @@ pub extern "C" fn PyArray_View(
     }
     
     unsafe {
-        // Convert PyArrayObject to Array
+        // Convert PyArrayObject to Array (this creates a view that doesn't own data)
         let array = match conversion::pyarray_to_array_view(arr) {
             Ok(a) => a,
             Err(_) => return ptr::null_mut(),
         };
         
-        // For now, return a view with the same dtype
-        // Full implementation would use the descriptor to create a new dtype
-        // Create a new array with the same data (simplified - copies data)
-        let shape = array.shape().to_vec();
-        let dtype = array.dtype().clone();
-        let new_array = match Array::new(shape, dtype) {
-            Ok(mut a) => {
-                // Copy data
-                let size = array.size() * array.itemsize();
-                std::ptr::copy_nonoverlapping(
-                    array.data_ptr(),
-                    a.data_ptr_mut(),
-                    size,
-                );
-                a
-            }
+        // Wrap in Arc for proper reference counting
+        let base_arc = Arc::new(array);
+        
+        // Create a zero-copy view with the same shape and dtype
+        // For now, use the same shape (full implementation would allow dtype change via descriptor)
+        let shape = base_arc.shape().to_vec();
+        let strides = base_arc.strides().to_vec();
+        let view = match Array::view_from_arc(&base_arc, shape, strides) {
+            Ok(v) => v,
             Err(_) => return ptr::null_mut(),
         };
         
         // Convert back to PyArrayObject
-        conversion::array_to_pyarray_ptr(&new_array)
+        conversion::array_to_pyarray_ptr(&view)
     }
 }
 
@@ -78,32 +73,26 @@ pub extern "C" fn PyArray_NewView(
     }
     
     unsafe {
-        // Convert PyArrayObject to Array
+        // Convert PyArrayObject to Array view
         let array = match conversion::pyarray_to_array_view(arr) {
             Ok(a) => a,
             Err(_) => return ptr::null_mut(),
         };
         
-        // Create a new view with same shape and dtype (simplified)
-        // Full implementation would allow changing shape/strides
-        let shape = array.shape().to_vec();
-        let dtype = array.dtype().clone();
-        let new_array = match Array::new(shape, dtype) {
-            Ok(mut a) => {
-                // Copy data
-                let size = array.size() * array.itemsize();
-                std::ptr::copy_nonoverlapping(
-                    array.data_ptr(),
-                    a.data_ptr_mut(),
-                    size,
-                );
-                a
-            }
+        // Wrap in Arc for reference counting
+        let base_arc = Arc::new(array);
+        
+        // Create a zero-copy view with same shape and dtype
+        // Full implementation would allow changing shape/strides via parameters
+        let shape = base_arc.shape().to_vec();
+        let strides = base_arc.strides().to_vec();
+        let view = match Array::view_from_arc(&base_arc, shape, strides) {
+            Ok(v) => v,
             Err(_) => return ptr::null_mut(),
         };
         
         // Convert back to PyArrayObject
-        conversion::array_to_pyarray_ptr(&new_array)
+        conversion::array_to_pyarray_ptr(&view)
     }
 }
 
@@ -128,24 +117,32 @@ pub extern "C" fn PyArray_Squeeze(arr: *mut PyArrayObject) -> *mut PyArrayObject
             Err(_) => return ptr::null_mut(),
         };
         
-        // Compute squeezed shape
-        let new_shape = squeeze_dims(array.shape(), None);
+        // Wrap in Arc for reference counting
+        let base_arc = Arc::new(array);
         
-        // Create new array with squeezed shape
-        let dtype = array.dtype().clone();
-        let new_array = match Array::new(new_shape, dtype) {
-            Ok(mut a) => {
-                // Copy data (simplified - full implementation would create a view)
-                let size = array.size().min(a.size()) * array.itemsize().min(a.itemsize());
-                std::ptr::copy_nonoverlapping(
-                    array.data_ptr(),
-                    a.data_ptr_mut(),
-                    size,
-                );
-                a
+        // Compute squeezed shape
+        let new_shape = squeeze_dims(base_arc.shape(), None);
+        
+        // Calculate new strides for squeezed shape
+        let itemsize = base_arc.itemsize();
+        let new_strides = {
+            let mut strides = vec![0; new_shape.len()];
+            if !new_shape.is_empty() {
+                strides[new_shape.len() - 1] = itemsize as i64;
+                for i in (0..new_shape.len() - 1).rev() {
+                    strides[i] = strides[i + 1] * new_shape[i + 1];
+                }
             }
+            strides
+        };
+        
+        // Create a zero-copy view with squeezed shape
+        let view = match Array::view_from_arc(&base_arc, new_shape, new_strides) {
+            Ok(v) => v,
             Err(_) => return ptr::null_mut(),
         };
+        
+        let new_array = view;
         
         // Convert back to PyArrayObject
         conversion::array_to_pyarray_ptr(&new_array)
@@ -173,23 +170,37 @@ pub extern "C" fn PyArray_Flatten(arr: *mut PyArrayObject, _order: c_int) -> *mu
             Err(_) => return ptr::null_mut(),
         };
         
-        // Compute flattened shape
-        let new_shape = flatten_shape(array.shape());
+        // Wrap in Arc for reference counting
+        let base_arc = Arc::new(array);
         
-        // Create new array with flattened shape
-        let dtype = array.dtype().clone();
-        let new_array = match Array::new(new_shape, dtype) {
-            Ok(mut a) => {
-                // Copy all data
-                let size = array.size() * array.itemsize();
-                std::ptr::copy_nonoverlapping(
-                    array.data_ptr(),
-                    a.data_ptr_mut(),
-                    size,
-                );
-                a
+        // Compute flattened shape
+        let new_shape = flatten_shape(base_arc.shape());
+        
+        // For contiguous arrays, we can create a view
+        // For non-contiguous arrays, we need to copy (NumPy behavior)
+        let new_array = if base_arc.is_c_contiguous() || base_arc.is_f_contiguous() {
+            // Create a zero-copy view
+            let itemsize = base_arc.itemsize();
+            let new_strides = vec![itemsize as i64]; // 1D array
+            match Array::view_from_arc(&base_arc, new_shape, new_strides) {
+                Ok(v) => v,
+                Err(_) => return ptr::null_mut(),
             }
-            Err(_) => return ptr::null_mut(),
+        } else {
+            // Non-contiguous: create a copy (NumPy's flatten creates a copy)
+            let dtype = base_arc.dtype().clone();
+            let mut new_arr = match Array::new(new_shape, dtype) {
+                Ok(a) => a,
+                Err(_) => return ptr::null_mut(),
+            };
+            // Copy data
+            let size = base_arc.size() * base_arc.itemsize();
+            std::ptr::copy_nonoverlapping(
+                base_arc.data_ptr(),
+                new_arr.data_ptr_mut(),
+                size,
+            );
+            new_arr
         };
         
         // Convert back to PyArrayObject

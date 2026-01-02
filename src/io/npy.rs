@@ -76,7 +76,7 @@ pub fn save_npy(path: impl AsRef<Path>, array: &Array) -> Result<(), IoError> {
     
     // Calculate header length (must be divisible by 64 for alignment)
     let header_len = header_str.len();
-    let padded_header_len = ((header_len + 63) / 64) * 64;
+    let padded_header_len = header_len.div_ceil(64) * 64;
     let padding_len = padded_header_len - header_len;
     
     // Write header length (little-endian u16)
@@ -108,7 +108,7 @@ pub fn load_npy(path: impl AsRef<Path>) -> Result<Array, IoError> {
     // Read and validate magic number
     let mut magic = [0u8; 6];
     file.read_exact(&mut magic).map_err(|e| IoError::FileError(e.to_string()))?;
-    if &magic != NPY_MAGIC {
+    if magic != NPY_MAGIC {
         return Err(IoError::InvalidFormat);
     }
     

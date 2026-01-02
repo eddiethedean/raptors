@@ -31,8 +31,8 @@ pub fn fill_masked(array: &mut MaskedArray, fill_value: f64) -> Result<(), Maske
             unsafe {
                 let data_ptr = data.data_ptr_mut() as *mut f64;
                 
-                for i in 0..size {
-                    if mask_data[i] {
+                for (i, &masked) in mask_data.iter().enumerate().take(size) {
+                    if masked {
                         *data_ptr.add(i) = fill_value;
                     }
                 }
@@ -42,8 +42,8 @@ pub fn fill_masked(array: &mut MaskedArray, fill_value: f64) -> Result<(), Maske
             unsafe {
                 let data_ptr = data.data_ptr_mut() as *mut f32;
                 
-                for i in 0..size {
-                    if mask_data[i] {
+                for (i, &masked) in mask_data.iter().enumerate().take(size) {
+                    if masked {
                         *data_ptr.add(i) = fill_value as f32;
                     }
                 }

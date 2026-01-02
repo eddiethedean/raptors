@@ -34,10 +34,10 @@ pub fn fancy_index_array(array: &Array, indices: &Array) -> Result<Array, IndexE
                 let mut idx = *index_ptr.add(i) as i64;
                 // Normalize negative indices
                 if idx < 0 {
-                    idx += array_shape[0] as i64;
+                    idx += array_shape[0];
                 }
                 // Validate bounds
-                if idx < 0 || idx >= array_shape[0] as i64 {
+                if idx < 0 || idx >= array_shape[0] {
                     return Err(IndexError::OutOfBounds);
                 }
                 Ok(idx)

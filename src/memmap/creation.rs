@@ -20,25 +20,39 @@ pub fn memmap_array(file_path: &Path, dtype: DType, shape: Vec<i64>) -> Result<M
 }
 
 /// Create memory-mapped array for writing
+/// 
+/// Creates a new file if it doesn't exist, or opens an existing file.
 pub fn memmap_array_writable(file_path: &Path, dtype: DType, shape: Vec<i64>) -> Result<MemMapArray, MemMapError> {
-    // For writable array, file should exist or we should create it
+    let itemsize = dtype.itemsize();
+    let total_elements: usize = shape.iter().product::<i64>() as usize;
+    let file_size = total_elements * itemsize;
+    
+    // Create file if it doesn't exist or extend/truncate to required size
     if !file_path.exists() {
-        // Create file with appropriate size
-        let itemsize = dtype.itemsize();
-        let total_elements: usize = shape.iter().product::<i64>() as usize;
-        let file_size = total_elements * itemsize;
-        
-        // Create empty file
-        std::fs::File::create(file_path)
-            .map_err(|e| MemMapError::IoError(e.to_string()))?;
-        
-        // Extend file to required size
+        // Create new file with required size
         let file = std::fs::OpenOptions::new()
+            .read(true)
             .write(true)
+            .create(true)
+            .truncate(true)
             .open(file_path)
             .map_err(|e| MemMapError::IoError(e.to_string()))?;
         file.set_len(file_size as u64)
             .map_err(|e| MemMapError::IoError(e.to_string()))?;
+    } else {
+        // Ensure file is at least the required size
+        let file = std::fs::OpenOptions::new()
+            .read(true)
+            .write(true)
+            .open(file_path)
+            .map_err(|e| MemMapError::IoError(e.to_string()))?;
+        let current_size = file.metadata()
+            .map_err(|e| MemMapError::IoError(e.to_string()))?
+            .len();
+        if current_size < file_size as u64 {
+            file.set_len(file_size as u64)
+                .map_err(|e| MemMapError::IoError(e.to_string()))?;
+        }
     }
     
     MemMapArray::new(file_path, dtype, shape, MapMode::ReadWrite)

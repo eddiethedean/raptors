@@ -153,26 +153,20 @@ pub unsafe fn pyarray_to_array_view(pyarray: *const PyArrayObject) -> Result<Arr
         infer_dtype_from_itemsize(itemsize)?
     };
     
-    // Create Array view (doesn't own data)
-    // Note: This is a simplified implementation. In a full implementation,
-    // we would need a way to create an Array from raw data without ownership.
-    // For now, we'll create a new array and copy data (not ideal, but works)
-    let mut array = Array::new(shape, dtype)?;
-    
-    // Copy data only if source data is not null and size is valid
-    let size = array.size() * array.itemsize();
-    if !arr.data.is_null() && size > 0 {
-        let data_ptr = array.data_ptr_mut();
-        if !data_ptr.is_null() && size <= array.size() * array.itemsize() {
-            // Ensure we don't copy more than allocated
-            let copy_size = size.min(array.size() * array.itemsize());
-            std::ptr::copy_nonoverlapping(arr.data, data_ptr, copy_size);
-        }
+    // Create Array view using from_external_memory (doesn't own data)
+    // This creates a true view that shares the memory with PyArrayObject
+    if arr.data.is_null() {
+        return Err(ArrayError::AllocationFailed);
     }
     
-    // Mark as not owning data (view)
-    // Note: Array doesn't expose a way to set owns_data, so this is a limitation
-    // In a full implementation, we'd need a constructor that takes raw data
+    let array = unsafe {
+        Array::from_external_memory(
+            arr.data,
+            shape,
+            dtype,
+            false, // Does not own data
+        )?
+    };
     
     Ok(array)
 }

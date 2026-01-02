@@ -105,6 +105,7 @@ pub struct Ufunc {
     /// Registered unary loop functions by type signature
     unary_loops: HashMap<Vec<NpyType>, UnaryLoopFunction>,
     /// Default signature (for type resolution)
+    #[allow(dead_code)]
     default_signature: UfuncSignature,
 }
 
@@ -214,7 +215,7 @@ impl Default for UfuncRegistry {
     }
 }
 
-/// Global ufunc registry (thread-local for now, could be made thread-safe later)
+// Global ufunc registry (thread-local for now, could be made thread-safe later)
 thread_local! {
     static GLOBAL_UFUNC_REGISTRY: std::cell::RefCell<UfuncRegistry> = 
         std::cell::RefCell::new(UfuncRegistry::new());

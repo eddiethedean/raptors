@@ -134,9 +134,8 @@ pub fn validate_broadcast(shape: &[i64], target_shape: &[i64]) -> Result<(), Bro
     
     let offset = target_len - len;
     
-    for i in 0..len {
+    for (i, &dim) in shape.iter().enumerate().take(len) {
         let target_idx = offset + i;
-        let dim = shape[i];
         let target_dim = target_shape[target_idx];
         
         if dim != target_dim && dim != 1 && target_dim != 1 {

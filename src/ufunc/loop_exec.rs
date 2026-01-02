@@ -46,6 +46,7 @@ impl From<BroadcastError> for LoopExecutionError {
 /// Execute a binary ufunc loop on arrays
 ///
 /// This applies a ufunc to input arrays, handling broadcasting and type resolution
+#[allow(dead_code)]
 pub fn execute_ufunc_loop(
     ufunc: &Ufunc,
     inputs: &[&Array],
@@ -151,6 +152,7 @@ pub fn execute_unary_ufunc_loop(
 /// Create a ufunc loop for arrays
 ///
 /// Sets up iteration and executes the loop function
+#[allow(dead_code)]
 pub fn create_ufunc_loop(
     ufunc: &Ufunc,
     inputs: &[&Array],

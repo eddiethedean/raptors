@@ -23,7 +23,7 @@ pub extern "C" fn PyArray_Reshape(
     newshape: *const i64,
     nd: c_int,
 ) -> *mut PyArrayObject {
-    if arr.is_null() || newshape.is_null() || nd < 0 || nd > 64 {
+    if arr.is_null() || newshape.is_null() || !(0..=64).contains(&nd) {
         return ptr::null_mut();
     }
     

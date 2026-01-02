@@ -23,7 +23,7 @@ pub fn rotate90(array: &Array, k: i32) -> Result<Array, ManipulationError> {
     let cols = shape[1] as usize;
     
     // Normalize k to 0-3 range
-    let k_normalized = ((k % 4) + 4) % 4;
+    let k_normalized = k.rem_euclid(4);
     
     let (new_rows, new_cols) = match k_normalized {
         0 => (rows, cols),

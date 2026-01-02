@@ -25,6 +25,12 @@ pub fn allocate_aligned(size: usize, align: usize) -> *mut u8 {
 /// Deallocate aligned memory
 ///
 /// Deallocates memory that was previously allocated with allocate_aligned.
+///
+/// # Safety
+/// 
+/// * `ptr` must be a pointer returned by `allocate_aligned` or be null
+/// * `size` and `align` must match the values used when allocating
+/// * The memory must not be used after this call
 pub unsafe fn deallocate_aligned(ptr: *mut u8, size: usize, align: usize) {
     if ptr.is_null() || size == 0 {
         return;
@@ -41,6 +47,12 @@ pub unsafe fn deallocate_aligned(ptr: *mut u8, size: usize, align: usize) {
 /// Reallocate aligned memory
 ///
 /// Reallocates memory with a new size, preserving alignment.
+///
+/// # Safety
+///
+/// * `ptr` must be a pointer returned by `allocate_aligned` or be null
+/// * `old_size` and `align` must match the values used when allocating
+/// * The returned pointer must be deallocated with `deallocate_aligned` using `new_size` and `align`
 pub unsafe fn reallocate_aligned(ptr: *mut u8, old_size: usize, new_size: usize, align: usize) -> *mut u8 {
     if new_size == 0 {
         if !ptr.is_null() {

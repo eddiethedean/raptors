@@ -173,13 +173,9 @@ pub fn stack(arrays: &[&Array], axis: usize) -> Result<Array, ConcatenationError
     
     // Create output shape with new dimension inserted
     let mut output_shape = Vec::with_capacity(ndim + 1);
-    for i in 0..axis {
-        output_shape.push(shape[i]);
-    }
+    output_shape.extend_from_slice(&shape[0..axis]);
     output_shape.push(arrays.len() as i64);
-    for i in axis..ndim {
-        output_shape.push(shape[i]);
-    }
+    output_shape.extend_from_slice(&shape[axis..ndim]);
     
     let mut output = Array::new(output_shape, dtype)?;
     
@@ -227,7 +223,7 @@ pub fn split(array: &Array, spec: SplitSpec, axis: usize) -> Result<Vec<Array>, 
     
     let split_points = match spec {
         SplitSpec::Sections(n) => {
-            if axis_size % n != 0 {
+            if !axis_size.is_multiple_of(n) {
                 return Err(ConcatenationError::ShapeMismatch);
             }
             let section_size = axis_size / n;

@@ -82,7 +82,7 @@ impl StructuredDType {
             let field_size = dtype.itemsize();
             // Align offset to dtype alignment
             let align = dtype.align();
-            current_offset = (current_offset + align - 1) / align * align;
+            current_offset = ((current_offset + align - 1) / align) * align;
             
             struct_fields.push(Field {
                 name,
@@ -95,7 +95,7 @@ impl StructuredDType {
         
         // Align total size
         let max_align = struct_fields.iter().map(|f| f.dtype.align()).max().unwrap_or(1);
-        let itemsize = (current_offset + max_align - 1) / max_align * max_align;
+        let itemsize = ((current_offset + max_align - 1) / max_align) * max_align;
         
         Ok(StructuredDType {
             fields: struct_fields,

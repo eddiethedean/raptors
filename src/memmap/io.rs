@@ -16,16 +16,27 @@ use super::{MemMapArray, MemMapError};
 /// * `Ok(MemMapArray)` - Memory-mapped array
 /// * `Err(MemMapError)` if save fails
 pub fn save_memmap(array: &Array, file_path: &Path) -> Result<MemMapArray, MemMapError> {
-    // Save array data to file
+    // First, create a writable memory-mapped array
+    let mut mmap_array = super::creation::memmap_array_writable(
+        file_path,
+        array.dtype().clone(),
+        array.shape().to_vec(),
+    )?;
+    
+    // Copy data from array to memory-mapped array
     let data_size = array.size() * array.itemsize();
     unsafe {
-        let data = std::slice::from_raw_parts(array.data_ptr(), data_size);
-        std::fs::write(file_path, data)
-            .map_err(|e| MemMapError::IoError(e.to_string()))?;
+        std::ptr::copy_nonoverlapping(
+            array.data_ptr(),
+            mmap_array.array_mut().data_ptr_mut(),
+            data_size,
+        );
     }
     
-    // Create memory-mapped array from saved file
-    MemMapArray::new(file_path, array.dtype().clone(), array.shape().to_vec(), super::MapMode::ReadWrite)
+    // Flush to ensure data is written
+    mmap_array.flush()?;
+    
+    Ok(mmap_array)
 }
 
 /// Load array from memory-mapped file

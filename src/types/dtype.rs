@@ -11,30 +11,55 @@ use std::fmt;
 #[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum NpyType {
+    /// Boolean type
     Bool = 0,
+    /// Signed 8-bit integer
     Byte,
+    /// Unsigned 8-bit integer
     UByte,
+    /// Signed 16-bit integer
     Short,
+    /// Unsigned 16-bit integer
     UShort,
+    /// Signed 32-bit integer
     Int,
+    /// Unsigned 32-bit integer
     UInt,
+    /// Signed 64-bit integer (platform-dependent)
     Long,
+    /// Unsigned 64-bit integer (platform-dependent)
     ULong,
+    /// Signed 64-bit integer
     LongLong,
+    /// Unsigned 64-bit integer
     ULongLong,
+    /// 32-bit floating point
     Float,
+    /// 64-bit floating point
     Double,
+    /// Extended precision floating point
     LongDouble,
+    /// Complex 64-bit floating point (2x 32-bit float)
     CFloat,
+    /// Complex 128-bit floating point (2x 64-bit double)
     CDouble,
+    /// Complex extended precision floating point
     CLongDouble,
+    /// Python object reference
     Object = 17,
+    /// String type
     String,
+    /// Unicode string type
     Unicode,
+    /// Void type
     Void,
+    /// Datetime type
     DateTime,
+    /// Timedelta type
     Timedelta,
+    /// 16-bit floating point (half precision)
     Half,
+    /// Character type (deprecated)
     Char, // Deprecated
 }
 

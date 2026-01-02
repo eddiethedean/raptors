@@ -7,6 +7,12 @@
 // Trigonometric functions - Double precision
 
 /// Sin loop for double precision
+///
+/// # Safety
+///
+/// * `input` must point to a valid slice of `count * stride_in` bytes containing `f64` values
+/// * `output` must point to a valid slice of `count * stride_out` bytes for `f64` values
+/// * The input and output slices must not overlap
 pub unsafe fn sin_loop_double(
     input: *const u8,
     output: *mut u8,
@@ -23,6 +29,12 @@ pub unsafe fn sin_loop_double(
 }
 
 /// Cos loop for double precision
+///
+/// # Safety
+///
+/// * `input` must point to a valid slice of `count * stride_in` bytes containing `f64` values
+/// * `output` must point to a valid slice of `count * stride_out` bytes for `f64` values
+/// * The input and output slices must not overlap
 pub unsafe fn cos_loop_double(
     input: *const u8,
     output: *mut u8,
@@ -39,6 +51,12 @@ pub unsafe fn cos_loop_double(
 }
 
 /// Tan loop for double precision
+///
+/// # Safety
+///
+/// * `input` must point to a valid slice of `count * stride_in` bytes containing `f64` values
+/// * `output` must point to a valid slice of `count * stride_out` bytes for `f64` values
+/// * The input and output slices must not overlap
 pub unsafe fn tan_loop_double(
     input: *const u8,
     output: *mut u8,
@@ -55,6 +73,12 @@ pub unsafe fn tan_loop_double(
 }
 
 /// Arcsin loop for double precision
+///
+/// # Safety
+///
+/// * `input` must point to a valid slice of `count * stride_in` bytes containing `f64` values
+/// * `output` must point to a valid slice of `count * stride_out` bytes for `f64` values
+/// * The input and output slices must not overlap
 pub unsafe fn asin_loop_double(
     input: *const u8,
     output: *mut u8,
@@ -71,6 +95,12 @@ pub unsafe fn asin_loop_double(
 }
 
 /// Arccos loop for double precision
+///
+/// # Safety
+///
+/// * `input` must point to a valid slice of `count * stride_in` bytes containing `f64` values
+/// * `output` must point to a valid slice of `count * stride_out` bytes for `f64` values
+/// * The input and output slices must not overlap
 pub unsafe fn acos_loop_double(
     input: *const u8,
     output: *mut u8,
@@ -87,6 +117,12 @@ pub unsafe fn acos_loop_double(
 }
 
 /// Arctan loop for double precision
+///
+/// # Safety
+///
+/// * `input` must point to a valid slice of `count * stride_in` bytes containing `f64` values
+/// * `output` must point to a valid slice of `count * stride_out` bytes for `f64` values
+/// * The input and output slices must not overlap
 pub unsafe fn atan_loop_double(
     input: *const u8,
     output: *mut u8,
@@ -105,6 +141,12 @@ pub unsafe fn atan_loop_double(
 // Hyperbolic functions - Double precision
 
 /// Sinh loop for double precision
+///
+/// # Safety
+///
+/// * `input` must point to a valid slice of `count * stride_in` bytes containing `f64` values
+/// * `output` must point to a valid slice of `count * stride_out` bytes for `f64` values
+/// * The input and output slices must not overlap
 pub unsafe fn sinh_loop_double(
     input: *const u8,
     output: *mut u8,
@@ -121,6 +163,12 @@ pub unsafe fn sinh_loop_double(
 }
 
 /// Cosh loop for double precision
+///
+/// # Safety
+///
+/// * `input` must point to a valid slice of `count * stride_in` bytes containing `f64` values
+/// * `output` must point to a valid slice of `count * stride_out` bytes for `f64` values
+/// * The input and output slices must not overlap
 pub unsafe fn cosh_loop_double(
     input: *const u8,
     output: *mut u8,
@@ -137,6 +185,12 @@ pub unsafe fn cosh_loop_double(
 }
 
 /// Tanh loop for double precision
+///
+/// # Safety
+///
+/// * `input` must point to a valid slice of `count * stride_in` bytes containing `f64` values
+/// * `output` must point to a valid slice of `count * stride_out` bytes for `f64` values
+/// * The input and output slices must not overlap
 pub unsafe fn tanh_loop_double(
     input: *const u8,
     output: *mut u8,
@@ -155,6 +209,12 @@ pub unsafe fn tanh_loop_double(
 // Exponential and logarithmic functions - Double precision
 
 /// Exp loop for double precision
+///
+/// # Safety
+///
+/// * `input` must point to a valid slice of `count * stride_in` bytes containing `f64` values
+/// * `output` must point to a valid slice of `count * stride_out` bytes for `f64` values
+/// * The input and output slices must not overlap
 pub unsafe fn exp_loop_double(
     input: *const u8,
     output: *mut u8,
@@ -171,6 +231,12 @@ pub unsafe fn exp_loop_double(
 }
 
 /// Log (natural logarithm) loop for double precision
+///
+/// # Safety
+///
+/// * `input` must point to a valid slice of `count * stride_in` bytes containing `f64` values
+/// * `output` must point to a valid slice of `count * stride_out` bytes for `f64` values
+/// * The input and output slices must not overlap
 pub unsafe fn log_loop_double(
     input: *const u8,
     output: *mut u8,
@@ -187,6 +253,12 @@ pub unsafe fn log_loop_double(
 }
 
 /// Log10 loop for double precision
+///
+/// # Safety
+///
+/// * `input` must point to a valid slice of `count * stride_in` bytes containing `f64` values
+/// * `output` must point to a valid slice of `count * stride_out` bytes for `f64` values
+/// * The input and output slices must not overlap
 pub unsafe fn log10_loop_double(
     input: *const u8,
     output: *mut u8,
@@ -203,6 +275,12 @@ pub unsafe fn log10_loop_double(
 }
 
 /// Log2 loop for double precision
+///
+/// # Safety
+///
+/// * `input` must point to a valid slice of `count * stride_in` bytes containing `f64` values
+/// * `output` must point to a valid slice of `count * stride_out` bytes for `f64` values
+/// * The input and output slices must not overlap
 pub unsafe fn log2_loop_double(
     input: *const u8,
     output: *mut u8,
@@ -219,6 +297,12 @@ pub unsafe fn log2_loop_double(
 }
 
 /// Sqrt loop for double precision
+///
+/// # Safety
+///
+/// * `input` must point to a valid slice of `count * stride_in` bytes containing `f64` values
+/// * `output` must point to a valid slice of `count * stride_out` bytes for `f64` values
+/// * The input and output slices must not overlap
 pub unsafe fn sqrt_loop_double(
     input: *const u8,
     output: *mut u8,
@@ -237,6 +321,12 @@ pub unsafe fn sqrt_loop_double(
 // Absolute value and sign functions - Double precision
 
 /// Abs (absolute value) loop for double precision
+///
+/// # Safety
+///
+/// * `input` must point to a valid slice of `count * stride_in` bytes containing `f64` values
+/// * `output` must point to a valid slice of `count * stride_out` bytes for `f64` values
+/// * The input and output slices must not overlap
 pub unsafe fn abs_loop_double(
     input: *const u8,
     output: *mut u8,
@@ -253,6 +343,12 @@ pub unsafe fn abs_loop_double(
 }
 
 /// Sign loop for double precision (returns -1.0, 0.0, or 1.0)
+///
+/// # Safety
+///
+/// * `input` must point to a valid slice of `count * stride_in` bytes containing `f64` values
+/// * `output` must point to a valid slice of `count * stride_out` bytes for `f64` values
+/// * The input and output slices must not overlap
 pub unsafe fn sign_loop_double(
     input: *const u8,
     output: *mut u8,
@@ -278,6 +374,12 @@ pub unsafe fn sign_loop_double(
 // Rounding functions - Double precision
 
 /// Floor loop for double precision
+///
+/// # Safety
+///
+/// * `input` must point to a valid slice of `count * stride_in` bytes containing `f64` values
+/// * `output` must point to a valid slice of `count * stride_out` bytes for `f64` values
+/// * The input and output slices must not overlap
 pub unsafe fn floor_loop_double(
     input: *const u8,
     output: *mut u8,
@@ -294,6 +396,12 @@ pub unsafe fn floor_loop_double(
 }
 
 /// Ceil loop for double precision
+///
+/// # Safety
+///
+/// * `input` must point to a valid slice of `count * stride_in` bytes containing `f64` values
+/// * `output` must point to a valid slice of `count * stride_out` bytes for `f64` values
+/// * The input and output slices must not overlap
 pub unsafe fn ceil_loop_double(
     input: *const u8,
     output: *mut u8,
@@ -310,6 +418,12 @@ pub unsafe fn ceil_loop_double(
 }
 
 /// Round loop for double precision
+///
+/// # Safety
+///
+/// * `input` must point to a valid slice of `count * stride_in` bytes containing `f64` values
+/// * `output` must point to a valid slice of `count * stride_out` bytes for `f64` values
+/// * The input and output slices must not overlap
 pub unsafe fn round_loop_double(
     input: *const u8,
     output: *mut u8,
@@ -326,6 +440,12 @@ pub unsafe fn round_loop_double(
 }
 
 /// Trunc loop for double precision
+///
+/// # Safety
+///
+/// * `input` must point to a valid slice of `count * stride_in` bytes containing `f64` values
+/// * `output` must point to a valid slice of `count * stride_out` bytes for `f64` values
+/// * The input and output slices must not overlap
 pub unsafe fn trunc_loop_double(
     input: *const u8,
     output: *mut u8,
@@ -344,6 +464,12 @@ pub unsafe fn trunc_loop_double(
 // Float precision versions (using f32)
 
 /// Sin loop for float precision
+///
+/// # Safety
+///
+/// * `input` must point to a valid slice of `count * stride_in` bytes containing `f32` values
+/// * `output` must point to a valid slice of `count * stride_out` bytes for `f32` values
+/// * The input and output slices must not overlap
 pub unsafe fn sin_loop_float(
     input: *const u8,
     output: *mut u8,
@@ -360,6 +486,12 @@ pub unsafe fn sin_loop_float(
 }
 
 /// Exp loop for float precision
+///
+/// # Safety
+///
+/// * `input` must point to a valid slice of `count * stride_in` bytes containing `f32` values
+/// * `output` must point to a valid slice of `count * stride_out` bytes for `f32` values
+/// * The input and output slices must not overlap
 pub unsafe fn exp_loop_float(
     input: *const u8,
     output: *mut u8,
@@ -376,6 +508,12 @@ pub unsafe fn exp_loop_float(
 }
 
 /// Log loop for float precision
+///
+/// # Safety
+///
+/// * `input` must point to a valid slice of `count * stride_in` bytes containing `f32` values
+/// * `output` must point to a valid slice of `count * stride_out` bytes for `f32` values
+/// * The input and output slices must not overlap
 pub unsafe fn log_loop_float(
     input: *const u8,
     output: *mut u8,
@@ -392,6 +530,12 @@ pub unsafe fn log_loop_float(
 }
 
 /// Sqrt loop for float precision
+///
+/// # Safety
+///
+/// * `input` must point to a valid slice of `count * stride_in` bytes containing `f32` values
+/// * `output` must point to a valid slice of `count * stride_out` bytes for `f32` values
+/// * The input and output slices must not overlap
 pub unsafe fn sqrt_loop_float(
     input: *const u8,
     output: *mut u8,
@@ -408,6 +552,12 @@ pub unsafe fn sqrt_loop_float(
 }
 
 /// Abs loop for float precision
+///
+/// # Safety
+///
+/// * `input` must point to a valid slice of `count * stride_in` bytes containing `f32` values
+/// * `output` must point to a valid slice of `count * stride_out` bytes for `f32` values
+/// * The input and output slices must not overlap
 pub unsafe fn abs_loop_float(
     input: *const u8,
     output: *mut u8,

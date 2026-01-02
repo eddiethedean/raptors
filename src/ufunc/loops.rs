@@ -183,6 +183,7 @@ pub fn get_add_loop(ty: NpyType) -> Option<unsafe fn(*const u8, *const u8, *mut 
     }
 }
 
+/// Get the subtract loop function for a given type
 pub fn get_subtract_loop(ty: NpyType) -> Option<unsafe fn(*const u8, *const u8, *mut u8, usize, usize, usize, usize)> {
     match ty {
         NpyType::Double => Some(subtract_loop_double),
@@ -190,6 +191,7 @@ pub fn get_subtract_loop(ty: NpyType) -> Option<unsafe fn(*const u8, *const u8, 
     }
 }
 
+/// Get the multiply loop function for a given type
 pub fn get_multiply_loop(ty: NpyType) -> Option<unsafe fn(*const u8, *const u8, *mut u8, usize, usize, usize, usize)> {
     match ty {
         NpyType::Double => Some(multiply_loop_double),
@@ -197,6 +199,7 @@ pub fn get_multiply_loop(ty: NpyType) -> Option<unsafe fn(*const u8, *const u8, 
     }
 }
 
+/// Get the divide loop function for a given type
 pub fn get_divide_loop(ty: NpyType) -> Option<unsafe fn(*const u8, *const u8, *mut u8, usize, usize, usize, usize)> {
     match ty {
         NpyType::Double => Some(divide_loop_double),

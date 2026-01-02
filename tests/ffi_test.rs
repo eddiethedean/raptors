@@ -1,4 +1,5 @@
 //! Tests for C API functions
+#![allow(unused_unsafe)]
 
 #[cfg(test)]
 mod tests {
@@ -197,6 +198,147 @@ mod tests {
         }
     }
 
+    // NumPy-style C API View Tests
+
+    #[test]
+    fn test_pyarray_view() {
+        use raptors_core::ffi::{PyArray_View, PyArray_NDIM, PyArray_SIZE};
+        
+        let dtype = DType::new(NpyType::Double);
+        let array = zeros(vec![3, 4], dtype).unwrap();
+        let arr_ptr = array_to_pyarray_ptr(&array);
+        
+        // Create view with same dtype
+        let result = unsafe { PyArray_View(arr_ptr, ptr::null_mut(), ptr::null_mut()) };
+        assert!(!result.is_null());
+        
+        let ndim = unsafe { PyArray_NDIM(result) };
+        assert_eq!(ndim, 2);
+        
+        let size = unsafe { PyArray_SIZE(result) };
+        assert_eq!(size, 12);
+        
+        unsafe {
+            free_pyarray(result);
+            free_pyarray(arr_ptr);
+        }
+    }
+
+    #[test]
+    fn test_pyarray_newview() {
+        use raptors_core::ffi::{PyArray_NewView, PyArray_NDIM, PyArray_SIZE};
+        
+        let dtype = DType::new(NpyType::Int);
+        let array = zeros(vec![2, 3], dtype).unwrap();
+        let arr_ptr = array_to_pyarray_ptr(&array);
+        
+        // Create new view
+        let result = unsafe { PyArray_NewView(arr_ptr, ptr::null_mut(), ptr::null_mut()) };
+        assert!(!result.is_null());
+        
+        let ndim = unsafe { PyArray_NDIM(result) };
+        assert_eq!(ndim, 2);
+        
+        let size = unsafe { PyArray_SIZE(result) };
+        assert_eq!(size, 6);
+        
+        unsafe {
+            free_pyarray(result);
+            free_pyarray(arr_ptr);
+        }
+    }
+
+    #[test]
+    fn test_pyarray_view_shares_memory() {
+        // NumPy test: PyArray_View should share memory with base
+        use raptors_core::ffi::{PyArray_View, PyArray_DATA};
+        
+        let dtype = DType::new(NpyType::Int);
+        let mut array = zeros(vec![5], dtype).unwrap();
+        
+        // Fill with data
+        unsafe {
+            let ptr = array.data_ptr_mut() as *mut i32;
+            *ptr = 42;
+        }
+        
+        let arr_ptr = array_to_pyarray_ptr(&array);
+        let view_ptr = unsafe { PyArray_View(arr_ptr, ptr::null_mut(), ptr::null_mut()) };
+        assert!(!view_ptr.is_null());
+        
+        // Both should point to same data (views share memory)
+        let base_data = unsafe { PyArray_DATA(arr_ptr) };
+        let view_data = unsafe { PyArray_DATA(view_ptr) };
+        
+        // Data pointers should be the same for a view
+        assert_eq!(base_data, view_data);
+        
+        unsafe {
+            free_pyarray(view_ptr);
+            free_pyarray(arr_ptr);
+        }
+    }
+
+    #[test]
+    fn test_pyarray_view_null_input() {
+        use raptors_core::ffi::PyArray_View;
+        
+        let result = unsafe { PyArray_View(ptr::null_mut(), ptr::null_mut(), ptr::null_mut()) };
+        assert!(result.is_null());
+    }
+
+    #[test]
+    fn test_pyarray_squeeze_multiple_dims() {
+        // NumPy test: squeeze removes all dimensions of size 1
+        use raptors_core::ffi::{PyArray_Squeeze, PyArray_NDIM, PyArray_DIM};
+        
+        let dtype = DType::new(NpyType::Double);
+        let array = zeros(vec![1, 1, 5, 1], dtype).unwrap();
+        let arr_ptr = array_to_pyarray_ptr(&array);
+        
+        let result = unsafe { PyArray_Squeeze(arr_ptr) };
+        assert!(!result.is_null());
+        
+        let ndim = unsafe { PyArray_NDIM(result) };
+        assert_eq!(ndim, 1); // Should only have dimension of size 5
+        
+        let dim0 = unsafe { PyArray_DIM(result, 0) };
+        assert_eq!(dim0, 5);
+        
+        unsafe {
+            free_pyarray(result);
+            free_pyarray(arr_ptr);
+        }
+    }
+
+    #[test]
+    fn test_pyarray_flatten_non_contiguous() {
+        // NumPy test: flatten of non-contiguous creates copy
+        use raptors_core::ffi::{PyArray_Flatten, PyArray_NDIM};
+        
+        let dtype = DType::new(NpyType::Double);
+        let array = zeros(vec![2, 3], dtype).unwrap();
+        let arr_ptr = array_to_pyarray_ptr(&array);
+        
+        // Create transposed view first (non-contiguous)
+        use raptors_core::ffi::PyArray_Transpose;
+        let transposed = unsafe { PyArray_Transpose(arr_ptr, ptr::null()) };
+        assert!(!transposed.is_null());
+        
+        // Flatten non-contiguous should still work
+        let flattened = unsafe { PyArray_Flatten(transposed, 0) };
+        assert!(!flattened.is_null());
+        
+        let ndim = unsafe { PyArray_NDIM(flattened) };
+        assert_eq!(ndim, 1);
+        
+        unsafe {
+            free_pyarray(flattened);
+            free_pyarray(transposed);
+            free_pyarray(arr_ptr);
+        }
+    }
+
     // Array Manipulation
     #[test]
     fn test_pyarray_reshape() {
@@ -242,6 +384,74 @@ mod tests {
         
         unsafe {
             free_pyarray(result);
+        }
+    }
+
+    // Additional NumPy-style C API view tests
+    #[test]
+    fn test_pyarray_view_null_handling() {
+        use raptors_core::ffi::PyArray_View;
+        
+        // Test null pointer handling
+        let result = unsafe { PyArray_View(ptr::null_mut(), ptr::null_mut(), ptr::null_mut()) };
+        assert!(result.is_null());
+    }
+
+    #[test]
+    fn test_pyarray_newview_null_handling() {
+        use raptors_core::ffi::PyArray_NewView;
+        
+        let result = unsafe { PyArray_NewView(ptr::null_mut(), ptr::null_mut(), ptr::null_mut()) };
+        assert!(result.is_null());
+    }
+
+    #[test]
+    fn test_pyarray_squeeze_null_handling() {
+        use raptors_core::ffi::PyArray_Squeeze;
+        
+        let result = unsafe { PyArray_Squeeze(ptr::null_mut()) };
+        assert!(result.is_null());
+    }
+
+    #[test]
+    fn test_pyarray_squeeze_no_dims_to_remove() {
+        // NumPy test: squeeze on array with no size-1 dimensions
+        use raptors_core::ffi::{PyArray_Squeeze, PyArray_NDIM};
+        
+        let dtype = DType::new(NpyType::Double);
+        let array = zeros(vec![2, 3], dtype).unwrap();
+        let arr_ptr = array_to_pyarray_ptr(&array);
+        
+        let result = unsafe { PyArray_Squeeze(arr_ptr) };
+        assert!(!result.is_null());
+        
+        let ndim = unsafe { PyArray_NDIM(result) };
+        assert_eq!(ndim, 2); // No change
+        
+        unsafe {
+            free_pyarray(result);
+            free_pyarray(arr_ptr);
+        }
+    }
+
+    #[test]
+    fn test_pyarray_flatten_order() {
+        // NumPy test: flatten with different orders (C vs F)
+        use raptors_core::ffi::{PyArray_Flatten, PyArray_NDIM};
+        
+        let dtype = DType::new(NpyType::Double);
+        let array = zeros(vec![2, 3], dtype).unwrap();
+        let arr_ptr = array_to_pyarray_ptr(&array);
+        
+        // C-order (0)
+        let result_c = unsafe { PyArray_Flatten(arr_ptr, 0) };
+        assert!(!result_c.is_null());
+        let ndim_c = unsafe { PyArray_NDIM(result_c) };
+        assert_eq!(ndim_c, 1);
+        
+        unsafe {
+            free_pyarray(result_c);
+            free_pyarray(arr_ptr);
         }
     }
 
