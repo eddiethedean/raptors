@@ -1,0 +1,9 @@
+# Python configuration for PyO3
+# This only sets the Python executable path for PyO3 to detect Python.
+# Actual Python library linking is handled by raptors-python/build.rs
+[env]
+PYO3_PYTHON = "/Users/odosmatthews/.pyenv/shims/python3"
+
+# Note: Python linker flags are NOT set here to avoid affecting
+# raptors-core doctests. The raptors-python/build.rs handles Python
+# library linking via cargo:rustc-link-search and cargo:rustc-link-lib.

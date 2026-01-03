@@ -36,10 +36,12 @@ pub fn structured_array(
     let dtype = DType::new(crate::types::NpyType::Void); // Placeholder
     let mut array = Array::new(shape, dtype)?;
     
-    // Copy data
-    unsafe {
-        let dst = array.data_ptr_mut();
-        std::ptr::copy_nonoverlapping(data.as_ptr(), dst, required_size);
+    // Copy data (skip if size is 0, as copy_nonoverlapping with size 0 is safe but unnecessary)
+    if required_size > 0 {
+        unsafe {
+            let dst = array.data_ptr_mut();
+            std::ptr::copy_nonoverlapping(data.as_ptr(), dst, required_size);
+        }
     }
     
     Ok(array)

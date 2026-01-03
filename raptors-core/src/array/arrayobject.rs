@@ -53,15 +53,27 @@ impl Array {
         } else {
             1 // Default to byte-aligned
         };
-        let data = unsafe {
-            let layout = std::alloc::Layout::from_size_align(data_size, layout_align)
-                .map_err(|_| ArrayError::InvalidLayout)?;
-            std::alloc::alloc(layout)
-        };
         
-        if data.is_null() {
-            return Err(ArrayError::AllocationFailed);
-        }
+        let data = if data_size == 0 {
+            // Return a properly aligned dangling pointer for zero-size allocations
+            // This pointer must be non-null and aligned, but should never be dereferenced
+            // We use NonNull::dangling() and align it to the requested alignment
+            let dangling = std::ptr::NonNull::<u8>::dangling().as_ptr();
+            let addr = dangling as usize;
+            // Calculate the next aligned address
+            let aligned_addr = (addr + layout_align - 1) & !(layout_align - 1);
+            aligned_addr as *mut u8
+        } else {
+            unsafe {
+                let layout = std::alloc::Layout::from_size_align(data_size, layout_align)
+                    .map_err(|_| ArrayError::InvalidLayout)?;
+                let ptr = std::alloc::alloc(layout);
+                if ptr.is_null() {
+                    return Err(ArrayError::AllocationFailed);
+                }
+                ptr
+            }
+        };
         
         let ndim = shape.len();
         let strides = compute_strides(&shape, itemsize);
@@ -451,18 +463,26 @@ impl Array {
                 1
             };
             
-            let data = unsafe {
-                let layout = std::alloc::Layout::from_size_align(size, layout_align)
-                    .unwrap();
-                let ptr: *mut u8 = std::alloc::alloc(layout);
-                if ptr.is_null() {
-                    panic!("Failed to allocate memory for array copy");
+            let data = if size == 0 {
+                // Return a properly aligned dangling pointer for zero-size allocations
+                let dangling = std::ptr::NonNull::<u8>::dangling().as_ptr();
+                let addr = dangling as usize;
+                let aligned_addr = (addr + layout_align - 1) & !(layout_align - 1);
+                aligned_addr as *mut u8
+            } else {
+                unsafe {
+                    let layout = std::alloc::Layout::from_size_align(size, layout_align)
+                        .unwrap();
+                    let ptr: *mut u8 = std::alloc::alloc(layout);
+                    if ptr.is_null() {
+                        panic!("Failed to allocate memory for array copy");
+                    }
+                    // Copy data from view (respecting strides)
+                    // For now, copy the contiguous block - a full implementation would
+                    // need to handle non-contiguous arrays properly by iterating
+                    std::ptr::copy_nonoverlapping(self.data, ptr, size);
+                    ptr
                 }
-                // Copy data from view (respecting strides)
-                // For now, copy the contiguous block - a full implementation would
-                // need to handle non-contiguous arrays properly by iterating
-                std::ptr::copy_nonoverlapping(self.data, ptr, size);
-                ptr
             };
             
             let mut copy = Array {
@@ -873,16 +893,24 @@ impl Clone for Array {
                 1
             };
             
-            let data = unsafe {
-                let layout = std::alloc::Layout::from_size_align(size, layout_align)
-                    .unwrap();
-                let ptr: *mut u8 = std::alloc::alloc(layout);
-                if ptr.is_null() {
-                    panic!("Failed to allocate memory for array clone");
+            let data = if size == 0 {
+                // Return a properly aligned dangling pointer for zero-size allocations
+                let dangling = std::ptr::NonNull::<u8>::dangling().as_ptr();
+                let addr = dangling as usize;
+                let aligned_addr = (addr + layout_align - 1) & !(layout_align - 1);
+                aligned_addr as *mut u8
+            } else {
+                unsafe {
+                    let layout = std::alloc::Layout::from_size_align(size, layout_align)
+                        .unwrap();
+                    let ptr: *mut u8 = std::alloc::alloc(layout);
+                    if ptr.is_null() {
+                        panic!("Failed to allocate memory for array clone");
+                    }
+                    // Copy data
+                    std::ptr::copy_nonoverlapping(self.data, ptr, size);
+                    ptr
                 }
-                // Copy data
-                std::ptr::copy_nonoverlapping(self.data, ptr, size);
-                ptr
             };
             
             Array {
@@ -963,6 +991,10 @@ impl Drop for Array {
     fn drop(&mut self) {
         if self.owns_data && !self.data.is_null() {
             let size = self.size() * self.itemsize;
+            // Skip deallocation for zero-size allocations (dangling pointers)
+            if size == 0 {
+                return;
+            }
             // Calculate alignment the same way as allocation
             let dtype_align = self.dtype.align();
             let layout_align = if dtype_align.is_power_of_two() && dtype_align > 0 {
