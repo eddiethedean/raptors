@@ -41,7 +41,7 @@ pub fn boolean_index_array(array: &Array, mask: &Array) -> Result<Array, IndexEr
     };
     
     // Count True values to determine output size
-    let true_count = unsafe {
+    let (true_count, output_shape) = unsafe {
         let mask_ptr = mask.data_ptr() as *const bool;
         let mut count = 0;
         
@@ -53,25 +53,28 @@ pub fn boolean_index_array(array: &Array, mask: &Array) -> Result<Array, IndexEr
                     count += 1;
                 }
             }
+            (count, vec![count as i64])
         } else if mask_shape.len() == 1 && mask_shape[0] == array_shape[0] {
-            // 1D mask - need to count True values and determine output shape
+            // 1D mask on multi-D array
+            // Count True values in mask
             let mask_size = mask_shape[0] as usize;
             for i in 0..mask_size {
                 if *mask_ptr.add(i) {
                     count += 1;
                 }
             }
-            // For 1D mask on multi-D array, output is 1D with count elements
-            // Full implementation would handle proper shape calculation
+            // Calculate elements per row (for multi-D arrays)
+            let first_dim_size = array_shape[0] as usize;
+            let elements_per_row = array.size() / first_dim_size;
+            // Output shape is [true_count * elements_per_row] - one element per selected row element
+            let output_size = count * elements_per_row;
+            (count, vec![output_size as i64])
         } else {
             return Err(IndexError::DimensionMismatch);
         }
-        
-        count
     };
     
-    // Create output array
-    let output_shape = vec![true_count as i64];
+    // Create output array with correct shape
     let output_dtype = array.dtype().clone();
     let mut output = Array::new(output_shape, output_dtype)?;
     

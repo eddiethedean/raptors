@@ -31,9 +31,11 @@ pub fn structured_array(
     }
     
     // Create array with structured dtype
-    // For now, use a placeholder dtype - full implementation would
+    // For now, use a custom dtype with the correct itemsize - full implementation would
     // extend DType to support structured types
-    let dtype = DType::new(crate::types::NpyType::Void); // Placeholder
+    // CRITICAL: We must use the structured dtype's itemsize, not Void's itemsize (which is 0)
+    // Otherwise we create a zero-size array and then try to copy data into it, causing memory corruption
+    let dtype = DType::custom(0, itemsize, itemsize.next_power_of_two().min(16), "structured".to_string());
     let mut array = Array::new(shape, dtype)?;
     
     // Copy data (skip if size is 0, as copy_nonoverlapping with size 0 is safe but unnecessary)

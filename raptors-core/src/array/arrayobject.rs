@@ -5,10 +5,46 @@
 
 use crate::types::*;
 use super::flags::ArrayFlags;
-use std::sync::{Arc, Weak};
+use std::sync::{Arc, Weak, atomic::{AtomicUsize, Ordering}};
 
 /// Maximum number of dimensions for arrays
 pub const MAXDIMS: usize = 64;
+
+/// Counter for generating unique dangling pointers for zero-size arrays
+/// This ensures each zero-size array gets a unique pointer value to avoid
+/// collisions when multiple arrays are dropped sequentially.
+static ZERO_SIZE_POINTER_COUNTER: AtomicUsize = AtomicUsize::new(1);
+
+/// Generate a unique dangling pointer for zero-size allocations.
+/// 
+/// This function creates a pointer that is:
+/// - Non-null (required for some operations)
+/// - Properly aligned to the requested alignment
+/// - Unique for each call (to avoid pointer collisions)
+/// 
+/// The pointer is never dereferenced and is only used for bookkeeping.
+/// We use a high base address (0x1000_0000 = 256MB) that's well above typical
+/// heap allocations, and add a unique offset for each zero-size array.
+fn unique_dangling_pointer(align: usize) -> *mut u8 {
+    let align_val = align.max(1);
+    
+    // Use a high base address that's unlikely to conflict with heap allocations
+    let base_addr = 0x1000_0000_usize; // 256MB
+    
+    // Get unique counter and calculate offset
+    // Use large spacing (at least 1024 bytes) to ensure pointers are well-separated
+    let spacing = 1024_usize;
+    let counter = ZERO_SIZE_POINTER_COUNTER.fetch_add(1, Ordering::Relaxed);
+    let offset = counter.wrapping_mul(spacing);
+    
+    // Calculate address
+    let addr = base_addr.wrapping_add(offset);
+    
+    // Align to requested alignment
+    let aligned_addr = (addr + align_val - 1) & !(align_val - 1);
+    
+    aligned_addr as *mut u8
+}
 
 /// Core array structure
 ///
@@ -55,14 +91,11 @@ impl Array {
         };
         
         let data = if data_size == 0 {
-            // Return a properly aligned dangling pointer for zero-size allocations
+            // Return a unique properly aligned dangling pointer for zero-size allocations
             // This pointer must be non-null and aligned, but should never be dereferenced
-            // We use NonNull::dangling() and align it to the requested alignment
-            let dangling = std::ptr::NonNull::<u8>::dangling().as_ptr();
-            let addr = dangling as usize;
-            // Calculate the next aligned address
-            let aligned_addr = (addr + layout_align - 1) & !(layout_align - 1);
-            aligned_addr as *mut u8
+            // We use a unique pointer generator to avoid collisions when multiple
+            // zero-size arrays are dropped sequentially
+            unique_dangling_pointer(layout_align)
         } else {
             unsafe {
                 let layout = std::alloc::Layout::from_size_align(data_size, layout_align)
@@ -464,11 +497,9 @@ impl Array {
             };
             
             let data = if size == 0 {
-                // Return a properly aligned dangling pointer for zero-size allocations
-                let dangling = std::ptr::NonNull::<u8>::dangling().as_ptr();
-                let addr = dangling as usize;
-                let aligned_addr = (addr + layout_align - 1) & !(layout_align - 1);
-                aligned_addr as *mut u8
+                // Return a unique properly aligned dangling pointer for zero-size allocations
+                // Use unique pointer generator to avoid collisions
+                unique_dangling_pointer(layout_align)
             } else {
                 unsafe {
                     let layout = std::alloc::Layout::from_size_align(size, layout_align)
@@ -894,11 +925,9 @@ impl Clone for Array {
             };
             
             let data = if size == 0 {
-                // Return a properly aligned dangling pointer for zero-size allocations
-                let dangling = std::ptr::NonNull::<u8>::dangling().as_ptr();
-                let addr = dangling as usize;
-                let aligned_addr = (addr + layout_align - 1) & !(layout_align - 1);
-                aligned_addr as *mut u8
+                // Return a unique properly aligned dangling pointer for zero-size allocations
+                // Use unique pointer generator to avoid collisions
+                unique_dangling_pointer(layout_align)
             } else {
                 unsafe {
                     let layout = std::alloc::Layout::from_size_align(size, layout_align)
@@ -992,9 +1021,11 @@ impl Drop for Array {
         if self.owns_data && !self.data.is_null() {
             let size = self.size() * self.itemsize;
             // Skip deallocation for zero-size allocations (dangling pointers)
+            // The size check is sufficient - zero-size arrays never allocate memory
             if size == 0 {
                 return;
             }
+            
             // Calculate alignment the same way as allocation
             let dtype_align = self.dtype.align();
             let layout_align = if dtype_align.is_power_of_two() && dtype_align > 0 {
