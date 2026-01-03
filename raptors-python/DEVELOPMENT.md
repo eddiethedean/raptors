@@ -19,13 +19,19 @@ This guide explains how to set up and work on the Raptors Python bindings.
    cd raptors
    ```
 
-2. Install the package in editable mode:
+2. Set up the test environment (required for running Rust tests):
    ```bash
    cd raptors-python
+   ./setup_test_env.sh
+   ```
+   This script configures the Python library paths needed for linking tests.
+
+3. Install the package in editable mode:
+   ```bash
    maturin develop
    ```
 
-3. Install development dependencies:
+4. Install development dependencies:
    ```bash
    pip install -e .[dev]
    ```
@@ -219,6 +225,16 @@ cargo test --lib && pytest tests/
 - Check Python version compatibility
 - Verify dependencies are installed
 - Check test environment setup
+
+**Linker errors when running tests:**
+If you see linker errors like "symbol(s) not found for architecture", you need to configure the Python library path:
+```bash
+# Run the setup script (recommended)
+./setup_test_env.sh
+
+# Or manually create .cargo/config.toml with Python library paths
+# The setup script will do this automatically
+```
 
 ## Building Locally
 

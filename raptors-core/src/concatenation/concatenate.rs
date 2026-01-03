@@ -209,6 +209,32 @@ pub enum SplitSpec {
     Indices(Vec<usize>),
 }
 
+/// Convert flat index to coordinates in dimensions other than the split axis
+fn index_to_coords_other_dims(
+    index: usize,
+    other_dims_shape: &[i64],
+    coords: &mut [i64],
+) {
+    let mut idx = index;
+    for i in (0..other_dims_shape.len()).rev() {
+        coords[i] = (idx % other_dims_shape[i] as usize) as i64;
+        idx /= other_dims_shape[i] as usize;
+    }
+}
+
+/// Calculate byte offset from coordinates and strides
+fn coords_to_offset(coords: &[i64], strides: &[i64]) -> usize {
+    let mut offset = 0usize;
+    for (i, &coord) in coords.iter().enumerate() {
+        // Use wrapping arithmetic to avoid overflow panics in debug mode
+        // The result will be correct for valid coordinates and strides
+        let coord_usize = coord as usize;
+        let stride_usize = strides[i] as usize;
+        offset = offset.wrapping_add(coord_usize.wrapping_mul(stride_usize));
+    }
+    offset
+}
+
 /// Split an array along an axis
 ///
 /// Returns a vector of arrays split according to the specification.
@@ -272,9 +298,6 @@ pub fn split(array: &Array, spec: SplitSpec, axis: usize) -> Result<Vec<Array>, 
             let output_data = output.data_ptr_mut();
             let output_strides = output.strides();
             
-            // Calculate total elements to copy
-            let total_elements: usize = output_shape.iter().product::<i64>() as usize;
-            
             // Copy data along the axis
             // For each position in other dimensions, copy the split section along axis
             if array.ndim() == 1 {
@@ -285,44 +308,70 @@ pub fn split(array: &Array, spec: SplitSpec, axis: usize) -> Result<Vec<Array>, 
                     split_size * itemsize,
                 );
             } else {
-                // Multi-dimensional case: iterate over all positions and copy along axis
-                let mut output_offset = 0;
+                // Multi-dimensional case: use coordinate-based approach
+                // Build shape of other dimensions (excluding the split axis)
+                let mut other_dims_shape = Vec::new();
+                let mut other_dims_strides = Vec::new();
+                for (i, &dim) in shape.iter().enumerate() {
+                    if i != axis {
+                        other_dims_shape.push(dim);
+                        other_dims_strides.push(array_strides[i]);
+                    }
+                }
                 
-                // Calculate size of one "row" along the axis
-                let row_size = split_size * axis_stride as usize;
+                // Calculate number of combinations in other dimensions
+                let num_other_combinations: usize = if other_dims_shape.is_empty() {
+                    1
+                } else {
+                    other_dims_shape.iter().product::<i64>() as usize
+                };
                 
-                // Calculate number of rows (elements in other dimensions)
-                let num_rows = total_elements / split_size;
+                // Allocate buffer for coordinates in other dimensions
+                let mut other_coords = vec![0i64; other_dims_shape.len()];
                 
-                for row in 0..num_rows {
-                    // Calculate input offset for this row at the start position
-                    let row_input_offset = if axis == 0 {
-                        row * (shape[0] as usize) * axis_stride as usize + start * axis_stride as usize
-                    } else {
-                        // For non-zero axis, need to calculate offset more carefully
-                        // Simplified: assume contiguous along axis
-                        let mut offset = 0;
-                        let mut remaining = row;
-                        for (dim, &stride) in shape.iter().zip(array_strides.iter()) {
-                            if dim == &shape[axis] {
-                                // Skip axis dimension
-                                continue;
-                            }
-                            let coord = remaining % (*dim as usize);
-                            offset += coord * stride as usize;
-                            remaining /= *dim as usize;
+                // Iterate over each combination of other dimensions
+                for other_idx in 0..num_other_combinations {
+                    // Convert flat index to coordinates in other dimensions
+                    index_to_coords_other_dims(other_idx, &other_dims_shape, &mut other_coords);
+                    
+                    // Calculate base offset for this combination (excluding axis dimension)
+                    let mut base_offset = 0;
+                    let mut coord_idx = 0;
+                    for (i, &stride) in array_strides.iter().enumerate() {
+                        if i != axis {
+                            base_offset += (other_coords[coord_idx] * stride) as usize;
+                            coord_idx += 1;
                         }
-                        offset + start * axis_stride as usize
-                    };
+                    }
                     
-                    // Copy the split section for this row
-                    std::ptr::copy_nonoverlapping(
-                        array_data.add(row_input_offset * itemsize),
-                        output_data.add(output_offset * itemsize),
-                        row_size,
-                    );
-                    
-                    output_offset += split_size;
+                    // Copy split_size elements along the axis
+                    for axis_pos in 0..split_size {
+                        let i = start + axis_pos;
+                        
+                        // Calculate input offset: base_offset + axis position offset
+                        let input_offset = base_offset + ((i as i64) * axis_stride) as usize;
+                        
+                        // Calculate output offset: need to map to output coordinates
+                        // Output coordinates: insert axis_pos at axis position
+                        let mut output_coords = Vec::new();
+                        coord_idx = 0;
+                        for j in 0..output_shape.len() {
+                            if j == axis {
+                                output_coords.push(axis_pos as i64);
+                            } else {
+                                output_coords.push(other_coords[coord_idx]);
+                                coord_idx += 1;
+                            }
+                        }
+                        let output_offset = coords_to_offset(&output_coords, &output_strides);
+                        
+                        // Copy one element
+                        std::ptr::copy_nonoverlapping(
+                            array_data.add(input_offset * itemsize),
+                            output_data.add(output_offset * itemsize),
+                            itemsize,
+                        );
+                    }
                 }
             }
             
