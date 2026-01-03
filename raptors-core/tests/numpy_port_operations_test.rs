@@ -571,8 +571,15 @@ fn test_stack_split_inverse() {
     let split_result = split(&stacked, SplitSpec::Sections(2), 0).unwrap();
     
     assert_eq!(split_result.len(), 2);
-    assert_array_equal(&split_result[0], &arr1);
-    assert_array_equal(&split_result[1], &arr2);
+    
+    // Squeeze axis 0 from each split result to get back the original shape
+    // This matches NumPy's behavior: splitting a stacked array returns arrays
+    // with an extra dimension that needs to be squeezed to reverse the stack operation
+    let squeezed1 = squeeze_axis(&split_result[0], 0).unwrap();
+    let squeezed2 = squeeze_axis(&split_result[1], 0).unwrap();
+    
+    assert_array_equal(&squeezed1, &arr1);
+    assert_array_equal(&squeezed2, &arr2);
 }
 
 // Test with helpers

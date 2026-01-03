@@ -5,6 +5,8 @@
 
 use raptors_core::array::Array;
 use raptors_core::types::{DType, NpyType};
+use raptors_core::shape::shape::squeeze_dims;
+use std::sync::Arc;
 
 /// Assert that two arrays are equal element-wise
 ///
@@ -427,5 +429,51 @@ pub mod test_data {
         
         arr
     }
+}
+
+/// Squeeze an array along a specific axis
+///
+/// Removes the specified axis if it has size 1, creating a zero-copy view.
+///
+/// # Arguments
+/// * `array` - The array to squeeze
+/// * `axis` - The axis to remove (must have size 1)
+///
+/// # Returns
+/// A view of the array with the specified axis removed.
+///
+/// # Errors
+/// Returns an error if the axis is out of bounds or doesn't have size 1.
+pub fn squeeze_axis(array: &Array, axis: usize) -> Result<Array, String> {
+    let shape = array.shape();
+    let strides = array.strides();
+    
+    // Check if axis is valid and has size 1
+    if axis >= shape.len() {
+        return Err(format!("Axis {} is out of bounds for array with {} dimensions", axis, shape.len()));
+    }
+    
+    if shape[axis] != 1 {
+        return Err(format!("Cannot squeeze axis {}: dimension has size {}, not 1", axis, shape[axis]));
+    }
+    
+    // Compute new shape with axis removed
+    let new_shape = squeeze_dims(shape, Some(axis));
+    
+    // Compute new strides by removing the stride for the squeezed axis
+    // This preserves the memory layout of the view
+    let mut new_strides = Vec::new();
+    for (i, &stride) in strides.iter().enumerate() {
+        if i != axis {
+            new_strides.push(stride);
+        }
+    }
+    
+    // Wrap array in Arc to create a view
+    let base_arc = Arc::new(array.clone());
+    
+    // Create view with squeezed shape and adjusted strides
+    Array::view_from_arc(&base_arc, new_shape, new_strides)
+        .map_err(|e| format!("Failed to create squeezed view: {:?}", e))
 }
 
