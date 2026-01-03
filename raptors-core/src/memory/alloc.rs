@@ -4,6 +4,7 @@
 //! equivalent to NumPy's alloc.c
 
 use std::alloc::{Layout, alloc, dealloc};
+use std::ptr::NonNull;
 
 /// Allocate aligned memory
 ///
@@ -11,7 +12,14 @@ use std::alloc::{Layout, alloc, dealloc};
 /// Returns a pointer to the allocated memory, or null if allocation fails.
 pub fn allocate_aligned(size: usize, align: usize) -> *mut u8 {
     if size == 0 {
-        return align as *mut u8; // Return aligned pointer for zero-size allocation
+        // Return a properly aligned dangling pointer for zero-size allocations
+        // This pointer must be non-null and aligned, but should never be dereferenced
+        // We use NonNull::dangling() and align it to the requested alignment
+        let dangling = NonNull::<u8>::dangling().as_ptr();
+        let addr = dangling as usize;
+        // Calculate the next aligned address
+        let aligned_addr = (addr + align - 1) & !(align - 1);
+        return aligned_addr as *mut u8;
     }
     
     let layout = match Layout::from_size_align(size, align) {
