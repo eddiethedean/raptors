@@ -270,17 +270,24 @@ fn test_broadcasting_with_helpers() {
 #[test]
 fn test_broadcast_three_arrays_sequential() {
     // Test broadcasting three arrays together
+    // Note: [5,1] + [1,3] = [5,3], but [5,3] + [1,1,4] fails
+    // because when aligned: [1,5,3] vs [1,1,4], dimension 1: 5 != 1 and neither is 1
     let shape1 = vec![5, 1];
     let shape2 = vec![1, 3];
     let shape3 = vec![1, 1, 4];
     
-    // Broadcast first two
+    // Broadcast first two - this should work
     let result12 = broadcast_shapes(&shape1, &shape2).unwrap();
     assert_eq!(result12, vec![5, 3]);
     
-    // Broadcast result with third
-    let result123 = broadcast_shapes(&result12, &shape3).unwrap();
-    assert_eq!(result123, vec![5, 3, 4]);
+    // Broadcast result with third - this should fail
+    let err = broadcast_shapes(&result12, &shape3);
+    assert!(err.is_err());
+    
+    // Test a valid case: [5,3] + [1,1,1] -> [1,5,3] (shorter shape padded on left)
+    let valid_shape3 = vec![1, 1, 1];
+    let result123 = broadcast_shapes(&result12, &valid_shape3).unwrap();
+    assert_eq!(result123, vec![1, 5, 3]);
 }
 
 #[test]
@@ -410,19 +417,23 @@ fn test_broadcast_incompatible_different_size() {
 #[test]
 fn test_broadcast_multi_arrays_sequential() {
     // Broadcast multiple arrays sequentially
+    // Note: [1], [2], [3], [4] cannot be broadcast sequentially
+    // because [1] + [2] = [2], but [2] + [3] fails (2 != 3 and neither is 1)
+    // This test verifies that incompatible shapes are correctly rejected
     let shapes = vec![
         vec![1],
         vec![2],
         vec![3],
-        vec![4],
     ];
     
     let mut result = shapes[0].clone();
-    for shape in shapes.iter().skip(1) {
-        result = broadcast_shapes(&result, shape).unwrap();
-    }
+    // First step should work: [1] + [2] = [2]
+    result = broadcast_shapes(&result, &shapes[1]).unwrap();
+    assert_eq!(result, vec![2]);
     
-    assert_eq!(result, vec![4]);
+    // Second step should fail: [2] + [3] is incompatible
+    let err = broadcast_shapes(&result, &shapes[2]);
+    assert!(err.is_err());
 }
 
 #[test]
@@ -532,6 +543,10 @@ fn test_broadcast_can_broadcast_scalar() {
 #[test]
 fn test_broadcast_shapes_multi() {
     // Test broadcasting multiple shapes at once
+    // Note: [3,1], [1,4], [1,1,5] cannot be broadcast together
+    // because [3,1] + [1,4] = [3,4], but [3,4] + [1,1,5] fails
+    // (when aligned: [1,3,4] vs [1,1,5], dimension 1: 3 != 1 and neither is 1)
+    // This test verifies that incompatible shapes are correctly rejected
     let shapes = vec![
         vec![3, 1],
         vec![1, 4],
@@ -539,8 +554,18 @@ fn test_broadcast_shapes_multi() {
     ];
     
     let shape_refs: Vec<&[i64]> = shapes.iter().map(|s| s.as_slice()).collect();
-    let result = broadcast_shapes_multi(&shape_refs).unwrap();
-    assert_eq!(result, vec![3, 4, 5]);
+    let err = broadcast_shapes_multi(&shape_refs);
+    assert!(err.is_err());
+    
+    // Test a valid case: [1,3,1], [3,1,5], [1,1,5] -> [3,3,5]
+    let valid_shapes = vec![
+        vec![1, 3, 1],
+        vec![3, 1, 5],
+        vec![1, 1, 5],
+    ];
+    let valid_refs: Vec<&[i64]> = valid_shapes.iter().map(|s| s.as_slice()).collect();
+    let result = broadcast_shapes_multi(&valid_refs).unwrap();
+    assert_eq!(result, vec![3, 3, 5]);
 }
 
 #[test]

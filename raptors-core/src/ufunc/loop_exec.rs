@@ -133,41 +133,54 @@ pub fn execute_ufunc_loop(
         }
     } else {
         // General path: handle broadcasting and strided arrays
-        // For now, we'll iterate element by element
-        // This is a simplified implementation - full version would use iterators
+        // Use multi-dimensional iteration with proper broadcast strides
         let in1_ptr = inputs[0].data_ptr();
         let in2_ptr = if inputs.len() > 1 { inputs[1].data_ptr() } else { in1_ptr };
         let out_ptr = output.data_ptr_mut();
         
-        // Use strides from broadcast calculation
-        let stride1 = if !input_broadcast_strides.is_empty() {
-            input_broadcast_strides[0][input_broadcast_strides[0].len() - 1] as usize
-        } else {
-            itemsize
+        // Helper to compute offset from flat index using strides
+        let compute_offset_from_index = |index: usize, shape: &[i64], strides: &[i64]| -> usize {
+            let mut offset = 0usize;
+            let mut remaining = index;
+            
+            // Convert flat index to coordinates (C-order)
+            for (dim_idx, &dim_size) in shape.iter().enumerate() {
+                if dim_idx < strides.len() {
+                    let coord = remaining % (dim_size as usize);
+                    offset += (coord as i64 * strides[dim_idx]) as usize;
+                    remaining /= dim_size as usize;
+                }
+            }
+            offset
         };
         
-        let stride2 = if input_broadcast_strides.len() > 1 {
-            input_broadcast_strides[1][input_broadcast_strides[1].len() - 1] as usize
-        } else {
-            stride1
-        };
-        
-        let stride_out = if !output_strides.is_empty() {
-            output_strides[output_strides.len() - 1] as usize
-        } else {
-            itemsize
-        };
-        
-        unsafe {
-            loop_fn(
-                in1_ptr,
-                in2_ptr,
-                out_ptr,
-                count,
-                stride1,
-                stride2,
-                stride_out,
-            );
+        // Iterate through all elements using flat index
+        for i in 0..count {
+            // Compute offsets for each input and output
+            let offset1 = compute_offset_from_index(i, &broadcast_shape, &input_broadcast_strides[0]);
+            let offset2 = if input_broadcast_strides.len() > 1 {
+                compute_offset_from_index(i, &broadcast_shape, &input_broadcast_strides[1])
+            } else {
+                offset1
+            };
+            let offset_out = compute_offset_from_index(i, &broadcast_shape, &output_strides);
+            
+            // Execute loop function for this element
+            unsafe {
+                let elem_in1 = in1_ptr.add(offset1);
+                let elem_in2 = in2_ptr.add(offset2);
+                let elem_out = out_ptr.add(offset_out);
+                
+                loop_fn(
+                    elem_in1,
+                    elem_in2,
+                    elem_out,
+                    1, // Process one element at a time
+                    itemsize,
+                    itemsize,
+                    itemsize,
+                );
+            }
         }
     }
     
