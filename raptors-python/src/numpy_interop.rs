@@ -101,6 +101,160 @@ pub fn from_numpy(_py: Python, np_array: &Bound<'_, PyAny>) -> PyResult<PyArray>
         });
     }
     
+    // Try int16
+    #[allow(deprecated)]
+    if let Ok(np_arr) = np_array.downcast::<PyArrayDyn<i16>>() {
+        let shape = np_arr.shape().to_vec();
+        let readonly = np_arr.readonly();
+        let data = readonly.as_slice()?;
+        
+        let dtype = DType::new(NpyType::Short);
+        let mut array = Array::new(shape.iter().map(|&x| x as i64).collect(), dtype)
+            .map_err(|e| PyErr::new::<pyo3::exceptions::PyValueError, _>(format!("{}", e)))?;
+        
+        unsafe {
+            let dst = array.data_ptr_mut() as *mut i16;
+            std::ptr::copy_nonoverlapping(data.as_ptr(), dst, data.len());
+        }
+        
+        return Ok(PyArray {
+            #[allow(clippy::arc_with_non_send_sync)]
+            inner: Arc::new(array),
+        });
+    }
+    
+    // Try int8
+    #[allow(deprecated)]
+    if let Ok(np_arr) = np_array.downcast::<PyArrayDyn<i8>>() {
+        let shape = np_arr.shape().to_vec();
+        let readonly = np_arr.readonly();
+        let data = readonly.as_slice()?;
+        
+        let dtype = DType::new(NpyType::Byte);
+        let mut array = Array::new(shape.iter().map(|&x| x as i64).collect(), dtype)
+            .map_err(|e| PyErr::new::<pyo3::exceptions::PyValueError, _>(format!("{}", e)))?;
+        
+        unsafe {
+            let dst = array.data_ptr_mut() as *mut i8;
+            std::ptr::copy_nonoverlapping(data.as_ptr(), dst, data.len());
+        }
+        
+        return Ok(PyArray {
+            #[allow(clippy::arc_with_non_send_sync)]
+            inner: Arc::new(array),
+        });
+    }
+    
+    // Try uint64
+    #[allow(deprecated)]
+    if let Ok(np_arr) = np_array.downcast::<PyArrayDyn<u64>>() {
+        let shape = np_arr.shape().to_vec();
+        let readonly = np_arr.readonly();
+        let data = readonly.as_slice()?;
+        
+        let dtype = DType::new(NpyType::ULongLong);
+        let mut array = Array::new(shape.iter().map(|&x| x as i64).collect(), dtype)
+            .map_err(|e| PyErr::new::<pyo3::exceptions::PyValueError, _>(format!("{}", e)))?;
+        
+        unsafe {
+            let dst = array.data_ptr_mut() as *mut u64;
+            std::ptr::copy_nonoverlapping(data.as_ptr(), dst, data.len());
+        }
+        
+        return Ok(PyArray {
+            #[allow(clippy::arc_with_non_send_sync)]
+            inner: Arc::new(array),
+        });
+    }
+    
+    // Try uint32
+    #[allow(deprecated)]
+    if let Ok(np_arr) = np_array.downcast::<PyArrayDyn<u32>>() {
+        let shape = np_arr.shape().to_vec();
+        let readonly = np_arr.readonly();
+        let data = readonly.as_slice()?;
+        
+        let dtype = DType::new(NpyType::UInt);
+        let mut array = Array::new(shape.iter().map(|&x| x as i64).collect(), dtype)
+            .map_err(|e| PyErr::new::<pyo3::exceptions::PyValueError, _>(format!("{}", e)))?;
+        
+        unsafe {
+            let dst = array.data_ptr_mut() as *mut u32;
+            std::ptr::copy_nonoverlapping(data.as_ptr(), dst, data.len());
+        }
+        
+        return Ok(PyArray {
+            #[allow(clippy::arc_with_non_send_sync)]
+            inner: Arc::new(array),
+        });
+    }
+    
+    // Try uint16
+    #[allow(deprecated)]
+    if let Ok(np_arr) = np_array.downcast::<PyArrayDyn<u16>>() {
+        let shape = np_arr.shape().to_vec();
+        let readonly = np_arr.readonly();
+        let data = readonly.as_slice()?;
+        
+        let dtype = DType::new(NpyType::UShort);
+        let mut array = Array::new(shape.iter().map(|&x| x as i64).collect(), dtype)
+            .map_err(|e| PyErr::new::<pyo3::exceptions::PyValueError, _>(format!("{}", e)))?;
+        
+        unsafe {
+            let dst = array.data_ptr_mut() as *mut u16;
+            std::ptr::copy_nonoverlapping(data.as_ptr(), dst, data.len());
+        }
+        
+        return Ok(PyArray {
+            #[allow(clippy::arc_with_non_send_sync)]
+            inner: Arc::new(array),
+        });
+    }
+    
+    // Try uint8
+    #[allow(deprecated)]
+    if let Ok(np_arr) = np_array.downcast::<PyArrayDyn<u8>>() {
+        let shape = np_arr.shape().to_vec();
+        let readonly = np_arr.readonly();
+        let data = readonly.as_slice()?;
+        
+        let dtype = DType::new(NpyType::UByte);
+        let mut array = Array::new(shape.iter().map(|&x| x as i64).collect(), dtype)
+            .map_err(|e| PyErr::new::<pyo3::exceptions::PyValueError, _>(format!("{}", e)))?;
+        
+        unsafe {
+            let dst = array.data_ptr_mut() as *mut u8;
+            std::ptr::copy_nonoverlapping(data.as_ptr(), dst, data.len());
+        }
+        
+        return Ok(PyArray {
+            #[allow(clippy::arc_with_non_send_sync)]
+            inner: Arc::new(array),
+        });
+    }
+    
+    // Try bool
+    #[allow(deprecated)]
+    if let Ok(np_arr) = np_array.downcast::<PyArrayDyn<bool>>() {
+        let shape = np_arr.shape().to_vec();
+        let readonly = np_arr.readonly();
+        let data = readonly.as_slice()?;
+        
+        let dtype = DType::new(NpyType::Bool);
+        let mut array = Array::new(shape.iter().map(|&x| x as i64).collect(), dtype)
+            .map_err(|e| PyErr::new::<pyo3::exceptions::PyValueError, _>(format!("{}", e)))?;
+        
+        unsafe {
+            let dst = array.data_ptr_mut() as *mut bool;
+            std::ptr::copy_nonoverlapping(data.as_ptr(), dst, data.len());
+        }
+        
+        return Ok(PyArray {
+            #[allow(clippy::arc_with_non_send_sync)]
+            inner: Arc::new(array),
+        });
+    }
+    
     Err(PyErr::new::<pyo3::exceptions::PyValueError, _>(
         "Unsupported NumPy array type"
     ))
