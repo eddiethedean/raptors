@@ -46,11 +46,24 @@ pub fn concatenate(arrays: &[&Array], axis: Option<usize>) -> Result<Array, Conc
     }
     
     if arrays.len() == 1 {
-        // Single array - just return a copy (for now, simplified)
+        // Single array - create a copy with the same shape and data
         let arr = arrays[0];
         let shape = arr.shape().to_vec();
         let dtype = arr.dtype().clone();
-        return Array::new(shape, dtype).map_err(ConcatenationError::from);
+        let mut output = Array::new(shape, dtype)?;
+        
+        // Copy data from input array to output array
+        let itemsize = output.itemsize();
+        let arr_size = arr.size();
+        unsafe {
+            std::ptr::copy_nonoverlapping(
+                arr.data_ptr(),
+                output.data_ptr_mut(),
+                arr_size * itemsize,
+            );
+        }
+        
+        return Ok(output);
     }
     
     let first_array = arrays[0];
