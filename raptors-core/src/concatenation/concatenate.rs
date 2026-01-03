@@ -249,11 +249,24 @@ pub fn split(array: &Array, spec: SplitSpec, axis: usize) -> Result<Vec<Array>, 
     
     let split_points = match spec {
         SplitSpec::Sections(n) => {
-            if !axis_size.is_multiple_of(n) {
-                return Err(ConcatenationError::ShapeMismatch);
+            // Handle uneven splits by distributing remainder
+            // First (n - remainder) sections get base_size
+            // Last remainder sections get base_size + 1
+            let base_size = axis_size / n;
+            let remainder = axis_size % n;
+            let mut points = Vec::new();
+            let mut current = 0;
+            for i in 0..n {
+                if i < n - remainder {
+                    current += base_size;
+                } else {
+                    current += base_size + 1;
+                }
+                if current < axis_size {
+                    points.push(current);
+                }
             }
-            let section_size = axis_size / n;
-            (1..n).map(|i| i * section_size).collect()
+            points
         }
         SplitSpec::Indices(indices) => {
             for &idx in &indices {
@@ -307,6 +320,57 @@ pub fn split(array: &Array, spec: SplitSpec, axis: usize) -> Result<Vec<Array>, 
                     output_data,
                     split_size * itemsize,
                 );
+            } else if array.ndim() == 2 && axis == 0 {
+                // Special case: 2D array split along axis 0 (rows)
+                // We can copy row-by-row more efficiently
+                let row_size = output_shape[1] as usize * itemsize;
+                let num_rows = split_size;
+                // Strides are already in bytes, so use them directly
+                let input_row_stride = array_strides[0] as usize;
+                let output_row_stride = output_strides[0] as usize;
+                
+                for row in 0..num_rows {
+                    let input_row_start = start + row;
+                    // Strides are in bytes, so no need to multiply by itemsize
+                    let input_offset = input_row_start * input_row_stride;
+                    let output_offset = row * output_row_stride;
+                    
+                    // Note: Bounds checking is handled by the array size calculations
+                    // Offsets are guaranteed to be within bounds for valid splits
+                    
+                    std::ptr::copy_nonoverlapping(
+                        array_data.add(input_offset),
+                        output_data.add(output_offset),
+                        row_size,
+                    );
+                }
+            } else if array.ndim() == 2 && axis == 1 {
+                // Special case: 2D array split along axis 1 (columns)
+                // Copy column-by-column (each column is a single element per row)
+                let num_rows = output_shape[0] as usize;
+                // Strides are already in bytes, so use them directly
+                let input_col_stride = array_strides[1] as usize;
+                let output_col_stride = output_strides[1] as usize;
+                let input_row_stride = array_strides[0] as usize;
+                let output_row_stride = output_strides[0] as usize;
+                
+                for row in 0..num_rows {
+                    for col in 0..split_size {
+                        let input_col_idx = start + col;
+                        // Strides are in bytes, so no need to multiply by itemsize
+                        let input_offset = row * input_row_stride + input_col_idx * input_col_stride;
+                        let output_offset = row * output_row_stride + col * output_col_stride;
+                        
+                        // Note: Bounds checking is handled by the array size calculations
+                        // Offsets are guaranteed to be within bounds for valid splits
+                        
+                        std::ptr::copy_nonoverlapping(
+                            array_data.add(input_offset),
+                            output_data.add(output_offset),
+                            itemsize,
+                        );
+                    }
+                }
             } else {
                 // Multi-dimensional case: use coordinate-based approach
                 // Build shape of other dimensions (excluding the split axis)
@@ -349,6 +413,7 @@ pub fn split(array: &Array, spec: SplitSpec, axis: usize) -> Result<Vec<Array>, 
                         let i = start + axis_pos;
                         
                         // Calculate input offset: base_offset + axis position offset
+                        // Strides are already in bytes, so use axis_stride directly
                         let input_offset = base_offset + ((i as i64) * axis_stride) as usize;
                         
                         // Calculate output offset: need to map to output coordinates
@@ -366,9 +431,10 @@ pub fn split(array: &Array, spec: SplitSpec, axis: usize) -> Result<Vec<Array>, 
                         let output_offset = coords_to_offset(&output_coords, &output_strides);
                         
                         // Copy one element
+                        // Strides are already in bytes, so use offsets directly
                         std::ptr::copy_nonoverlapping(
-                            array_data.add(input_offset * itemsize),
-                            output_data.add(output_offset * itemsize),
+                            array_data.add(input_offset),
+                            output_data.add(output_offset),
                             itemsize,
                         );
                     }
