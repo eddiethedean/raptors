@@ -8,6 +8,32 @@ use crate::types::NpyType;
 use crate::performance::threading::should_parallelize;
 use rayon::prelude::*;
 
+/// Convert flat index to coordinates in dimensions other than the reduction axis
+fn index_to_coords_other_dims(
+    index: usize,
+    other_dims_shape: &[i64],
+    coords: &mut [i64],
+) {
+    let mut idx = index;
+    for i in (0..other_dims_shape.len()).rev() {
+        coords[i] = (idx % other_dims_shape[i] as usize) as i64;
+        idx /= other_dims_shape[i] as usize;
+    }
+}
+
+/// Calculate byte offset from coordinates and strides
+fn coords_to_offset(coords: &[i64], strides: &[i64]) -> usize {
+    let mut offset = 0usize;
+    for (i, &coord) in coords.iter().enumerate() {
+        // Use wrapping arithmetic to avoid overflow panics in debug mode
+        // The result will be correct for valid coordinates and strides
+        let coord_usize = coord as usize;
+        let stride_usize = strides[i] as usize;
+        offset = offset.wrapping_add(coord_usize.wrapping_mul(stride_usize));
+    }
+    offset
+}
+
 /// Pairwise summation for floating-point values
 /// This reduces floating-point error accumulation compared to naive summation
 fn pairwise_sum_f64(data: &[f64]) -> f64 {
@@ -210,82 +236,216 @@ pub fn sum_along_axis(array: &Array, axis: Option<usize>) -> Result<Array, Reduc
     
     let mut output = Array::new(output_shape, dtype)?;
     
-    // For now, simple sum over all elements (would need proper axis handling)
     let size = array.size();
     if size == 0 {
         return Ok(output);
     }
     
-    // Optimized implementation: use contiguous path, pairwise summation, and parallelization
-    let is_contiguous = array.is_c_contiguous();
-    let should_par = should_parallelize(size);
-    
-    match array.dtype().type_() {
-        NpyType::Double => {
-            unsafe {
-                let data_ptr = array.data_ptr() as *const f64;
-                let sum = if is_contiguous && should_par {
-                    // Parallel contiguous path for large arrays
-                    sum_parallel_f64(data_ptr, size)
-                } else if is_contiguous {
-                    // Sequential contiguous path with pairwise summation for accuracy
-                    sum_contiguous_f64(data_ptr, size)
-                } else {
-                    // Strided path - simple sum (could be optimized further)
-                    let mut sum = 0.0f64;
-                    for i in 0..size {
-                        sum += *data_ptr.add(i);
-                    }
-                    sum
-                };
-                let out_ptr = output.data_ptr_mut() as *mut f64;
-                *out_ptr = sum;
+    // Handle axis-specific reduction
+    if let Some(ax) = axis {
+        // Build shape of other dimensions (excluding the reduction axis)
+        let mut other_dims_shape = Vec::new();
+        let mut other_dims_strides = Vec::new();
+        let array_strides = array.strides();
+        for (i, &dim) in shape.iter().enumerate() {
+            if i != ax {
+                other_dims_shape.push(dim);
+                other_dims_strides.push(array_strides[i]);
             }
         }
-        NpyType::Float => {
-            unsafe {
-                let data_ptr = array.data_ptr() as *const f32;
-                let sum = if is_contiguous && should_par {
-                    sum_parallel_f32(data_ptr, size)
-                } else if is_contiguous {
-                    sum_contiguous_f32(data_ptr, size)
-                } else {
-                    let mut sum = 0.0f32;
-                    for i in 0..size {
-                        sum += *data_ptr.add(i);
+        
+        // Calculate number of output positions
+        let num_output_positions = if other_dims_shape.is_empty() {
+            1
+        } else {
+            other_dims_shape.iter().product::<i64>() as usize
+        };
+        
+        let axis_size = shape[ax] as usize;
+        let axis_stride = array_strides[ax] as usize;
+        let itemsize = array.itemsize();
+        
+        match array.dtype().type_() {
+            NpyType::Double => {
+                unsafe {
+                    let input_data = array.data_ptr() as *const f64;
+                    let output_data = output.data_ptr_mut() as *mut f64;
+                    
+                    // Iterate over each output position
+                    for output_idx in 0..num_output_positions {
+                        // Convert output index to coordinates in other dimensions
+                        let mut other_coords = vec![0i64; other_dims_shape.len()];
+                        index_to_coords_other_dims(output_idx, &other_dims_shape, &mut other_coords);
+                        
+                        // Calculate base offset for this combination (excluding axis dimension)
+                        let mut base_offset = 0;
+                        let mut coord_idx = 0;
+                        for (i, &stride) in array_strides.iter().enumerate() {
+                            if i != ax {
+                                base_offset += (other_coords[coord_idx] * stride) as usize;
+                                coord_idx += 1;
+                            }
+                        }
+                        
+                        // Sum along the axis
+                        // Strides are in bytes, so we need to convert to element offset
+                        let mut sum = 0.0f64;
+                        for axis_idx in 0..axis_size {
+                            let byte_offset = base_offset + axis_idx * axis_stride;
+                            let input_offset = byte_offset / itemsize;
+                            sum += *input_data.add(input_offset);
+                        }
+                        
+                        // Store in output
+                        *output_data.add(output_idx) = sum;
                     }
-                    sum
-                };
-                let out_ptr = output.data_ptr_mut() as *mut f32;
-                *out_ptr = sum;
+                }
             }
-        }
-        NpyType::Int => {
-            unsafe {
-                let data_ptr = array.data_ptr() as *const i32;
-                let sum = if is_contiguous && should_par {
-                    // Parallel contiguous path for large integer arrays
-                    sum_parallel_i32(data_ptr, size)
-                } else if is_contiguous {
-                    // Sequential contiguous path for integers
-                    let mut sum = 0i32;
-                    let slice = std::slice::from_raw_parts(data_ptr, size);
-                    for &val in slice {
-                        sum += val;
+            NpyType::Float => {
+                unsafe {
+                    let input_data = array.data_ptr() as *const f32;
+                    let output_data = output.data_ptr_mut() as *mut f32;
+                    
+                    // Iterate over each output position
+                    for output_idx in 0..num_output_positions {
+                        // Convert output index to coordinates in other dimensions
+                        let mut other_coords = vec![0i64; other_dims_shape.len()];
+                        index_to_coords_other_dims(output_idx, &other_dims_shape, &mut other_coords);
+                        
+                        // Calculate base offset for this combination (excluding axis dimension)
+                        let mut base_offset = 0;
+                        let mut coord_idx = 0;
+                        for (i, &stride) in array_strides.iter().enumerate() {
+                            if i != ax {
+                                base_offset += (other_coords[coord_idx] * stride) as usize;
+                                coord_idx += 1;
+                            }
+                        }
+                        
+                        // Sum along the axis
+                        // Strides are in bytes, so we need to convert to element offset
+                        let mut sum = 0.0f32;
+                        for axis_idx in 0..axis_size {
+                            let byte_offset = base_offset + axis_idx * axis_stride;
+                            let input_offset = byte_offset / itemsize;
+                            sum += *input_data.add(input_offset);
+                        }
+                        
+                        // Store in output
+                        *output_data.add(output_idx) = sum;
                     }
-                    sum
-                } else {
-                    let mut sum = 0i32;
-                    for i in 0..size {
-                        sum += *data_ptr.add(i);
-                    }
-                    sum
-                };
-                let out_ptr = output.data_ptr_mut() as *mut i32;
-                *out_ptr = sum;
+                }
             }
+            NpyType::Int => {
+                unsafe {
+                    let input_data = array.data_ptr() as *const i32;
+                    let output_data = output.data_ptr_mut() as *mut i32;
+                    
+                    // Iterate over each output position
+                    for output_idx in 0..num_output_positions {
+                        // Convert output index to coordinates in other dimensions
+                        let mut other_coords = vec![0i64; other_dims_shape.len()];
+                        index_to_coords_other_dims(output_idx, &other_dims_shape, &mut other_coords);
+                        
+                        // Calculate base offset for this combination (excluding axis dimension)
+                        let mut base_offset = 0;
+                        let mut coord_idx = 0;
+                        for (i, &stride) in array_strides.iter().enumerate() {
+                            if i != ax {
+                                base_offset += (other_coords[coord_idx] * stride) as usize;
+                                coord_idx += 1;
+                            }
+                        }
+                        
+                        // Sum along the axis
+                        // Strides are in bytes, so we need to convert to element offset
+                        let mut sum = 0i32;
+                        for axis_idx in 0..axis_size {
+                            let byte_offset = base_offset + axis_idx * axis_stride;
+                            let input_offset = byte_offset / itemsize;
+                            sum += *input_data.add(input_offset);
+                        }
+                        
+                        // Store in output
+                        *output_data.add(output_idx) = sum;
+                    }
+                }
+            }
+            _ => return Err(ReductionError::ArrayError(ArrayError::TypeMismatch)),
         }
-        _ => return Err(ReductionError::ArrayError(ArrayError::TypeMismatch)),
+    } else {
+        // axis is None: sum all elements
+        // Optimized implementation: use contiguous path, pairwise summation, and parallelization
+        let is_contiguous = array.is_c_contiguous();
+        let should_par = should_parallelize(size);
+        
+        match array.dtype().type_() {
+            NpyType::Double => {
+                unsafe {
+                    let data_ptr = array.data_ptr() as *const f64;
+                    let sum = if is_contiguous && should_par {
+                        // Parallel contiguous path for large arrays
+                        sum_parallel_f64(data_ptr, size)
+                    } else if is_contiguous {
+                        // Sequential contiguous path with pairwise summation for accuracy
+                        sum_contiguous_f64(data_ptr, size)
+                    } else {
+                        // Strided path - simple sum (could be optimized further)
+                        let mut sum = 0.0f64;
+                        for i in 0..size {
+                            sum += *data_ptr.add(i);
+                        }
+                        sum
+                    };
+                    let out_ptr = output.data_ptr_mut() as *mut f64;
+                    *out_ptr = sum;
+                }
+            }
+            NpyType::Float => {
+                unsafe {
+                    let data_ptr = array.data_ptr() as *const f32;
+                    let sum = if is_contiguous && should_par {
+                        sum_parallel_f32(data_ptr, size)
+                    } else if is_contiguous {
+                        sum_contiguous_f32(data_ptr, size)
+                    } else {
+                        let mut sum = 0.0f32;
+                        for i in 0..size {
+                            sum += *data_ptr.add(i);
+                        }
+                        sum
+                    };
+                    let out_ptr = output.data_ptr_mut() as *mut f32;
+                    *out_ptr = sum;
+                }
+            }
+            NpyType::Int => {
+                unsafe {
+                    let data_ptr = array.data_ptr() as *const i32;
+                    let sum = if is_contiguous && should_par {
+                        // Parallel contiguous path for large integer arrays
+                        sum_parallel_i32(data_ptr, size)
+                    } else if is_contiguous {
+                        // Sequential contiguous path for integers
+                        let mut sum = 0i32;
+                        let slice = std::slice::from_raw_parts(data_ptr, size);
+                        for &val in slice {
+                            sum += val;
+                        }
+                        sum
+                    } else {
+                        let mut sum = 0i32;
+                        for i in 0..size {
+                            sum += *data_ptr.add(i);
+                        }
+                        sum
+                    };
+                    let out_ptr = output.data_ptr_mut() as *mut i32;
+                    *out_ptr = sum;
+                }
+            }
+            _ => return Err(ReductionError::ArrayError(ArrayError::TypeMismatch)),
+        }
     }
     
     Ok(output)
@@ -307,7 +467,6 @@ pub fn mean_along_axis(array: &Array, axis: Option<usize>) -> Result<Array, Redu
     };
     
     // Divide sum by size to get mean
-    // Simplified - would need proper type handling
     match sum_result.dtype().type_() {
         NpyType::Double => {
             unsafe {
@@ -315,6 +474,16 @@ pub fn mean_along_axis(array: &Array, axis: Option<usize>) -> Result<Array, Redu
                 let output_size = sum_result.size();
                 for i in 0..output_size {
                     *out_ptr.add(i) /= size;
+                }
+            }
+        }
+        NpyType::Float => {
+            unsafe {
+                let out_ptr = sum_result.data_ptr_mut() as *mut f32;
+                let output_size = sum_result.size();
+                let size_f32 = size as f32;
+                for i in 0..output_size {
+                    *out_ptr.add(i) /= size_f32;
                 }
             }
         }
