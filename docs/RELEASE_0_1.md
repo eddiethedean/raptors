@@ -1,6 +1,6 @@
 # Release 0.1: safe array preview
 
-**Implementation status: complete for the declared local preview. Release validation: passed; publication: pending.** Candidate code revision [`c5f9425`](https://github.com/eddiethedean/raptors/commit/c5f9425b32395cd0856d0a137e82f1fa4470a7c0) passed the build-only [release workflow](https://github.com/eddiethedean/raptors/actions/runs/36461927101), including all twelve wheel targets, hosted Miri, AddressSanitizer, and release-contract checks. The pushed revision also passed [main CI](https://github.com/eddiethedean/raptors/actions/runs/36461919810). The manual run skipped the PyPI publish job as designed; no release tag has been created and nothing has been published. This release does not claim general NumPy compatibility or a performance advantage.
+**Implementation status: complete for the declared local preview. Release status: published.** Tag [`v0.1.0`](https://github.com/eddiethedean/raptors/releases/tag/v0.1.0) points to commit [`8900108`](https://github.com/eddiethedean/raptors/commit/8900108eaff6ee00235d4430b14190fac7f04c60). Its [tag-triggered release workflow](https://github.com/eddiethedean/raptors/actions/runs/36463556250) passed the release contract, safety checks, and all twelve wheel targets, then published the wheels to [PyPI](https://pypi.org/project/raptors/0.1.0/). The earlier build-only [release run](https://github.com/eddiethedean/raptors/actions/runs/36461927101) also passed, and the tested package code passed [main CI](https://github.com/eddiethedean/raptors/actions/runs/36461919810). This release does not claim general NumPy compatibility or a performance advantage.
 
 ## Reference and supported builds
 
@@ -41,7 +41,7 @@ Arithmetic, broadcasting, reductions, inferred dtypes, casts and promotion, resh
 | Checked storage | [`raptors-storage`](../raptors-storage): 7 Rust tests passed; the crate contains no `unsafe` code |
 | Miri | 7 storage tests passed locally on macOS ARM64 with nightly Miri |
 | AddressSanitizer | Hosted Linux job passed in the [release workflow](https://github.com/eddiethedean/raptors/actions/runs/36461927101) and [main CI](https://github.com/eddiethedean/raptors/actions/runs/36461919810) |
-| Wheel | Local CPython 3.14.3 ARM64 wheel passed tag, license, runtime-dependency, and Twine checks; all twelve hosted platform/Python wheel builds and install checks passed in the [build-only release run](https://github.com/eddiethedean/raptors/actions/runs/36461927101) |
+| Wheel | Local CPython 3.14.3 ARM64 wheel passed tag, license, runtime-dependency, and Twine checks; all twelve hosted platform/Python wheel builds and install checks passed in the [tagged release run](https://github.com/eddiethedean/raptors/actions/runs/36463556250), and the wheels are [published on PyPI](https://pypi.org/project/raptors/0.1.0/) |
 | NumPy-free install | The wheel installed in a fresh CPython 3.14.3 environment without NumPy, imported, created an array, and mutated a shared view |
 | Benchmark | [`docs/benchmarks/raptors-0.1-baseline.json`](benchmarks/raptors-0.1-baseline.json): eight Python-level observations on one local host; informational only and NumPy has lower median latency for all four measured operations |
 | Release automation | [`ci.yml`](../.github/workflows/ci.yml) runs PR Rust/Miri/ASan and Python tests; [`release.yml`](../.github/workflows/release.yml) has an untagged build-only `workflow_dispatch` and tag-only OIDC publishing |
@@ -58,7 +58,7 @@ On 2026-09-28, local runs used macOS 26.5.2 ARM64, CPython 3.12.13/3.13.11/3.14.
 - `cargo +nightly miri test --locked -p raptors-storage`: 7 passed.
 - `pytest raptors-python/tests/preview -q`: 48 passed and zero skipped on each of CPython 3.12.13, 3.13.11, and 3.14.3.
 - CPython 3.14 wheel build, contract inspection, `twine check`, and fresh no-NumPy install: passed.
-- All three supported Python versions have local macOS ARM64 extension builds and passing suites. The twelve-target hosted wheel matrix, hosted Miri, and hosted Linux AddressSanitizer checks passed on candidate code revision [`c5f9425`](https://github.com/eddiethedean/raptors/commit/c5f9425b32395cd0856d0a137e82f1fa4470a7c0). The release workflow was run manually, so its PyPI publishing job was skipped.
+- All three supported Python versions have local macOS ARM64 extension builds and passing suites. The tagged [`v0.1.0`](https://github.com/eddiethedean/raptors/releases/tag/v0.1.0) workflow passed hosted Miri, AddressSanitizer, the twelve-target wheel matrix, and PyPI publication. The earlier manual build-only run skipped publishing by design.
 
 See [NUMPY_TEST_VERIFICATION.md](NUMPY_TEST_VERIFICATION.md) for commands, baseline observations, and limits. The benchmark inputs, raw medians, memory measurements, and environment are in the JSON report. The preview is not faster on several measured calls; no optimization claim follows from these results.
 
@@ -69,11 +69,11 @@ See [NUMPY_TEST_VERIFICATION.md](NUMPY_TEST_VERIFICATION.md) for commands, basel
 3. **Capture the legacy baseline — observations recorded with known gaps.** Legacy library-only Rust tests ran zero cases; Python collection failed in the ambient environment before test collection. The historical test suite is not promoted as 0.1 evidence.
 4. **Build and challenge the oracle — local suite complete.** Differential comparisons and synthetic faulty backends run; Hypothesis generates bounded slices, rectangular inputs, overlapping writes, and owner-deletion cases.
 5. **Implement the safe vertical slice — complete for the declared preview.** Typed initialized vectors, checked signed-stride views, shared owner locks, snapshot assignment, and PyO3 bindings are implemented in new crates/modules.
-6. **Prove and package — validated, unpublished.** Local and hosted Miri, wheel, no-NumPy import, and sanitizer gates passed on candidate code revision [`c5f9425`](https://github.com/eddiethedean/raptors/commit/c5f9425b32395cd0856d0a137e82f1fa4470a7c0). The build-only release run completed successfully; publication awaits an intentional version tag.
+6. **Prove and package — complete and published.** Local and hosted Miri, wheel, no-NumPy import, and sanitizer gates passed; the tagged release run passed all twelve wheel targets and published `raptors==0.1.0` to PyPI.
 
 ## Release gate
 
-The 0.1 candidate code passed these checks in build-only [release run 36461927101](https://github.com/eddiethedean/raptors/actions/runs/36461927101), with the corresponding [main CI run](https://github.com/eddiethedean/raptors/actions/runs/36461919810) also green:
+The 0.1 candidate passed these checks in the build-only [release run 36461927101](https://github.com/eddiethedean/raptors/actions/runs/36461927101) and again in the tagged [release run 36463556250](https://github.com/eddiethedean/raptors/actions/runs/36463556250), with [main CI](https://github.com/eddiethedean/raptors/actions/runs/36461919810) also green:
 
 - The build-only `workflow_dispatch` run passes the version, lock, source-pin, Rust, Miri, sanitizer, wheel, and preview checks.
 - All twelve CPython/platform wheel combinations build and test with NumPy 2.5.3, with zero preview skips or expected failures.
@@ -81,4 +81,4 @@ The 0.1 candidate code passed these checks in build-only [release run 3646192710
 - No unresolved safety issue remains in the preview storage path; hosted AddressSanitizer and Miri gates pass.
 - The preview manifest, generated inventory limits, legacy baseline, and informational benchmark are included in the release evidence.
 
-The release workflow triggers on exact `vX.Y.Z` tags. A manual run builds and validates without publishing. On a tag, the PyPI job receives an OIDC token only after every required job succeeds. The 0.1.0 validation is complete, but the package remains unpublished until an intentional `v0.1.0` tag is pushed.
+The release workflow triggers on exact `vX.Y.Z` tags. A manual run builds and validates without publishing. On a tag, the PyPI job receives an OIDC token only after every required job succeeds. The `v0.1.0` tag is pushed, validation and publication succeeded, and the package is available on [PyPI](https://pypi.org/project/raptors/0.1.0/).
