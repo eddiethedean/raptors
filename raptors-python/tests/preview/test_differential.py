@@ -84,6 +84,42 @@ def test_float_to_integer_overflow_matches_numpy(value, dtype):
         actual[0] = value
 
 
+@pytest.mark.parametrize(
+    "values,dtype,error",
+    [
+        ([1e20], raptors.int64, OverflowError),
+        ([-1e20], raptors.uint64, OverflowError),
+        ([1 + 2j], raptors.float64, TypeError),
+    ],
+)
+@pytest.mark.parametrize("fancy", [False, True])
+def test_sequence_assignment_checks_destination_cast(values, dtype, error, fancy):
+    reference = np.zeros(1, dtype=dtype.name)
+    candidate = raptors.zeros(1, dtype=dtype)
+    reference_key = np.array([0]) if fancy else slice(None)
+    candidate_key = raptors.array([0], dtype=raptors.int64) if fancy else slice(None)
+
+    with pytest.raises(error):
+        reference[reference_key] = values
+    with pytest.raises(error):
+        candidate[candidate_key] = values
+    assert_array_matches(np.zeros(1, dtype=dtype.name), candidate)
+
+
+def test_sequence_assignment_warns_when_values_overflow_float32():
+    values = [1e100, -1e100]
+    reference = np.zeros(2, dtype=np.float32)
+    candidate = raptors.zeros(2, dtype=raptors.float32)
+
+    with pytest.warns(RuntimeWarning, match="overflow encountered in cast") as expected_warnings:
+        reference[:] = values
+    with pytest.warns(RuntimeWarning, match="overflow encountered in cast") as actual_warnings:
+        candidate[:] = values
+
+    assert len(actual_warnings) == len(expected_warnings) == 2
+    assert_array_matches(reference, candidate)
+
+
 def test_fractional_float_to_unsigned_integer_truncates_toward_zero():
     assert np.array([-0.7], dtype=np.uint8)[0] == 0
     assert raptors.array([-0.7], dtype=raptors.uint8)[0] == 0
@@ -437,6 +473,25 @@ def test_array_assignment_casts_values_and_rejects_shape_changes():
     assert_array_matches(expected, actual)
     with pytest.raises(ValueError):
         actual[:] = raptors.array([8, 9], dtype=raptors.int64)
+
+
+@pytest.mark.parametrize("fancy", [False, True])
+def test_array_assignment_warns_when_finite_values_overflow_float32(fancy):
+    values = [1e100, -1e100]
+    reference_source = np.array(values, dtype=np.float64)
+    candidate_source = raptors.array(values, dtype=raptors.float64)
+    reference = np.zeros(2, dtype=np.float32)
+    candidate = raptors.zeros(2, dtype=raptors.float32)
+    reference_key = np.array([0, 1]) if fancy else slice(None)
+    candidate_key = raptors.array([0, 1], dtype=raptors.int64) if fancy else slice(None)
+
+    with pytest.warns(RuntimeWarning, match="overflow encountered in cast") as expected_warnings:
+        reference[reference_key] = reference_source
+    with pytest.warns(RuntimeWarning, match="overflow encountered in cast") as actual_warnings:
+        candidate[candidate_key] = candidate_source
+
+    assert len(actual_warnings) == len(expected_warnings) == 1
+    assert_array_matches(reference, candidate)
 
 
 def test_view_keeps_allocation_alive_after_original_is_deleted():

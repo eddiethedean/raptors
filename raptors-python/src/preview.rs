@@ -454,7 +454,7 @@ impl PyArray {
     }
     fn __setitem__(&self, key: &Bound<'_, PyAny>, value: &Bound<'_, PyAny>) -> PyResult<()> {
         let (indices, _) = parse_indices(&self.inner, key)?;
-        let sequence = sequence_value_to_view(value)?;
+        let sequence = sequence_value_to_view(value, self.inner.dtype())?;
         if indices.iter().any(|item| {
             matches!(
                 item,
@@ -462,6 +462,7 @@ impl PyArray {
             )
         }) {
             if let Ok(source) = value.extract::<PyRef<'_, PyArray>>() {
+                warn_view_cast_overflow(value.py(), &source.inner, self.inner.dtype())?;
                 warn_view_complex_cast(value.py(), &source.inner, self.inner.dtype())?;
                 return self
                     .inner
@@ -481,6 +482,7 @@ impl PyArray {
         }
         let selected = self.inner.index(&indices).map_err(map_storage_error)?;
         if let Ok(source) = value.extract::<PyRef<'_, PyArray>>() {
+            warn_view_cast_overflow(value.py(), &source.inner, self.inner.dtype())?;
             warn_view_complex_cast(value.py(), &source.inner, self.inner.dtype())?;
             selected
                 .assign_view(&source.inner)
@@ -1160,7 +1162,17 @@ fn flatten(
     }
     if let Ok(array) = value.extract::<PyRef<'_, PyArray>>() {
         let array_shape = array.inner.shape().to_vec();
-        let values = array.inner.snapshot().map_err(map_storage_error)?;
+        let mut values = array.inner.snapshot().map_err(map_storage_error)?;
+        if let Some(dtype) = dtype {
+            if array.inner.dtype() != dtype {
+                warn_view_cast_overflow(value.py(), &array.inner, dtype)?;
+                warn_view_complex_cast(value.py(), &array.inner, dtype)?;
+                values = values
+                    .iter()
+                    .map(|value| value.cast(dtype).map_err(map_storage_error))
+                    .collect::<PyResult<Vec<_>>>()?;
+            }
+        }
         return Ok((array_shape, values, array.scalar_alias));
     }
     if value.is_instance_of::<PyList>() || value.is_instance_of::<PyTuple>() {
@@ -1195,12 +1207,11 @@ fn flatten(
     Ok((Vec::new(), vec![scalar], scalar_alias_from_value(value)))
 }
 
-fn sequence_value_to_view(value: &Bound<'_, PyAny>) -> PyResult<Option<View>> {
+fn sequence_value_to_view(value: &Bound<'_, PyAny>, dtype: DType) -> PyResult<Option<View>> {
     if !value.is_instance_of::<PyList>() && !value.is_instance_of::<PyTuple>() {
         return Ok(None);
     }
-    let (shape, values, _) = flatten(value, None, 0)?;
-    let dtype = infer_dtype(&values)?;
+    let (shape, values, _) = flatten(value, Some(dtype), 0)?;
     let values = values
         .iter()
         .map(|value| value.cast(dtype).map_err(map_storage_error))
