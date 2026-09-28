@@ -1,56 +1,45 @@
 # Python development setup
 
-These instructions are for inspecting and testing the **legacy prototype** while the [rebuild](../docs/REBUILD_PLAN.md) is planned. The supported rebuild toolchain and exact NumPy oracle will be pinned for v0.1.
+The supported development path is the 0.1 preview on GIL-enabled CPython 3.12–3.14. The old binding and test files remain for audit; the preview uses `raptors-storage` and the `preview.rs` PyO3 module.
 
-## Isolated environment
+## Create the locked test environment
 
-From the repository root, on macOS or Linux, use an available Python 3.11 interpreter as an initial inspection environment:
-
-```bash
-python3.11 -m venv /tmp/raptors-dev-venv
-source /tmp/raptors-dev-venv/bin/activate
-python -m pip install maturin numpy pytest pytest-cov
-export PYO3_PYTHON="$VIRTUAL_ENV/bin/python"
-maturin develop --manifest-path raptors-python/Cargo.toml
-python -c "import raptors; print(raptors.__file__); print(raptors.__version__)"
-```
-
-These bootstrap dependencies are not a reproducible lock or the chosen oracle. Record exact versions and pin them before producing baseline evidence. Use a fresh environment instead of the old environment stored under the package directory.
-
-On Windows, create a separate environment with the selected interpreter, activate its `Scripts` environment, and set `PYO3_PYTHON` to that environment's Python executable. A validated Windows setup is part of the release matrix work.
-
-The checked-in [Cargo configuration](../.cargo/config.toml) contains a machine-specific Python path. The explicit environment variable selects your interpreter without rewriting that file.
-
-## Rebuild after Rust changes
-
-Run `maturin develop --manifest-path raptors-python/Cargo.toml` again after changing Rust. Editable installation does not automatically recompile native code. Confirm the imported artifact path to avoid testing an older installation.
-
-For optimized measurements, add `--release`. See [BUILD.md](BUILD.md) for wheel installation tests.
-
-## Existing checks
-
-From the repository root, with the environment active:
+From the repository root, select one supported interpreter:
 
 ```bash
-cargo test -p raptors-core --test array_test
-cargo check -p raptors-python
-python -c "import raptors; print(raptors.__file__)" &&
-python -m pytest raptors-python/tests/ -v
+uv sync --project raptors-python --extra dev --locked --python 3.14 --no-install-project
 ```
 
-The explicit import must succeed before Python tests run. Existing collection logic can otherwise skip tests when the module is missing. See [TESTING.md](TESTING.md) for full-suite commands, linking limitations, and expected baseline reporting.
+This installs the pinned NumPy 2.5.3 oracle and preview test tools into the project environment. NumPy is not a runtime dependency. To place the environment outside the checkout, set `UV_PROJECT_ENVIRONMENT=/tmp/raptors-dev-venv` for both `uv sync` and `uv run` commands.
 
-## Repository behavior to account for
+## Build and test the native preview
 
-- The core build script writes a generated header under `raptors-core/target/include/`, even with an external Cargo target directory.
-- The legacy `setup_test_env.sh` rewrites the workspace Cargo configuration. Inspect it before use; it is not the recommended default setup.
-- The legacy test runner and Make targets invoke library-only Rust tests. They do not establish full integration-test coverage.
-- Current CI and publishing workflows need v0.1 review; their existence is not a support guarantee.
+```bash
+uv run --project raptors-python --extra dev --no-sync maturin develop --manifest-path raptors-python/Cargo.toml --release
+uv run --project raptors-python --extra dev --no-sync python -c "import raptors; print(raptors.__file__); print(raptors.__version__)"
+uv run --project raptors-python --extra dev --no-sync python -m pytest raptors-python/tests/preview -q
+```
 
-## Rebuild workflow
+Editable installation does not rebuild automatically; rerun `maturin develop` after changing Rust code. The preview test root imports `raptors` directly, so a missing or unloadable extension fails validation.
 
-Choose work from the [current milestone](../docs/CONVERSION_ROADMAP.md). Define reference behavior, add adversarial cases, review affected invariants, implement a small change, and capture actual verification results.
+## Rust and safety checks
 
-The differential harness, compatibility manifest, and safety automation are planned. Do not describe them as present until implemented. Preserve unresolved failures and unsupported cases explicitly.
+From the repository root:
 
-See [contribution guidance](../docs/CONTRIBUTING.md) and [test porting](../docs/TEST_PORTING.md).
+```bash
+rustfmt --edition 2021 --check raptors-storage/src/lib.rs raptors-python/src/preview.rs raptors-python/src/preview_lib.rs raptors-python/build.rs
+cargo test --locked -p raptors-storage
+cargo check --locked -p raptors-python
+cargo clippy --locked -p raptors-storage -p raptors-python --all-targets -- -D warnings
+cargo +nightly miri test --locked -p raptors-storage
+```
+
+CI also runs AddressSanitizer on Linux. See [TESTING.md](TESTING.md) for wheel and clean-install checks.
+
+## Legacy material
+
+The old `raptors-core` engine, Python modules, and `numpy_port` tests are kept for audit and possible validated reuse. They are not the 0.1 implementation or release gate. The pre-preview baseline and known collection failure are in the [verification record](../docs/NUMPY_TEST_VERIFICATION.md).
+
+Choose follow-up work from the [release roadmap](../docs/CONVERSION_ROADMAP.md). Define oracle behavior, add meaningful edge and lifetime cases, review affected invariants, and record the actual result. Preserve unsupported features and failures explicitly.
+
+See [contribution guidance](../docs/CONTRIBUTING.md), [test porting](../docs/TEST_PORTING.md), and the [0.1 release gate](../docs/RELEASE_0_1.md).

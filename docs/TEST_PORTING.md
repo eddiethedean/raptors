@@ -1,20 +1,23 @@
 # Differential testing and upstream test reuse
 
-The [rebuild plan](REBUILD_PLAN.md) requires a behavioral oracle before broad implementation. NumPy at an exact pinned release is that oracle. The differential harness, provenance registry, and machine-readable compatibility manifest are planned deliverables, not existing infrastructure.
+The [rebuild plan](REBUILD_PLAN.md) requires a behavioral oracle before broad implementation. Version 0.1 pins NumPy 2.5.3, source commit `dd88c0c19b54ad9ed3533224221285bf0873249a`, and its Python test dependencies. The new differential harness, Hypothesis cases, preview manifest, and generated API inventory are in the repository. The current 48-case suite is authored against NumPy; it does not reuse upstream test code.
 
-## What exists today
+The 0.1 required cases cover its explicit-dtype construction, metadata, integer/slice views, assignment, and copy. Harness fault probes can use synthetic backends for later behavior such as broadcasting; a passing probe does not claim that Raptors implements that behavior.
 
-- Rust integration tests in [raptors-core/tests](../raptors-core/tests/), including files named `numpy_port_*_test.rs`.
-- Python API tests and a [numpy_port directory](../raptors-python/tests/numpy_port/).
+## Existing test material
+
+- New preview cases in [raptors-python/tests/preview](../raptors-python/tests/preview).
+- Legacy Rust integration tests in [raptors-core/tests](../raptors-core/tests/), including files named `numpy_port_*_test.rs`.
+- Legacy Python API tests and a [numpy_port directory](../raptors-python/tests/numpy_port/).
 - [port_numpy_test.py](../scripts/port_numpy_test.py), which generates Rust stubs.
 - [generate_missing_tests.py](../scripts/generate_missing_tests.py), which generates additions by category and includes placeholders.
 
-Audit these before reuse. Names, file counts, and generated test bodies do not prove a faithful upstream port. Use the [verification record](NUMPY_TEST_VERIFICATION.md) for actual execution evidence.
+The legacy suites are retained for audit and do not run as 0.1 preview coverage. Names, file counts, and generated test bodies do not prove a faithful upstream port. Use the [verification record](NUMPY_TEST_VERIFICATION.md) for actual execution evidence.
 
 ## Reference and provenance
 
-1. Pin the NumPy wheel version and matching source revision.
-2. Inventory public behavior independently of what Raptors currently implements.
+1. Pin the NumPy wheel version and matching source revision. The 0.1 pin is recorded in `compat/raptors-0.1.json` and `raptors-python/uv.lock`.
+2. Inventory public names independently of what Raptors currently implements. `compat/numpy-api-2.5.3.json` is the generated name/member backlog; its future-release case plans still need per-entry semantic review.
 3. Record each reused upstream path and test identifier at that revision.
 4. Preserve license notices and attribution.
 5. Adapt imports and fixtures minimally; review every changed assertion.
@@ -47,7 +50,7 @@ Retain minimized failures as regression cases. Property tests supplement the Num
 
 ## Skips and unsupported behavior
 
-Required extension build or import failures must fail the job. Existing Python collection can skip on import failure; correct that in v0.1.
+Required extension build or import failures must fail the job. The preview suite's root `conftest.py` imports the built package directly and fails on import errors. A legacy nested `numpy_port` conftest still contains an import skip; that suite is not part of 0.1 validation.
 
 Every remaining skip or expected failure must identify the missing behavior, reference case, milestone, and removal condition. Required supported cases cannot remain skipped at a release gate. Do not hide unknown failures behind broad exceptions or blanket skips.
 

@@ -2,19 +2,19 @@
 name = "raptors-python"
 version = "0.1.0"
 edition = "2021"
+autotests = false
 
 [lib]
 name = "raptors"
 crate-type = ["cdylib"]
+path = "src/preview_lib.rs"
 
 [dependencies]
-raptors-core = { path = "../raptors-core" }
 pyo3 = { version = "0.27", features = ["extension-module", "num-complex"] }
-numpy = "0.27"
+raptors-storage = { path = "../raptors-storage" }
 
 [build-dependencies]
 pyo3-build-config = "0.27"
 
 [dev-dependencies]
 pyo3 = { version = "0.27", features = ["extension-module", "num-complex", "auto-initialize"] }
-

@@ -1,38 +1,21 @@
 # Python binding tests
 
-These tests belong to the legacy prototype. They are input to the rebuild audit, not proof of complete NumPy compatibility.
+The required 0.1 release suite lives in [`preview/`](preview/) and is configured as the default pytest path. It runs against the NumPy 2.5.3 oracle and covers the supported preview boundary, generated cases, and seeded harness faults. Missing package imports fail the run.
 
-Use the parent [testing guide](../TESTING.md) for commands and the [test porting guide](../../docs/TEST_PORTING.md) for reference provenance and differential testing requirements.
+Run the supported suite from the repository root after following the [development setup](../DEVELOPMENT.md):
 
-## Directory map
+```bash
+uv run --project raptors-python --extra dev --no-sync python -m pytest raptors-python/tests/preview -q
+```
+
+The top-level legacy Python and Rust tests are retained for audit. Their directory names and historical `numpy_port` labels do not establish faithful upstream ports or current NumPy conformance. The nested `numpy_port` conftest still has a legacy skip path, but that suite is not part of the 0.1 release gate.
 
 | Files | Scope |
 | --- | --- |
-| `test_array.py` | Array properties, construction, operators, and methods |
-| `test_dtype.py` | Dtype bindings |
-| `test_ufunc.py` | Functions and reductions |
-| `test_numpy_interop.py` | NumPy conversion |
-| `numpy_port/*.py` | Additional compatibility-oriented cases |
-| `*_test.rs` | Rust integration tests for bindings |
+| `preview/test_differential.py` | Pinned-reference examples for creation, conversion, layout, indexing, assignment, and copy |
+| `preview/test_properties.py` | Deterministic Hypothesis cases for slices, nested views, overlap, construction, and owner deletion |
+| `preview/test_harness.py` | Seeded wrong-backend checks for dtype, shape, broadcasting, aliasing, and owner lifetime |
+| `test_array.py`, `test_dtype.py`, `test_ufunc.py`, `test_numpy_interop.py` | Legacy prototype cases; not 0.1 coverage |
+| `numpy_port/*.py`, `*_test.rs` | Historical compatibility-oriented tests; audit source and assertion provenance before reuse |
 
-The `numpy_port` label does not establish a faithful upstream port. Audit the source revision, original assertion, and adaptation for each reused case.
-
-## Run against a fresh build
-
-From the repository root, after activating the environment described in [development setup](../DEVELOPMENT.md):
-
-```bash
-maturin develop --manifest-path raptors-python/Cargo.toml
-python -c "import raptors; print(raptors.__file__)" &&
-python -m pytest raptors-python/tests/ -v
-```
-
-An import failure must stop validation. Current collection code can skip when the package is missing; fixing that is a v0.1 deliverable.
-
-For the Rust integration files, use `cargo test -p raptors-python --tests`; library-only tests do not include them. Platform-specific Python linking may be required, and failures must be reported.
-
-## Adding or revising cases
-
-Match the pinned NumPy behavior and test observable results, dtypes, errors, warnings, and alias effects. Include adversarial input and lifetime sequences. Keep unsupported cases visible with a specific milestone and removal condition.
-
-Do not change expected values to fit the implementation or count generated placeholders as coverage. The [verification record](../../docs/NUMPY_TEST_VERIFICATION.md) is the place for actual run evidence.
+The [verification record](../../docs/NUMPY_TEST_VERIFICATION.md) distinguishes legacy observations from the current preview results. Do not change expected values to fit Raptors or count generated placeholders as coverage.

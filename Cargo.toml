@@ -2,6 +2,7 @@
 members = [
     "raptors-core",
     "raptors-python",
+    "raptors-storage",
 ]
 resolver = "2"
 

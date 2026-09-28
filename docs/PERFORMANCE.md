@@ -6,7 +6,26 @@ The [rebuild plan](REBUILD_PLAN.md) makes performance a separate acceptance gate
 
 ## Baseline before optimization
 
-Release 0.1 establishes a Python benchmark harness and representative application workloads. Release 0.3 records the first correct numeric path. Release 0.4 profiles and optimizes it.
+Release 0.1 has a Python benchmark harness and a local baseline for creation, slicing, assignment, and copying. It has no speed threshold. Release 0.3 records the first correct numeric path. Release 0.4 profiles and optimizes it against the broader workload matrix below.
+
+The [0.1 JSON report](benchmarks/raptors-0.1-baseline.json) contains eight observations from CPython 3.14.3, NumPy 2.5.3, and macOS 26.5.2 ARM64, using 250,000 int64-compatible values and five measured repetitions per operation. The recorded median times were:
+
+| Operation | NumPy | Raptors preview |
+| --- | ---: | ---: |
+| Create from the same Python list | 3.75 ms | 7.68 ms |
+| Slice a view | 0.67 µs | 0.96 µs |
+| Overlapping assignment | 34.2 µs | 7.56 ms |
+| Independent copy | 112 µs | 4.25 ms |
+
+This single-host measurement shows lower median latency for NumPy on all four operations, although the slice difference is under one microsecond. It is an informational baseline, not a performance claim or a release-quality comparison. Python `tracemalloc` omits native buffer allocations; the process high-water RSS delta is coarse and allocator-dependent.
+
+Reproduce it after installing the locked development environment and building the extension:
+
+```bash
+uv run --project raptors-python --extra dev --no-sync python scripts/bench_0_1.py --count 250000 --repeats 5
+```
+
+The command uses a warmup and launches separate processes for each backend/operation. The script and report record interpreter, NumPy/Raptors versions, platform, CPU architecture, and thread environment.
 
 Measure equivalent work through both public Python APIs, with matching inputs, dtypes, layouts, output reuse, and correctness criteria. Include allocations and conversions when an application would incur them.
 
@@ -58,6 +77,6 @@ cargo bench -p raptors-core --bench operations
 cargo bench -p raptors-core --bench indexing
 ```
 
-The previously documented `numpy_comparison` benchmark is not present. Use [Python build instructions](../raptors-python/BUILD.md) for an optimized extension. Do not infer acceleration from the presence of Rayon or SIMD-related modules.
+Use [Python build instructions](../raptors-python/BUILD.md) for an optimized extension. Do not infer acceleration from the presence of Rayon or SIMD-related modules.
 
 Async service latency, GPU execution, and distributed throughput are deferred topics, outside the initial NumPy compatibility performance gate.

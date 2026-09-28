@@ -1,6 +1,6 @@
 # Raptors documentation
 
-The [rebuild plan](REBUILD_PLAN.md) is the authoritative statement of direction. Raptors aims to provide NumPy's public functionality through a different Python import. The current implementation is a legacy prototype; the rebuilt architecture and validation infrastructure are planned.
+The [rebuild plan](REBUILD_PLAN.md) is the authoritative statement of direction. Raptors aims to provide NumPy's public functionality through a different Python import. The 0.1 preview implementation is complete locally; the cross-platform release gate is pending. The legacy engine is retained separately for audit.
 
 ## Plan and engineering
 
@@ -8,13 +8,15 @@ The [rebuild plan](REBUILD_PLAN.md) is the authoritative statement of direction.
 | --- | --- |
 | [Rebuild plan](REBUILD_PLAN.md) | Scope, architecture proposal, phases, and acceptance gates |
 | [0.x release roadmap](CONVERSION_ROADMAP.md) | Versioned deliverables, exit gates, and current release status |
-| [Architecture](ARCHITECTURE.md) | Current code versus proposed storage and execution model |
+| [Release 0.1 execution plan](RELEASE_0_1.md) | Preview API, local evidence, remaining hosted checks, and tag gate |
+| [Architecture](ARCHITECTURE.md) | Implemented 0.1 storage path, retained legacy code, and proposed later layers |
 | [API guide](API_GUIDE.md) | Existing entry points and target compatibility behavior |
 | [Migration guide](CONVERSION_GUIDE.md) | Evaluating Python applications with an import change |
 | [Contributing](CONTRIBUTING.md) | Evidence required for implementation changes |
 | [Test porting](TEST_PORTING.md) | Differential testing and upstream test provenance |
 | [Verification record](NUMPY_TEST_VERIFICATION.md) | What has actually been checked |
 | [Performance](PERFORMANCE.md) | Benchmark design and performance acceptance criteria |
+| [Compatibility inventory](../compat/README.md) | NumPy API inventory scope and regeneration method |
 
 ## Python development
 

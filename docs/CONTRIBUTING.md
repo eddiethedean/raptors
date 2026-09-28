@@ -1,62 +1,52 @@
 # Contributing to Raptors
 
-Raptors is rebuilding toward NumPy's public Python functionality through `import raptors as np`. Start with the [rebuild plan](REBUILD_PLAN.md), [architecture](ARCHITECTURE.md), and [0.x release roadmap](CONVERSION_ROADMAP.md).
-
-The current engine is a legacy prototype. New work should advance the current acceptance gate; broad feature additions before the storage and comparison infrastructure are proven recreate the original failure mode.
+Raptors targets NumPy's public Python functionality through `import raptors as np`. The local 0.1 implementation is a deliberately small preview; the complete target and release gates are in the [rebuild plan](REBUILD_PLAN.md) and [roadmap](CONVERSION_ROADMAP.md). The old engine is retained for audit, but new 0.1 work belongs in the checked storage and preview path.
 
 ## Set up
 
-Clone the actual repository and follow the [Python development guide](../raptors-python/DEVELOPMENT.md):
+Use CPython 3.12–3.14 and the locked NumPy oracle from the repository root:
 
 ```bash
-git clone https://github.com/eddiethedean/raptors.git
-cd raptors
-cargo build -p raptors-core
+uv sync --project raptors-python --extra dev --locked --python 3.14 --no-install-project
+uv run --project raptors-python --extra dev --no-sync maturin develop --manifest-path raptors-python/Cargo.toml --release
 ```
 
-Use an isolated Python environment outside the checkout. Release 0.1 will lock toolchains, reference versions, and the supported platform matrix. Current metadata and CI matrices are historical configurations, not verified support promises.
+See [Python development](../raptors-python/DEVELOPMENT.md), [building](../raptors-python/BUILD.md), and [testing](../raptors-python/TESTING.md) for full commands. The preview does not require NumPy at runtime.
 
 ## Change workflow
 
-1. State the exact NumPy behavior and reference version.
-2. Capture oracle cases and meaningful adversarial regressions.
-3. Identify storage, aliasing, dtype, or Python-lifetime invariants affected.
-4. Implement the smallest coherent change.
-5. Review semantics and unsafe assumptions separately.
-6. Run relevant correctness, safety, and performance checks.
-7. Update the compatibility evidence and documentation.
+1. Name the NumPy 2.5.3 behavior and the exact 0.1 boundary being changed.
+2. Add differential and adversarial cases before or with implementation.
+3. Identify layout, ownership, aliasing, initialization, dtype, and Python-lifetime invariants affected.
+4. Implement the smallest coherent change in the new preview path.
+5. Run relevant Rust, Python, safety, package, and benchmark checks.
+6. Update the compatibility manifest and verification record with observed results.
 
-Do not weaken expected results, add blanket skips, suppress arbitrary errors, or change supported behavior to make a test green. Generated tests need behavioral assertions and reviewed provenance.
+Do not weaken expected results, add broad skips, suppress arbitrary errors, or count generated placeholders as coverage. Future inventory entries are preliminary plans, not release-ready semantics; review each against versioned NumPy behavior before implementing it.
 
-## Relevant checks
-
-From the repository root:
+## Relevant local checks
 
 ```bash
-cargo test -p raptors-core --tests
-cargo test -p raptors-core --doc
-cargo fmt --all -- --check
-cargo clippy -p raptors-core -- -D warnings
+rustfmt --edition 2021 --check raptors-storage/src/lib.rs raptors-python/src/preview.rs raptors-python/src/preview_lib.rs raptors-python/build.rs
+cargo test --locked -p raptors-storage
+cargo check --locked -p raptors-python
+cargo clippy --locked -p raptors-storage -p raptors-python --all-targets -- -D warnings
+cargo +nightly miri test --locked -p raptors-storage
+uv run --project raptors-python --extra dev --no-sync python -m pytest raptors-python/tests/preview -q
 ```
 
-Run the relevant integration target while developing, then the required suite for the change. Legacy failures and warnings must be captured in the v0.1 baseline; these commands are not claimed to pass today. `cargo test --lib` does not run integration tests under `tests/`.
+The PR CI also runs the storage tests under Miri and AddressSanitizer and tests each supported CPython version. The tag workflow builds/tests every advertised wheel and publishes only after all required jobs pass. `cargo fmt --all` and the legacy test suites are not the 0.1 quality gate.
 
-For binding changes, rebuild the extension and run the [Python tests](../raptors-python/TESTING.md) against that artifact. Native linking tests may require platform-specific Python configuration.
+## Safety and evidence
 
-## Safety review
+The 0.1 storage crate is intentionally free of `unsafe` code. Keep checked bounds and initialization, shared allocation locking, and owner retention at the storage boundary. `Arc` alone does not justify `Send` or `Sync`. Any future unsafe code needs explicit preconditions and review. Miri and sanitizers supplement review; neither proves the entire package safe.
 
-Every unsafe block must explain its preconditions and the checks that establish them. Review ownership, layout bounds, initialization, alignment, aliases, access synchronization, and foreign lifetimes. `Arc` alone does not justify `Send` or `Sync`.
+Performance changes need equivalent Python calls and measurements that include conversion and allocation costs. The 0.1 benchmark currently shows slower Raptors timings on several measured operations; do not claim acceleration from Rust, Rayon, or SIMD presence.
 
-Miri, fuzzing, and supported sanitizers supplement review. The new gates are planned infrastructure; record what actually ran and any limitations.
+Preserve license notices and attribution for any reused upstream material. The current 0.1 tests are authored against the pinned NumPy oracle, not copied NumPy tests. Keep generated build output and machine-specific environments out of commits.
 
-## Review and release evidence
+## Release status
 
-A change description should explain the trigger, resulting behavior, reference cases, verification, and remaining limitations. Performance changes need comparable measurements. Public completion claims must correspond to the compatibility manifest once v0.1 creates it.
+The local 0.1 preview implementation and CPython 3.12–3.14 suites on macOS ARM64 are complete. Hosted platform wheels, Linux AddressSanitizer, and the pre-tag build-only run remain required before publishing. See [release evidence](RELEASE_0_1.md).
 
-Release gates include clean wheel installs, declared-platform tests, real application cases, reconciled license metadata, and evidence-backed documentation. Existing publishing automation is not proof of release readiness.
-
-Preserve NumPy attribution and licensing for reused code or tests. Keep generated build output and machine-specific environments out of future changes.
-
-## Documentation
-
-Use [docs/README.md](README.md) to find the relevant guide. Distinguish current behavior, proposed design, and observed results. Update the canonical rebuild plan when the accepted direction changes, then align related guides. Source-level API comments should follow the same rule.
+Use [docs/README.md](README.md) to find the current project guides. Describe current behavior separately from future plans and observed results.

@@ -1,14 +1,15 @@
 [build-system]
-requires = ["maturin>=1.0,<2.0"]
+requires = ["maturin==1.14.1"]
 build-backend = "maturin"
 
 [project]
 name = "raptors"
 version = "0.1.0"
-description = "A Rust implementation of NumPy's C/C++ core with Python bindings"
+description = "A safe Rust-backed NumPy-compatible array preview"
 readme = "README.md"
-requires-python = ">=3.7"
-license = {text = "MIT"}
+requires-python = ">=3.12,<3.15"
+license = "MIT"
+license-files = ["LICENSE"]
 authors = [
     {name = "Raptors Contributors"}
 ]
@@ -18,31 +19,27 @@ classifiers = [
     "Intended Audience :: Science/Research",
     "Programming Language :: Rust",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.7",
-    "Programming Language :: Python :: 3.8",
-    "Programming Language :: Python :: 3.9",
-    "Programming Language :: Python :: 3.10",
-    "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Programming Language :: Python :: Implementation :: CPython",
-    "Programming Language :: Python :: Implementation :: PyPy",
     "Topic :: Scientific/Engineering",
-]
-dependencies = [
-    "numpy>=1.16.0",
 ]
 
 [project.optional-dependencies]
 dev = [
-    "pytest>=7.0",
-    "pytest-cov>=4.0",
+    "hypothesis>=6.140,<7",
+    "maturin==1.14.1",
+    "numpy==2.5.3",
+    "pytest>=9,<10",
+    "twine>=6,<7",
 ]
 
 [project.urls]
-Homepage = "https://github.com/your-org/raptors"
-Documentation = "https://github.com/your-org/raptors#readme"
-Repository = "https://github.com/your-org/raptors"
-Issues = "https://github.com/your-org/raptors/issues"
+Homepage = "https://github.com/eddiethedean/raptors"
+Documentation = "https://github.com/eddiethedean/raptors/tree/main/docs"
+Repository = "https://github.com/eddiethedean/raptors"
+Issues = "https://github.com/eddiethedean/raptors/issues"
 
 [tool.maturin]
 features = []
@@ -52,13 +49,11 @@ features = []
 [tool.maturin.sdist]
 include = [
     "Cargo.toml",
-    "src/**/*",
     "pyproject.toml",
     "README.md",
+    "LICENSE",
+    "src/**/*.rs",
 ]
 
 [tool.pytest.ini_options]
-filterwarnings = [
-    "ignore::pytest.PytestRemovedIn9Warning",
-]
-
+testpaths = ["tests/preview"]

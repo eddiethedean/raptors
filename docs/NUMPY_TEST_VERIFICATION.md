@@ -2,55 +2,56 @@
 
 Updated: 2026-09-28.
 
-**The rebuild has no full conformance report yet.** Previous statements that all NumPy core tests had been ported and passed have been withdrawn. The [rebuild plan](REBUILD_PLAN.md) requires a new reproducible baseline.
+**The 0.1 preview has local evidence, not full NumPy conformance.** The baseline for the legacy implementation, current preview results, and remaining hosted gates are separated below. Earlier claims that broad NumPy suites had been ported and passed are withdrawn.
 
-## Observed checks
+## Legacy baseline before the preview implementation
 
-During repository familiarization, at legacy revision `9fbe407`:
+Repository revision: `42df6d680b629556e8c1dbccf10e3caea072e3d6`. Local inspection environment: macOS ARM64, Python 3.11.14, NumPy 2.4.3, pytest 9.1.1, and Rust 1.96.0.
 
-| Check | Observed result | What it establishes |
+| Command | Result | What it establishes |
 | --- | --- | --- |
-| `cargo test -p raptors-core --lib --quiet` | Succeeded with warnings; zero tests ran | The library test target built |
-| `cargo test -p raptors-core --test array_test --quiet` | Five passed | That small integration suite passed |
-| `cargo check -p raptors-python --quiet` | Succeeded with warnings | The Python crate type-checked; no Python runtime conformance claim |
-| Full Rust and Python suites | Not run during that inspection | Overall status remains unverified |
-| NumPy comparison benchmarks | Not run | No speed advantage established |
+| `cargo test --locked -p raptors-core --lib -- --quiet` | Exit 0 with compiler warnings; 0 tests | The legacy core library test target compiled; it did not test behavior. |
+| `cargo check --locked -p raptors-python --quiet` | Exit 0 with 18 warnings | The old binding crate type-checked in this environment; no Python runtime conformance claim. |
+| `python3 -m pytest raptors-python/tests --collect-only -q` | Exit 1 before collection | Ambient `pytest_cases` plugin failed against pytest 9 (`IdMaker.__init__` positional-argument mismatch); no test count was obtained. |
+| Full legacy Python/Rust suites | Not established | The old CI's totals and `continue-on-error` paths were not reliable evidence. |
+| NumPy comparison benchmark | Not run at baseline | No legacy speed result. |
 
-These are dated inspection observations, not a clean, locked, multi-platform baseline. Build artifacts were placed outside the repository, but the core build script still recreated its tracked generated header; the original local deletion was restored.
+The earlier repository inspection at revision `9fbe407` also recorded five passing `raptors-core` array integration tests and zero library-only tests. Those observations do not repair the missing full baseline. The old implementation and its tests remain audit material, not 0.1 preview coverage.
 
-## Source findings requiring regression cases
+## Current 0.1 preview results
 
-- Narrow-dtype list construction writes through an `f64` pointer after allocating for the requested dtype.
-- Converting all list elements through `f64` can lose integer precision.
-- Shared mutable storage lacks a demonstrated concurrency contract.
-- Legacy C structures are not NumPy's documented binary layout.
-- Arithmetic copies inputs even when their dtypes already match.
-- Python test setup may skip collection if the extension cannot import.
+Local environment: macOS 26.5.2 ARM64, CPython 3.12.13/3.13.11/3.14.3, NumPy 2.5.3, Rust 1.96.0, and uv 0.11.3. The NumPy source submodule is checked out at `dd88c0c19b54ad9ed3533224221285bf0873249a`; the Python oracle/test dependencies are in `raptors-python/uv.lock`.
 
-These findings motivate tests and design work. They are not a complete audit or a claim that other paths are correct.
+| Check | Command or artifact | Result |
+| --- | --- | --- |
+| Storage | `cargo test --locked -p raptors-storage` | 7 passed, 0 failed |
+| Legacy core build script | `CARGO_TARGET_DIR=/tmp/raptors-core-out-target cargo check --locked -p raptors-core` | Passed with 4 legacy compiler warnings; generated `raptors_core.h` under Cargo `OUT_DIR`, outside the source tree |
+| Binding compile | `cargo check --locked -p raptors-python` | Passed |
+| Clippy | `cargo clippy --locked -p raptors-storage -p raptors-python --all-targets -- -D warnings` | Passed |
+| Rust formatting | `rustfmt --edition 2021 --check raptors-storage/src/lib.rs raptors-python/src/preview.rs raptors-python/src/preview_lib.rs raptors-python/build.rs` | Passed |
+| Unsafe-code boundary | `rg -n '\bunsafe\b' raptors-storage/src` | No matches |
+| Miri | `cargo +nightly miri test --locked -p raptors-storage` | 7 passed on `aarch64-apple-darwin` |
+| Differential/property suite | `PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python -m pytest raptors-python/tests/preview -q` in each locked CPython environment | 48 passed, 0 skipped on 3.12.13, 3.13.11, and 3.14.3 (macOS ARM64) |
+| Fault probes | `raptors-python/tests/preview/test_harness.py` | Detects seeded dtype, shape, broadcasting, alias-result, and expired-owner faults |
+| Wheel contract | `scripts/check_wheel_contract.py` on the local CPython 3.14 ARM64 wheel | Passed: expected tag, license, extension, and no runtime requirements |
+| Package metadata | `python -m twine check <wheel>` | Passed |
+| No-NumPy installation | `scripts/check_clean_install.py <wheel>` | Passed: fresh environment had no NumPy, imported Raptors, and mutated a shared view |
+| Benchmark | [`docs/benchmarks/raptors-0.1-baseline.json`](benchmarks/raptors-0.1-baseline.json) | 8 measurements recorded; NumPy has lower median latency for all four measured calls in this run; no speed claim |
 
-## Required v0.1 baseline report
+The Python suite is newly authored against the pinned NumPy oracle; it does not copy upstream NumPy tests. Hypothesis uses deterministic bounded strategies. Preview tests fail on import failure and have no skip or expected-failure markers.
 
-Record the repository revision, exact NumPy/Python/Rust versions, platform, build mode, dependency locks, artifact path, command, exit code, and captured output. Separate:
+## Remaining release checks
 
-- Collected, passed, failed, skipped, and expected-failure cases.
-- Crashes and aborted runs from ordinary assertion failures.
-- Python API conformance from Rust implementation tests.
-- Native execution from delegated or fallback execution.
-- Actual upstream ports from generated placeholders and newly authored tests.
+These jobs are configured in CI/release workflows but have **not** run on the current candidate changes:
 
-Every upstream-derived case needs a source revision, path, test identifier, preserved notices, and a review of adapted assertions.
+- The full 12-cell wheel matrix: Linux x86-64, macOS x86-64/ARM64, and Windows x86-64, each with CPython 3.12–3.14. Local extension builds and tests pass on macOS ARM64 for all three Python versions.
+- Hosted Linux AddressSanitizer storage tests.
+- The GitHub `workflow_dispatch` build-only release validation.
 
-## Reference checkout
+The workflow publishes only after those required jobs succeed for a `vX.Y.Z` tag. No tag or PyPI publication is part of this local verification.
 
-The NumPy submodule is already declared. To populate its recorded revision from the repository root:
+## Reproducibility and interpretation
 
-```bash
-git submodule update --init numpy-reference
-```
+For the preview environment and test commands, see [`raptors-python/TESTING.md`](../raptors-python/TESTING.md). The 0.1 API boundary and inventory are in [`compat/raptors-0.1.json`](../compat/raptors-0.1.json) and [`compat/numpy-api-2.5.3.json`](../compat/numpy-api-2.5.3.json). The generated inventory is a backlog map with preliminary target assignments, not 13,481 conformance claims.
 
-Do not add a second submodule. The recorded checkout is reference material; v0.1 must select and document an exact released NumPy version for the oracle and align the source reference with it.
-
-## Updating this record
-
-Replace observations with new dated evidence when checks are actually run. Keep failures visible until resolved. A rewritten document or a passing compile check must not advance a compatibility milestone. See [test porting](TEST_PORTING.md).
+The benchmark runs equivalent Python calls in separate processes with warmup and repeated samples. `tracemalloc` excludes Rust/native allocations; process peak RSS is coarse and allocator-dependent. This single-host run demonstrates no performance advantage and must not be generalized. See [`PERFORMANCE.md`](PERFORMANCE.md).

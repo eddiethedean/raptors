@@ -2,7 +2,9 @@
 
 Date: 2026-09-28
 
-Status: accepted project direction; the v0.1-v0.9 releases and their gates are pending. See the [0.x release roadmap](CONVERSION_ROADMAP.md) for versioned deliverables and the [documentation index](README.md) for aligned development and validation guides. This plan supersedes the legacy completion roadmap and async-service positioning.
+Status: accepted project direction; the 0.1 preview implementation is complete locally and its hosted release gate is pending. Releases 0.2–0.9 remain planned. See the [0.x release roadmap](CONVERSION_ROADMAP.md) for versioned deliverables and the [documentation index](README.md) for aligned development and validation guides. This plan supersedes the legacy completion roadmap and async-service positioning.
+
+The local 0.1 result includes the pinned NumPy oracle, generated API inventory, compatibility manifest, legacy baseline record, differential/property harness, new safe storage crate, PyO3 preview, wheel checks, benchmark, Miri job, and tag-triggered trusted-publisher workflow. CPython 3.12–3.14 suites pass locally on macOS ARM64; hosted platform and AddressSanitizer jobs are still required. See [release 0.1](RELEASE_0_1.md) for exact scope and evidence.
 
 ## Goal and recommendation
 
@@ -26,14 +28,14 @@ These are observations from source inspection, not a complete audit:
 - `raptors-python/src/array.rs` manually implements `Send` and `Sync`, justified by `Arc`. Reference counting alone does not synchronize mutable array storage.
 - `raptors-core/src/ffi/mod.rs::PyArrayObject` differs from NumPy's documented structure. Matching C function names did not establish NumPy ABI compatibility.
 - `raptors-core/src/operations/arithmetic.rs` copies inputs even when no dtype conversion is required. The execution design introduces unnecessary memory traffic before computation.
-- `raptors-python/tests/conftest.py` skips on import failure. Required package validation must fail when the package cannot load.
+- The legacy `numpy_port` conftest skips on import failure. The new preview test root imports the package directly and fails when it cannot load.
 - `docs/CONVERSION_ROADMAP.md` declares broad completion alongside known failures and missing behavior. Test counts and the presence of modules were being treated as proof of compatibility.
 
 Prior local checks established that five core array integration tests pass and the Python crate compiles with warnings. They do not establish overall correctness. A full baseline is a v0.1 deliverable.
 
 ## Compatibility contract
 
-Pin an exact released NumPy version as the behavioral reference, plus explicit Python and platform versions. Begin with NumPy 2.x semantics; choose and lock the exact release for v0.1. Keep a separate compatibility job for a newer NumPy release so upstream changes cannot silently change the reference.
+The [0.1 execution plan](RELEASE_0_1.md) pins NumPy **2.5.3** at `dd88c0c19b54ad9ed3533224221285bf0873249a` and GIL-enabled CPython **3.12–3.14** as the first support range. The Python dependency lock and source submodule match that reference. The release workflow declares Linux x86-64, macOS x86-64/ARM64, and Windows x86-64. Hosted builds remain pending. Keep a separate compatibility job for a newer NumPy release so upstream changes cannot silently change the reference.
 
 The eventual inventory includes:
 
@@ -45,7 +47,7 @@ The eventual inventory includes:
 - Reductions, sorting/searching, statistics, linear algebra, FFT, random generators/state, file I/O, masked arrays, polynomials, and public testing/typing helpers.
 - Array conversion and dispatch protocols, subclass behavior, serialization, and interoperation with external arrays.
 
-Record every inventory entry in a machine-readable compatibility manifest with reference version, semantic cases, implementation status, evidence, limitations, and milestone. Suggested states: unimplemented, partial, conformant, and delegated. A delegated NumPy call is not native implementation coverage.
+Record every inventory entry in a machine-readable compatibility manifest with reference version, semantic cases, implementation status, evidence, limitations, and milestone. The 0.1 generated inventory records preliminary release assignments and required case plans; later entries still need per-API semantic review before implementation. Suggested states: unimplemented, partial, conformant, and delegated. A delegated NumPy call is not native implementation coverage.
 
 The Array API standard may provide an early conformance suite, but its smaller surface does not define the final NumPy compatibility goal.
 
@@ -98,7 +100,7 @@ Deliverables:
 
 - Preserve the current revision and inventory reusable algorithms and tests.
 - Reproduce the existing Rust and Python suites in isolated environments; record crashes, failures, skips, and missing dependencies. Run crash-prone legacy tests in subprocesses.
-- Pin reference versions, platforms, and an initial set of representative application workloads.
+- Lock the selected NumPy 2.5.3 source/wheels, CPython 3.12–3.14 support matrix, platform/tool versions, and an initial set of representative application workloads.
 - Create the compatibility manifest and a Python benchmark harness comparing Raptors and NumPy.
 - Make required build/import failures fatal; verify tests import the newly built artifact. Move generated files into ignored build locations.
 
@@ -112,15 +114,15 @@ Compare more than numeric output: dtype, scalar versus array return, shape, rele
 
 Use curated upstream tests with their provenance and license notices preserved. Adapt imports and fixtures minimally; audit changes to assertions. Add generated cases using Hypothesis for Python and property testing for Rust. Shrink failures into permanent regressions. Exercise sequences of views, writes, copies, and owner destruction, not just isolated operations.
 
-**Exit gate:** the harness detects intentional faults in dtype selection, broadcasting, overlap, and view ownership. It fails for a missing extension and reports all skipped/unsupported cases explicitly.
+**Exit gate:** the harness detects intentional faults in dtype selection, broadcasting, overlap, and view ownership. It fails for a missing extension and reports all skipped/unsupported cases explicitly. The 0.1 preview's harness probes and import behavior pass locally; hosted Python versions remain pending.
 
 ### Work stream C — Prove the safe array foundation (v0.1 preview, v0.2 completion)
 
-Implement the new storage/layout design with a deliberately small dtype set: boolean, signed and unsigned 64-bit integers, and 32/64-bit floats. Support construction, scalars/empty arrays, basic slices, transpose, reshape, copy, and mutation.
+Implement the new storage/layout design with a deliberately small dtype set: boolean, signed and unsigned 64-bit integers, and 32/64-bit floats. The [0.1 preview](RELEASE_0_1.md) covers explicit-dtype construction, scalar and empty arrays, integer/basic-slice views, same-dtype assignment, and copy. Complete transpose, reshape, broader assignment and layout behavior in 0.2.
 
 Test allocation bounds, invalid metadata, negative and zero strides, non-contiguous access, parent destruction, repeated aliases, overlapping assignment, and read/write conflicts. Use Miri on isolated Rust storage/layout code, fuzz its constructors and operation sequences, and run sanitizer builds where supported. Test Python lifetimes through the actual extension.
 
-**Exit gate:** documented invariants, reviewed unsafe boundaries, passing foundation conformance tests, and no known sanitizer/Miri failures. Do not grow the operation catalog until this gate passes.
+**Exit gate:** the 0.1 preview passes its declared owner-lifetime, stride, overlap, bounds, and initialization cases with documented invariants, reviewed unsafe boundaries, and recorded Miri/sanitizer results. Local Rust/Miri tests pass; hosted sanitizer and wheel-matrix evidence is pending. Complete the remaining foundation cases in 0.2 before growing the operation catalog.
 
 ### Work stream D — Deliver one complete numeric path (v0.2-v0.3)
 
@@ -188,17 +190,9 @@ For each change:
 
 Do not weaken expected results, add blanket skips, catch all errors to return plausible output, or label a feature complete to make a milestone green. Missing runtime functionality must produce a clear unsupported status until implemented. Keep changes small enough for substantive review. Broad feature generation and simultaneous rewrites of interdependent foundations recreate the original risk.
 
-## First implementation batch
+## Current implementation checkpoint
 
-Start with work streams A and B for v0.1. The first reviewable changes should provide:
-
-1. A pinned compatibility contract and generated public API inventory.
-2. Isolated build/test environments that fail on import errors.
-3. A NumPy/Raptors differential harness with regressions for narrow-dtype construction, integer precision, alias mutation, negative strides, and overlapping assignment.
-4. A minimal safety-design document and prototype for shared storage and checked views.
-5. A reproducible Python performance baseline with allocation and memory measurements.
-
-Only after these are working should implementation of the new core proceed. Estimate subsequent work from the measured size and difficulty of the first complete numeric path. Full NumPy functionality is a sustained library engineering effort; a fixed short rewrite schedule would be speculation.
+The 0.1 work streams have local artifacts and results recorded in [RELEASE_0_1.md](RELEASE_0_1.md) and [NUMPY_TEST_VERIFICATION.md](NUMPY_TEST_VERIFICATION.md). Do not interpret this checkpoint as release approval: the hosted 12-cell OS/Python wheel matrix and Linux AddressSanitizer still need to pass on the candidate commit. Estimate later work from the reviewed inventory and the measured difficulty of each complete numeric path. Full NumPy functionality is a sustained library engineering effort; a fixed short rewrite schedule would be speculation.
 
 ## Reference material
 

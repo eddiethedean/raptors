@@ -2,132 +2,116 @@ name: CI
 
 on:
   push:
-    branches: [ main, develop ]
+    branches: [main, develop]
   pull_request:
-    branches: [ main, develop ]
+    branches: [main, develop]
+  workflow_dispatch:
+
+permissions:
+  contents: read
 
 jobs:
-  rust-tests:
-    name: Rust Tests
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        os: [ubuntu-latest, macos-latest]
-        rust: [stable]
-    
-    steps:
-      - uses: actions/checkout@v4
-      
-      - name: Install Rust
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: ${{ matrix.rust }}
-          override: true
-          components: rustfmt, clippy
-      
-      - name: Cache Cargo dependencies
-        uses: actions/cache@v3
-        with:
-          path: |
-            ~/.cargo/bin/
-            ~/.cargo/registry/index/
-            ~/.cargo/registry/cache/
-            ~/.cargo/git/db/
-            target/
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-cargo-
-      
-      - name: Run Rust tests (core)
-        run: |
-          cd raptors-core
-          cargo test --package raptors-core --lib
-      
-      - name: Run NumPy port tests (creation)
-        run: |
-          cd raptors-core
-          cargo test --package raptors-core --test numpy_port_creation_test
-      
-      - name: Run NumPy port tests (indexing)
-        run: |
-          cd raptors-core
-          cargo test --package raptors-core --test numpy_port_indexing_test
-      
-      - name: Run NumPy port tests (broadcasting)
-        run: |
-          cd raptors-core
-          cargo test --package raptors-core --test numpy_port_broadcasting_test
-      
-      - name: Run NumPy port tests (helpers)
-        run: |
-          cd raptors-core
-          cargo test --package raptors-core --test numpy_port_helpers_test
-      
-      - name: Run all Rust tests
-        run: |
-          cd raptors-core
-          cargo test --package raptors-core --tests
-      
-      - name: Run Clippy
-        run: |
-          cd raptors-core
-          cargo clippy --package raptors-core -- -D warnings
-      
-      - name: Check formatting
-        run: |
-          cd raptors-core
-          cargo fmt -- --check
-
-  python-tests:
-    name: Python Tests
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        os: [ubuntu-latest, macos-latest]
-        python-version: ['3.9', '3.10', '3.11']
-    
-    steps:
-      - uses: actions/checkout@v4
-      
-      - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v4
-        with:
-          python-version: ${{ matrix.python-version }}
-      
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install pytest pytest-cov numpy
-      
-      - name: Build Python bindings
-        run: |
-          cd raptors-python
-          pip install -e . --no-build-isolation
-      
-      - name: Run Python tests
-        run: |
-          cd raptors-python
-          pytest tests/ -v
-      
-      - name: Run NumPy port Python tests
-        run: |
-          cd raptors-python
-          pytest tests/numpy_port/ -v --tb=short
-        continue-on-error: true  # Some tests may skip if features not implemented
-
-  test-categorization:
-    name: Test Categorization
+  rust-checks:
+    name: Safe storage and binding Rust checks
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      
-      - name: Count Rust tests
-        run: |
-          echo "## Test Counts" >> $GITHUB_STEP_SUMMARY
-          echo "- Rust tests: $(cd raptors-core && cargo test --package raptors-core --tests 2>&1 | grep -c 'test result')" >> $GITHUB_STEP_SUMMARY
-          echo "- NumPy port tests: $(cd raptors-core && cargo test --package raptors-core --test numpy_port 2>&1 | grep -c 'test result' || echo '0')" >> $GITHUB_STEP_SUMMARY
-      
-      - name: Count Python tests
-        run: |
-          echo "- Python tests: $(cd raptors-python && pytest tests/ --collect-only -q 2>&1 | grep -c 'test session starts' || echo '0')" >> $GITHUB_STEP_SUMMARY
+      - uses: actions/checkout@v7
 
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Check preview formatting
+        run: rustfmt --edition 2021 --check raptors-storage/src/lib.rs raptors-python/src/preview.rs raptors-python/src/preview_lib.rs raptors-python/build.rs
+
+      - name: Keep raw-pointer code out of preview storage
+        run: |
+          if rg -n '\bunsafe\b' raptors-storage/src; then
+            echo 'The 0.1 storage crate must remain free of unsafe Rust.' >&2
+            exit 1
+          fi
+
+      - name: Test checked storage
+        run: cargo test --locked -p raptors-storage
+
+      - name: Check Python binding crate
+        run: cargo check --locked -p raptors-python
+
+      - name: Run Clippy on preview crates
+        run: cargo clippy --locked -p raptors-storage -p raptors-python --all-targets -- -D warnings
+
+  miri:
+    name: Miri storage and view tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: dtolnay/rust-toolchain@nightly
+        with:
+          components: miri
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Prepare Miri
+        run: cargo +nightly miri setup
+
+      - name: Run storage tests under Miri
+        run: cargo +nightly miri test --locked -p raptors-storage
+
+  address-sanitizer:
+    name: AddressSanitizer storage tests
+    runs-on: ubuntu-latest
+    env:
+      RUSTFLAGS: -Zsanitizer=address
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: dtolnay/rust-toolchain@nightly
+        with:
+          components: rust-src
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Run isolated storage tests under AddressSanitizer
+        run: cargo +nightly test -Zbuild-std --target x86_64-unknown-linux-gnu --locked -p raptors-storage
+
+  python-tests:
+    name: CPython ${{ matrix.python-version }} preview tests
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ['3.12', '3.13', '3.14']
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
+        with:
+          version: '0.12.19'
+          enable-cache: true
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - name: Install locked oracle and test dependencies
+        run: uv sync --project raptors-python --extra dev --locked --no-install-project --python "${{ matrix.python-version }}"
+
+      - name: Check inventory against the pinned oracle
+        if: matrix.python-version == '3.14'
+        run: |
+          python scripts/check_api_inventory.py
+          uv run --project raptors-python --extra dev --locked --no-sync python scripts/generate_numpy_api_inventory.py --output "$RUNNER_TEMP/numpy-api-2.5.3.json"
+          cmp compat/numpy-api-2.5.3.json "$RUNNER_TEMP/numpy-api-2.5.3.json"
+
+      - name: Build extension into the test environment
+        run: uv run --project raptors-python --extra dev --locked maturin develop --manifest-path raptors-python/Cargo.toml --release
+
+      - name: Run differential and property tests
+        env:
+          PYTEST_DISABLE_PLUGIN_AUTOLOAD: '1'
+        run: uv run --project raptors-python --extra dev --locked python -m pytest raptors-python/tests/preview -q

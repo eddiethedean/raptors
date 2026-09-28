@@ -1,39 +1,42 @@
-# Raptors Python
+# Raptors Python 0.1 preview
 
-Python bindings for the experimental Raptors array engine. The project is rebuilding toward NumPy's public functionality through:
+Raptors is rebuilding toward NumPy's public Python functionality through
+`import raptors as np`. Version 0.1 is a narrow, native Rust preview. It is not
+a general NumPy replacement and makes no performance claim.
+
+The preview supports explicit `bool`, `int64`, `uint64`, `float32`, and
+`float64` arrays; shape, dtype, size, and signed byte-stride metadata; basic
+integer and slice views; scalar assignment; exact-shape, same-dtype array
+assignment; and independent copies. The supported calls are listed in the
+[0.1 compatibility manifest](../compat/raptors-0.1.json). Arithmetic,
+reductions, dtype inference, casts, broadcasting, reshaping, NumPy interop, and
+the rest of NumPy's API remain outside this preview.
+
+Scalar indexing returns typed Raptors scalar wrappers. They support dtype
+inspection and basic conversion/comparison, but are not NumPy scalar classes
+and do not implement full scalar arithmetic or protocol behavior.
 
 ```python
-import raptors as np
+import raptors
+
+a = raptors.array([[1, 2], [3, 4]], dtype=raptors.int64)
+reverse_column = a[::-1, 1]
+reverse_column[0] = 9
 ```
 
-**That is the compatibility goal, not a claim that the current package is a drop-in replacement.** The [rebuild plan](../docs/REBUILD_PLAN.md) defines the design and acceptance gates.
+The extension uses the separate [`raptors-storage`](../raptors-storage)
+crate. It owns initialized typed Rust vectors, shares views through checked
+reference-counted storage, and does not import NumPy at runtime. NumPy 2.5.3 is
+used only by the test suite as the pinned behavior reference.
 
-## Current package
+## Build and test
 
-The extension uses PyO3 and delegates array work to the local `raptors-core` crate. It exposes array/dtype classes, constructors, selected operations and reductions, iteration, and NumPy conversion helpers. See the [API guide](../docs/API_GUIDE.md) for source locations and limitations.
+Use CPython 3.12–3.14. From the repository root, build with maturin against
+`raptors-python/Cargo.toml`, then run the preview suite in
+`raptors-python/tests/preview`. The repository's `uv.lock` pins the oracle and
+test tools. See [BUILD.md](BUILD.md), [TESTING.md](TESTING.md), and the
+[0.1 release gate](../docs/RELEASE_0_1.md).
 
-Known issues include unsafe narrow-dtype list construction and unproven view/concurrency contracts. Existing modules need differential validation before they count as compatible.
-
-The current Python metadata depends on NumPy. The rebuild targets native numeric execution without NumPy fallback, with NumPy serving as the reference oracle and optional interoperability dependency. That dependency change has not yet been implemented.
-
-## Development
-
-Follow [DEVELOPMENT.md](DEVELOPMENT.md) to create an isolated environment and explicitly rebuild the extension. Use [BUILD.md](BUILD.md) for wheel validation and [TESTING.md](TESTING.md) for the existing test commands and planned gates.
-
-This documentation does not assert that a public PyPI release is available or ready. The historical Python version classifiers and publishing matrix have not been validated as the rebuilt support policy.
-
-## Compatibility and safety
-
-The final scope includes NumPy's public dtypes, functions, methods, ufunc behavior, and submodules. Earlier releases must state their supported subset. Compiled extensions requiring NumPy objects need explicit adapters; NumPy binary-interface replacement is outside the release requirement.
-
-Memory safety depends on checked storage and controlled mutation, including aliases and foreign buffers. Performance claims require equivalent Python workloads, including allocation and conversion costs.
-
-## Documentation
-
-- [Project overview](../README.md)
-- [Documentation index](../docs/README.md)
-- [Architecture proposal](../docs/ARCHITECTURE.md)
-- [Contribution guide](../docs/CONTRIBUTING.md)
-- [Verification record](../docs/NUMPY_TEST_VERIFICATION.md)
-
-The metadata currently declares MIT; a top-level license file and consistent declarations are still needed before release.
+Only a clean wheel install without NumPy is currently part of the release
+package. Source distributions are not published until a clean source build is
+verified.

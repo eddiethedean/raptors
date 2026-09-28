@@ -1,64 +1,45 @@
 # Raptors
 
-Raptors is rebuilding a Rust-backed Python package with the goal of providing NumPy's public functionality through `import raptors as np`, with a sound memory model and measured performance improvements.
+Raptors is building a Rust-backed Python package for NumPy's public functionality. Applications can use `import raptors as np`; replacing NumPy's C ABI underneath precompiled extensions is outside the goal. Full compatibility is the destination, with each 0.x release advertising only its verified subset.
 
-**Status: rebuild planning; the current implementation is an experimental legacy prototype.** Full NumPy compatibility, memory safety, and a speed advantage have not been established. The new foundation and its acceptance gates are described in the [rebuild plan](docs/REBUILD_PLAN.md).
+## Current status
 
-## What we are building
+Version 0.1 is implemented locally as a narrow native preview. It supports explicit `bool`, `int64`, `uint64`, `float32`, and `float64` arrays; metadata; basic integer and slice views; scalar and exact-shape, same-dtype assignment; and independent copies. It does not implement arithmetic or general NumPy compatibility and makes no speed claim.
 
-- The same public functionality and defined behavior as a pinned NumPy release, including dtypes, scalar rules, views, mutation, errors, warnings, and submodules.
-- Rust storage and execution designed around checked layouts, shared ownership, controlled mutation, and small reviewed unsafe boundaries.
-- Reproducible performance gains on representative Python workloads, including conversion, allocation, and memory costs.
+The 0.1 release gate remains pending. Local CPython 3.12–3.14 differential/property suites, Rust tests, Miri, CPython 3.14 wheel metadata checks, a clean install without NumPy, and an informational benchmark have run on macOS ARM64. The hosted Linux/macOS/Windows wheel matrix and Linux AddressSanitizer gate have not run on the candidate changes. See the [verification record](docs/NUMPY_TEST_VERIFICATION.md) and [0.1 execution plan](docs/RELEASE_0_1.md).
 
-Changing the Python import is acceptable. Reproducing NumPy's binary interface underneath precompiled extensions is not a release requirement. Software requiring an actual `numpy.ndarray` will need explicit interoperability adapters.
+## Repository map
 
-Full functionality remains the destination. Early releases will identify their supported subset. Async scheduling, GPU support, JIT compilation, and distributed execution are deferred beyond the compatibility rebuild.
-
-## Current repository
-
-| Location | What exists today |
+| Location | Purpose |
 | --- | --- |
-| [raptors-core](raptors-core/) | Legacy Rust array engine, operations, experimental C facade, tests, and benchmarks |
-| [raptors-python](raptors-python/) | PyO3 bindings and Python tests for part of that engine |
-| [docs](docs/README.md) | Rebuild plan, proposed architecture, development guidance, and evidence requirements |
-| [scripts](scripts/) | Legacy test generators; generated stubs are not compatibility evidence |
-| [numpy-reference](numpy-reference/) | NumPy reference submodule, which may need initialization |
+| [raptors-storage](raptors-storage/) | New checked, initialized storage and signed-stride views for the preview; no unsafe Rust |
+| [raptors-python](raptors-python/) | PyO3 preview, package metadata, and differential/property tests |
+| [raptors-core](raptors-core/) | Legacy engine retained for audit and future reference; not used by the preview |
+| [compat](compat/) | NumPy 2.5.3 API inventory and executable 0.1 subset contract |
+| [numpy-reference](numpy-reference/) | Pinned NumPy 2.5.3 source checkout used for reference and provenance |
+| [docs](docs/README.md) | Rebuild plan, release roadmap, implementation evidence, and development guides |
 
-The presence of a module or a passing test does not establish that its NumPy behavior is complete. Existing code and tests will be audited before reuse.
+NumPy is an optional development/test dependency and is not required at runtime. The preview extension owns its Rust buffers and can be installed and imported without NumPy.
 
-## Rebuild sequence
+## Build and test the preview
 
-1. Establish a reproducible baseline and pin the compatibility contract.
-2. Build a differential harness that runs the same cases against NumPy and Raptors.
-3. Prove the storage, layout, view, and mutation model.
-4. Complete a small numeric path through the Python API.
-5. Measure and improve end-to-end performance.
-6. Expand to the full declared public functionality.
-7. Validate applications, release wheels, and ongoing compatibility.
-
-See the [0.x release roadmap](docs/CONVERSION_ROADMAP.md) for versioned deliverables and exit gates. No release gate has passed yet.
-
-## Working with the legacy prototype
-
-From the repository root:
+From the repository root with CPython 3.12, 3.13, or 3.14:
 
 ```bash
-cargo build -p raptors-core
-cargo test -p raptors-core --tests
+uv sync --project raptors-python --extra dev --locked --python 3.14 --no-install-project
+uv run --project raptors-python --extra dev --no-sync maturin develop --manifest-path raptors-python/Cargo.toml --release
+uv run --project raptors-python --extra dev --no-sync python -m pytest raptors-python/tests/preview -q
+cargo test --locked -p raptors-storage
 ```
 
-Use the [Python development guide](raptors-python/DEVELOPMENT.md) for an isolated environment and an explicit extension build. These commands exercise the current implementation; failures are baseline findings, not permission to weaken tests.
+See [Python build](raptors-python/BUILD.md), [Python testing](raptors-python/TESTING.md), and the [0.x roadmap](docs/CONVERSION_ROADMAP.md) for the supported boundary and required checks.
 
-The core build script currently generates `raptors-core/target/include/raptors_core.h` inside the source tree, even when Cargo's target directory is redirected. Moving generated output is a v0.1 task.
+## Release workflow
 
-## Evidence so far
+`.github/workflows/release.yml` validates the tag and package versions, runs Rust safety checks, builds and tests wheels across the declared platform/Python matrix, then publishes those wheels to PyPI through the configured trusted publisher. It triggers on exact `vX.Y.Z` tags. A manual run performs the validation/build path without publishing.
 
-During the initial inspection on 2026-09-28, five core array integration tests passed and the Python crate passed a compile check with warnings. The core library-only test command ran zero tests. The full suites, Python runtime compatibility, and performance against NumPy were not verified.
-
-The [verification record](docs/NUMPY_TEST_VERIFICATION.md) describes these limits and the report required next. Earlier completion percentages and test totals have been withdrawn.
+Do not tag 0.1 until the pending gates in the [release plan](docs/RELEASE_0_1.md) have passed. Source distributions are not published until a clean source build is verified.
 
 ## Documentation
 
-Start with the [documentation index](docs/README.md), [rebuild plan](docs/REBUILD_PLAN.md), and [contribution guide](docs/CONTRIBUTING.md).
-
-Project license declarations need reconciliation before release: the Python metadata declares MIT, but the repository has no top-level license file. Preserve upstream notices for any reused NumPy material; selecting a project license is separate work.
+Start with the [documentation index](docs/README.md), [rebuild plan](docs/REBUILD_PLAN.md), and [release 0.1 evidence](docs/RELEASE_0_1.md). The project is MIT licensed; see [LICENSE](LICENSE).

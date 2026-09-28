@@ -1,6 +1,6 @@
 # Raptors architecture
 
-**Status: proposed rebuild design, with a legacy implementation in the repository.** The [rebuild plan](REBUILD_PLAN.md) defines the acceptance gates. This document does not claim the proposed safeguards already exist.
+**Status: the 0.1 storage and binding slice is implemented; the broader execution design remains planned.** The [rebuild plan](REBUILD_PLAN.md) defines the acceptance gates. The new preview uses checked storage; hosted safety and platform gates are still pending.
 
 ## Public contract
 
@@ -8,7 +8,16 @@ The Python package targets NumPy's public functionality and defined behavior for
 
 Rust APIs support the Python implementation and may change during the rebuild. Array API standard conformance can be an early test target, but does not cover the full NumPy goal.
 
-## Existing implementation
+## Current preview and retained legacy code
+
+| Component | Current location | Status |
+| --- | --- | --- |
+| Checked initialized typed vectors, owners, and signed-stride views | [`raptors-storage`](../raptors-storage/) | 0.1 implementation; seven Rust tests pass normally and under local Miri; no `unsafe` in the crate |
+| Narrow Python API and scalar conversion | [`preview.rs`](../raptors-python/src/preview.rs), [`preview_lib.rs`](../raptors-python/src/preview_lib.rs) | 0.1 implementation; explicit dtypes and basic view/mutation operations only |
+| Differential and property checks | [`tests/preview`](../raptors-python/tests/preview/) | 48 local cases pass on CPython 3.12–3.14 against the pinned oracle |
+| Python project and test lock | [`pyproject.toml`](../raptors-python/pyproject.toml), [`uv.lock`](../raptors-python/uv.lock) | CPython 3.12–3.14 metadata; NumPy is development-only |
+
+The supported Python path no longer imports the old Rust array engine. That engine remains in the repository for audit and future reference:
 
 | Component | Current location | Rebuild treatment |
 | --- | --- | --- |
@@ -18,7 +27,7 @@ Rust APIs support the Python implementation and may change during the rebuild. A
 | Python objects and conversion | [Python sources](../raptors-python/src/) | Preserve compatible behavior only after differential validation |
 | Experimental C wrappers | [ffi](../raptors-core/src/ffi/) | Legacy interface; no NumPy ABI guarantee |
 
-Manual `Send`/`Sync` implementations in the bindings and shared `Arc` ownership do not establish safe concurrent mutation. Existing view, allocation, and conversion code requires review before reuse.
+Manual `Send`/`Sync` implementations in the legacy bindings and shared `Arc` ownership do not establish safe concurrent mutation. Existing legacy view, allocation, and conversion code requires review before reuse.
 
 ## Proposed layers
 
@@ -36,7 +45,7 @@ Shared storage, checked layouts, and guarded access
 
 Python-specific exceptions, dispatch, and callbacks stay at the binding boundary. Array semantics determine output types and layout before execution. Scalar reference kernels provide an oracle for optimized implementations, alongside NumPy comparisons.
 
-Use maintained numerical components when their semantics, licensing, platform support, and safety boundaries fit the contract. Component selection is part of the v0.2 storage prototype.
+The 0.1 implementation is intentionally narrower than this full design: it has no arithmetic execution plan, broadcasting, kernel layer, or numerical backend. Use maintained numerical components when their semantics, licensing, platform support, and safety boundaries fit the contract. The [v0.1 preview](RELEASE_0_1.md) validates the first storage choice; v0.2 completes the array foundation.
 
 ## Storage and layout invariants
 

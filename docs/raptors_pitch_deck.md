@@ -8,7 +8,7 @@ Provide NumPy's public functionality through `import raptors as np`, with a soun
 
 ## Current status
 
-The repository contains an experimental legacy prototype. Full compatibility, memory safety, and a speed advantage have not been established. The rebuild plan has been written; implementation gates are pending.
+The repository now contains a narrow 0.1 preview on a separate checked storage path. Local CPython 3.12–3.14 differential/property suites pass on macOS ARM64, along with Rust and Miri checks. The CPython 3.14 wheel and NumPy-free installation checks pass. Hosted cross-platform and AddressSanitizer gates remain pending. This preview does not establish full compatibility, a general memory-safety guarantee, or faster execution.
 
 ## Why rebuild
 
@@ -16,12 +16,12 @@ The previous approach declared broad completion without proving behavior. The ne
 
 ## Execution plan
 
-1. Baseline the prototype and inventory the public API.
-2. Build a differential harness against NumPy.
-3. Prove checked storage, shared views, and controlled mutation.
-4. Complete one numeric path through Python.
-5. Demonstrate reproducible performance wins.
-6. Expand to full public functionality and validate release wheels.
+1. Pin NumPy 2.5.3 and record the legacy baseline and public API inventory.
+2. Build a differential harness with seeded faulty-backend checks.
+3. Implement checked storage, shared views, and a small Python preview.
+4. Pass hosted safety and release-wheel gates before publishing 0.1.
+5. Extend dtype, array, and numeric behavior through the 0.x phases.
+6. Demonstrate reproducible workload gains only after broader correctness is established.
 
 ## Evidence before claims
 
@@ -35,6 +35,6 @@ Async job APIs, GPU support, JIT compilation, and distributed execution are defe
 
 ## Next milestone
 
-Deliver the pinned compatibility contract, reproducible baseline, differential harness, and storage prototype before expanding feature coverage.
+Run the release workflow's build-only validation on the candidate changes, resolve any cross-platform or sanitizer failures, and publish 0.1 only after its full gate passes.
 
 See the [rebuild plan](REBUILD_PLAN.md) for detailed milestones and acceptance gates.

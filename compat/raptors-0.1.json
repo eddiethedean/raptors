@@ -1,0 +1,87 @@
+{
+  "schema_version": 1,
+  "release": "0.1",
+  "status": "local_implementation_complete_release_gate_pending",
+  "reference": {
+    "distribution": "numpy",
+    "version": "2.5.3",
+    "source_tag": "v2.5.3",
+    "source_commit": "dd88c0c19b54ad9ed3533224221285bf0873249a",
+    "source_checkout": "../numpy-reference",
+    "python_lock": "../raptors-python/uv.lock"
+  },
+  "support": {
+    "python_implementation": "CPython",
+    "python_versions": ["3.12", "3.13", "3.14"],
+    "gil_enabled_only": true,
+    "platforms": [
+      "manylinux x86_64",
+      "macOS x86_64",
+      "macOS arm64",
+      "Windows x86_64"
+    ],
+    "runtime_dependencies": []
+  },
+  "api": {
+    "module": "raptors",
+    "scalar_results": {
+      "representation": "typed Raptors scalar wrappers",
+      "supported_behavior": ["dtype inspection", "comparison", "bool conversion", "int/float conversion when applicable"],
+      "known_limits": ["not NumPy scalar classes", "no full scalar arithmetic or protocol compatibility"]
+    },
+    "array_function": {
+      "status": "implemented",
+      "signature": "array(data, dtype)",
+      "cases": ["raptors-python/tests/preview/test_differential.py", "raptors-python/tests/preview/test_properties.py"],
+      "limits": ["dtype is required", "only Python bool/int/float scalars and rectangular list/tuple nesting"]
+    },
+    "zeros_function": {
+      "status": "implemented",
+      "signature": "zeros(shape, dtype=None)",
+      "default_dtype": "float64",
+      "cases": ["raptors-python/tests/preview/test_differential.py", "raptors-python/tests/preview/test_properties.py"]
+    },
+    "empty_function": {
+      "status": "implemented",
+      "signature": "empty(shape, dtype=None)",
+      "default_dtype": "float64",
+      "storage_initialization": "zero initialized; returned values are unspecified by contract",
+      "cases": ["raptors-python/tests/preview/test_differential.py", "raptors-python/tests/preview/test_properties.py"]
+    },
+    "dtypes": ["bool", "int64", "uint64", "float32", "float64"],
+    "metadata": ["shape", "ndim", "size", "dtype", "strides"],
+    "indexing": ["integer", "slice", "tuple of integer and slice indices", "negative index", "negative step", "empty slice"],
+    "mutation": ["scalar assignment", "same-dtype exact-shape array assignment", "overlap snapshot", "copy"]
+  },
+  "unsupported": [
+    "dtype inference",
+    "string/object input conversion",
+    "arithmetic and ufuncs",
+    "broadcasting",
+    "reductions",
+    "casts and dtype promotion",
+    "reshape and transpose",
+    "fancy/boolean indexing and ellipsis",
+    "foreign buffers and NumPy interoperation",
+    "NumPy dispatch protocols",
+    "NumPy scalar class identity and full scalar protocol behavior",
+    "NumPy C ABI compatibility"
+  ],
+  "api_inventory": {
+    "path": "compat/numpy-api-2.5.3.json",
+    "entry_count": 13481,
+    "semantic_review": "preliminary phase assignments and generic case plans; not behavioral evidence"
+  },
+  "evidence": {
+    "local_environment": "macOS 26.5.2 arm64; Rust 1.96.0; NumPy 2.5.3; preview suites on CPython 3.12.13, 3.13.11, and 3.14.3",
+    "rust_storage_tests": {"status": "passed_locally", "passed": 7},
+    "python_differential_tests": {"status": "passed_locally_all_supported_python_versions", "path": "raptors-python/tests/preview", "passed_per_version": 48, "skipped_per_version": 0, "python_versions": ["3.12.13", "3.13.11", "3.14.3"], "platform": "macOS arm64"},
+    "property_tests": "Hypothesis with deterministic bounded examples, included in the 48 passing Python cases",
+    "miri": {"status": "passed_locally", "passed": 7, "target": "aarch64-apple-darwin"},
+    "sanitizer": {"status": "pending_hosted_ci", "target": "x86_64-unknown-linux-gnu"},
+    "cross_platform_wheels": {"status": "pending_hosted_ci", "matrix_size": 12, "local_extension_builds": ["CPython 3.12 macOS arm64", "CPython 3.13 macOS arm64", "CPython 3.14 macOS arm64"], "local_wheel_contract_check": "CPython 3.14 macOS arm64"},
+    "clean_import_without_numpy": "passed_locally for the CPython 3.14 macOS arm64 wheel",
+    "performance_baseline": {"path": "docs/benchmarks/raptors-0.1-baseline.json", "status": "recorded_locally", "claim": "informational; no speed advantage claimed"},
+    "release_workflow": "build-only workflow_dispatch and hosted matrix have not yet run on the candidate changes"
+  }
+}

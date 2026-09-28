@@ -1,69 +1,46 @@
 # API guide
 
-**Status: legacy API orientation and target behavior.** The [rebuild plan](REBUILD_PLAN.md) defines the destination. This is not a complete or validated NumPy compatibility reference.
+**Status: 0.1 preview API plus legacy source orientation.** The [rebuild plan](REBUILD_PLAN.md) defines the destination. The [0.1 manifest](../compat/raptors-0.1.json) is the authority for current availability; the generated NumPy inventory is a preliminary backlog, not a conformance reference.
 
-## Target Python API
+## Current Python preview
 
-Applications should eventually keep their NumPy expressions and change the import:
+The package uses a different import from NumPy:
 
 ```python
-import raptors as np
+import raptors
+
+a = raptors.array([[1, 2], [3, 4]], dtype=raptors.int64)
+column = a[::-1, 1]
+column[0] = 9
 ```
 
-The contract covers values, dtypes, scalar behavior, shapes, views, mutation, keywords, exceptions, warnings, protocols, and public submodules at a pinned NumPy release. Passing arrays to software that requires an actual NumPy object will need explicit adapters.
+The preview exposes `array(data, dtype)`, `zeros(shape, dtype=None)`, `empty(shape, dtype=None)`, the dtype constants `bool_`, `int64`, `uint64`, `float32`, `float64`, and a limited `Array` with `shape`, `ndim`, `size`, `dtype`, `strides`, basic integer/slice indexing, scalar assignment, same-dtype exact-shape array assignment, and `copy()`.
 
-The machine-readable compatibility inventory is a v0.1 deliverable. Until it exists and its cases pass, API availability must not be presented as conformance.
+It does not expose arithmetic, broadcasting, reductions, dtype inference, reshape/transpose, advanced indexing, or NumPy interoperation. Scalar indexing returns typed Raptors wrappers, not NumPy scalar classes. Check the manifest before using any call in an application.
 
-## Existing Python entry points
+## Legacy source tree
 
-The [module registration](../raptors-python/src/lib.rs) currently exposes `PyArray`/`Array`, `PyDType`/`DType`, an iterator, constructors, dtype constants, selected ufunc functions, and NumPy conversion helpers.
+The old extension source remains for audit, but the built 0.1 Python module does not register or call it. These files are not evidence that the preview supports the corresponding operations:
 
-| Area | Existing names or locations | Validation needed |
+| Legacy area | Source | Current interpretation |
 | --- | --- | --- |
-| Construction | `zeros`, `ones`, `empty`, `array` | Shape rules, dtype inference/conversion, initialization |
-| Properties | `shape`, `dtype`, `size`, `ndim`, `itemsize`, `strides`, layout flags | Return types and view/layout semantics |
-| Array operations | Arithmetic/comparison operators, indexing, assignment, copy, view, reshape, transpose, flatten | Aliasing, broadcasting, dtype promotion, errors |
-| Math and reductions | Functions registered in [ufunc.rs](../raptors-python/src/ufunc.rs) | Supported dtypes, keyword behavior, axes, numerical results |
-| Interoperation | `from_numpy`, `to_numpy`, conversion and DLPack methods | Copy behavior, ownership, protocol compliance |
-| Custom dtypes | Registration helpers in [dtype.rs](../raptors-python/src/dtype.rs) | Full semantics and lifetime contracts |
+| Old array and dtype bindings | [`src/lib.rs`](../raptors-python/src/lib.rs), [`array.rs`](../raptors-python/src/array.rs), [`dtype.rs`](../raptors-python/src/dtype.rs) | Retained prototype code; not compiled into the preview extension |
+| Old ufuncs and iterators | [`ufunc.rs`](../raptors-python/src/ufunc.rs), [`iterators.rs`](../raptors-python/src/iterators.rs) | Retained for audit; not registered in the preview |
+| Old NumPy adapters | [`numpy_interop.rs`](../raptors-python/src/numpy_interop.rs) | Not part of the 0.1 package API |
+| Old core crate | [`raptors-core`](../raptors-core/) | Legacy implementation; not the new safe storage layer |
 
-This table maps source locations, not feature completeness. For example, a reduction with an `axis` argument does not establish support for the full NumPy signature.
+The preview's PyO3 module is [`preview.rs`](../raptors-python/src/preview.rs), backed by [`raptors-storage`](../raptors-storage/).
 
-A minimal legacy inspection example, after building the extension:
+## Rust implementation API
 
-```python
-import raptors as np
+`raptors-storage` supplies typed initialized vectors, checked views, indexing, snapshot assignment, and independent copies. It is an internal foundation for the Python preview, not a stable public Rust compatibility layer. The older `raptors-core` types are unrelated to the preview's storage contract.
 
-a = np.zeros([2, 3], dtype=np.float64)
-print(a.shape, a.size, a.ndim)
-```
+## Behavior still to prove in later releases
 
-Examples here describe registered entry points; they were not executed as part of the documentation update. Do not use list-to-array construction with arbitrary dtypes as a safety example: its existing `f64` copy path needs replacement.
+- Numeric dtype widths, promotion, casts, and complete scalar semantics.
+- Reshape, transpose, broadcasting, advanced indexing, and full assignment rules.
+- Ufunc keywords/methods, reductions, numerical accuracy, warnings, and errors.
+- File formats, foreign ownership, DLPack/buffer adapters, and dispatch protocols.
+- Public submodules, specialized dtypes, and the remaining API inventory.
 
-## Existing Rust API
-
-The core crate re-exports `Array`, `DType`, `zeros`, `ones`, and `empty`. Dtype identifiers live in `raptors_core::types`.
-
-```rust
-use raptors_core::{zeros, DType};
-use raptors_core::types::NpyType;
-
-let array = zeros(vec![2, 3], DType::new(NpyType::Double)).unwrap();
-assert_eq!(array.shape(), &[2, 3]);
-assert_eq!(array.size(), 6);
-```
-
-The existing [builder](../raptors-core/src/array/builder.rs), traits, and operation modules are implementation references. They may change during the rebuild. Raw-pointer access is not the proposed default safe Rust interface.
-
-## Behavior the rebuild must prove
-
-- Constructors preserve integer precision and requested dtypes.
-- Basic slices share storage; advanced indexing and copies follow NumPy's rules.
-- Deleting a parent does not invalidate a live view.
-- Negative strides, zero-sized dimensions, transposes, and broadcasting are valid inputs.
-- Overlapping assignment and `out=` preserve the reference result.
-- Scalar promotion and ufunc methods/keywords match the pinned NumPy release.
-- Errors, warnings, and numerical edge cases are compared as part of the contract.
-- Unsafe metadata and uncontrolled external mutation are outside an unconditional safety guarantee.
-
-See [architecture](ARCHITECTURE.md), [test porting](TEST_PORTING.md), and [migration guidance](CONVERSION_GUIDE.md). Public documentation will expand with passing compatibility evidence.
+See [architecture](ARCHITECTURE.md), [test porting](TEST_PORTING.md), [migration guidance](CONVERSION_GUIDE.md), and the [release roadmap](CONVERSION_ROADMAP.md).
