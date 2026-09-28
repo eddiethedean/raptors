@@ -73,6 +73,81 @@ def test_shape_errors_match_numpy(shape, error):
         raptors.zeros(shape)
 
 
+def test_shape_dimensions_reject_booleans():
+    with pytest.raises(TypeError):
+        np.zeros((True,))
+    with pytest.raises(TypeError):
+        raptors.zeros((True,))
+
+
+def test_reshape_infers_one_dimension():
+    reference = np.arange(24, dtype=np.int64)
+    candidate = raptors.array(reference.tolist(), dtype=raptors.int64)
+    assert_array_matches(reference.reshape((2, -1)), candidate.reshape((2, -1)))
+    assert_array_matches(reference.reshape((-1, 3, 2)), candidate.reshape((-1, 3, 2)))
+    assert raptors.zeros((0,), dtype=raptors.int64).reshape((-1,)).shape == (0,)
+
+    for shape in ((2, -1, -1), (5, -1), (0, -1)):
+        with pytest.raises(ValueError):
+            reference.reshape(shape)
+        with pytest.raises(ValueError):
+            candidate.reshape(shape)
+
+
+def test_array_copy_none_accepts_copy_if_needed_semantics():
+    source = raptors.array([1, 2, 3], dtype=raptors.int64)
+    reused = raptors.array(source, copy=None)
+    assert_array_matches(np.array([1, 2, 3], dtype=np.int64), reused)
+
+    copied_from_sequence = raptors.array([1, 2, 3], dtype=raptors.int64, copy=None)
+    assert_array_matches(np.array([1, 2, 3], dtype=np.int64), copied_from_sequence)
+
+
+def test_astype_preserves_fortran_layout_by_default():
+    reference = np.asfortranarray(np.arange(12, dtype=np.int64).reshape(3, 4))
+    candidate = raptors.array(reference.tolist(), dtype=raptors.int64, order="F")
+
+    actual = candidate.astype("float32")
+    expected = reference.astype(np.float32)
+    assert_array_matches(expected, actual)
+    assert actual.f_contiguous and not actual.c_contiguous
+
+    c_order = candidate.astype("float32", order="C")
+    assert c_order.c_contiguous and not c_order.f_contiguous
+
+
+def test_longlong_dtype_alias_metadata_survives_arrays_and_scalars():
+    for code, constant_name, scalar_name in (
+        ("q", "longlong", "LongLongScalar"),
+        ("Q", "ulonglong", "ULongLongScalar"),
+    ):
+        expected = np.dtype(code)
+        descriptor = raptors.DType(code)
+        assert descriptor.char == expected.char
+        assert descriptor.name == expected.name
+        assert getattr(raptors, constant_name).char == expected.char
+
+        if expected.char != getattr(raptors, "int64" if code == "q" else "uint64").char:
+            assert descriptor.type.__name__ == scalar_name
+
+        value = -3 if code == "q" else 3
+        candidate = raptors.array([value], dtype=code)
+        assert candidate.dtype.char == expected.char
+        if expected.char != getattr(raptors, "int64" if code == "q" else "uint64").char:
+            assert type(candidate[0]).__name__ == scalar_name
+
+
+def test_ellipsis_counts_nested_boolean_list_rank():
+    values = np.arange(24, dtype=np.int64).reshape(2, 3, 2, 2)
+    mask = [[True, False], [False, True]]
+    candidate = raptors.array(values.tolist(), dtype=raptors.int64)
+    expected = values[..., mask]
+    actual = candidate[..., mask]
+    assert tuple(actual.shape) == expected.shape
+    for index in np.ndindex(expected.shape):
+        assert actual[index] == expected[index]
+
+
 def test_dtype_metadata_and_explicit_dtype_requirement():
     for dtype in (raptors.bool_, raptors.int64, raptors.uint64, raptors.float32, raptors.float64):
         assert dtype.name in {"bool", "int64", "uint64", "float32", "float64"}

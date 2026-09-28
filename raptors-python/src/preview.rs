@@ -11,11 +11,34 @@ use pyo3::types::{
 };
 use raptors_storage::{ByteOrder, DType, IndexItem, Scalar, StorageError, View};
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum ScalarAlias {
+    LongLong,
+    ULongLong,
+}
+
+impl ScalarAlias {
+    fn char(self) -> char {
+        match self {
+            Self::LongLong => 'q',
+            Self::ULongLong => 'Q',
+        }
+    }
+
+    fn class_name(self) -> &'static str {
+        match self {
+            Self::LongLong => "LongLongScalar",
+            Self::ULongLong => "ULongLongScalar",
+        }
+    }
+}
+
 #[pyclass(name = "DType", frozen, module = "raptors")]
 #[derive(Clone)]
 struct PyDType {
     inner: DType,
     byte_order: ByteOrder,
+    scalar_alias: Option<ScalarAlias>,
 }
 
 #[pymethods]
@@ -24,7 +47,11 @@ impl PyDType {
     fn new(name: &str) -> PyResult<Self> {
         let (inner, byte_order) = dtype_from_spec(name)
             .ok_or_else(|| PyValueError::new_err(format!("unsupported preview dtype {name:?}")))?;
-        Ok(Self { inner, byte_order })
+        Ok(Self {
+            inner,
+            byte_order,
+            scalar_alias: dtype_alias_for_spec(name, inner),
+        })
     }
     #[getter]
     fn name(&self) -> &'static str {
@@ -48,7 +75,9 @@ impl PyDType {
     }
     #[getter]
     fn char(&self) -> char {
-        self.inner.char()
+        self.scalar_alias
+            .map(ScalarAlias::char)
+            .unwrap_or_else(|| self.inner.char())
     }
     #[getter]
     fn isnative(&self) -> bool {
@@ -84,24 +113,27 @@ impl PyDType {
     }
     #[getter]
     fn r#type(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
-        let class_name = match self.inner {
-            DType::Bool => "BoolScalar",
-            DType::Int8 => "Int8Scalar",
-            DType::UInt8 => "UInt8Scalar",
-            DType::Int16 => "Int16Scalar",
-            DType::UInt16 => "UInt16Scalar",
-            DType::Int32 => "Int32Scalar",
-            DType::UInt32 => "UInt32Scalar",
-            DType::Int64 => "Int64Scalar",
-            DType::UInt64 => "UInt64Scalar",
-            DType::Float16 => "Float16Scalar",
-            DType::Float32 => "Float32Scalar",
-            DType::Float64 => "Float64Scalar",
-            DType::Complex64 => "Complex64Scalar",
-            DType::Complex128 => "Complex128Scalar",
-            DType::LongDouble => "LongDoubleScalar",
-            DType::ComplexLongDouble => "ComplexLongDoubleScalar",
-        };
+        let class_name = self
+            .scalar_alias
+            .map(ScalarAlias::class_name)
+            .unwrap_or_else(|| match self.inner {
+                DType::Bool => "BoolScalar",
+                DType::Int8 => "Int8Scalar",
+                DType::UInt8 => "UInt8Scalar",
+                DType::Int16 => "Int16Scalar",
+                DType::UInt16 => "UInt16Scalar",
+                DType::Int32 => "Int32Scalar",
+                DType::UInt32 => "UInt32Scalar",
+                DType::Int64 => "Int64Scalar",
+                DType::UInt64 => "UInt64Scalar",
+                DType::Float16 => "Float16Scalar",
+                DType::Float32 => "Float32Scalar",
+                DType::Float64 => "Float64Scalar",
+                DType::Complex64 => "Complex64Scalar",
+                DType::Complex128 => "Complex128Scalar",
+                DType::LongDouble => "LongDoubleScalar",
+                DType::ComplexLongDouble => "ComplexLongDoubleScalar",
+            });
         Ok(PyModule::import(py, "raptors")?
             .getattr(class_name)?
             .unbind())
@@ -161,6 +193,7 @@ impl PyDType {
         Ok(Self {
             inner: self.inner,
             byte_order,
+            scalar_alias: self.scalar_alias,
         })
     }
     fn __richcmp__(&self, other: &Bound<'_, PyAny>, op: CompareOp) -> bool {
@@ -185,6 +218,7 @@ impl PyDType {
 #[pyclass(name = "Array", frozen, module = "raptors")]
 struct PyArray {
     inner: View,
+    scalar_alias: Option<ScalarAlias>,
 }
 
 #[pyclass(name = "ArrayFlags", frozen, module = "raptors")]
@@ -282,6 +316,7 @@ impl PyArray {
             PyDType {
                 inner: self.inner.dtype(),
                 byte_order: self.inner.byte_order(),
+                scalar_alias: self.scalar_alias,
             },
         )
     }
@@ -298,6 +333,7 @@ impl PyArray {
     fn T(&self) -> PyResult<Self> {
         Ok(Self {
             inner: self.inner.transpose(None).map_err(map_storage_error)?,
+            scalar_alias: self.scalar_alias,
         })
     }
     #[pyo3(signature = (shape, order="C", copy=None))]
@@ -311,8 +347,13 @@ impl PyArray {
         Ok(Self {
             inner: self
                 .inner
-                .reshape_order(parse_shape(shape)?, copy, fortran)
+                .reshape_order(
+                    parse_reshape_shape(shape, self.inner.size().map_err(map_storage_error)?)?,
+                    copy,
+                    fortran,
+                )
                 .map_err(map_storage_error)?,
+            scalar_alias: self.scalar_alias,
         })
     }
     #[pyo3(signature = (*axes))]
@@ -336,20 +377,31 @@ impl PyArray {
                 .inner
                 .transpose(parsed_axes.as_deref())
                 .map_err(map_storage_error)?,
+            scalar_alias: self.scalar_alias,
         })
     }
-    fn astype(&self, dtype: &Bound<'_, PyAny>) -> PyResult<Self> {
-        let (dtype, byte_order) = parse_dtype_spec(dtype)?;
+    #[pyo3(signature = (dtype, order="K"))]
+    fn astype(&self, dtype: &Bound<'_, PyAny>, order: &str) -> PyResult<Self> {
+        let (dtype, byte_order, scalar_alias) = parse_dtype_spec(dtype)?;
+        let fortran = match order {
+            "C" => false,
+            "F" => true,
+            "A" => self.inner.is_f_contiguous(),
+            "K" => self.inner.is_f_contiguous() && !self.inner.is_c_contiguous(),
+            _ => return Err(PyValueError::new_err("order must be 'C', 'F', 'A', or 'K'")),
+        };
         Ok(Self {
             inner: self
                 .inner
-                .astype_with_order(dtype, byte_order)
+                .astype_with_layout(dtype, byte_order, fortran)
                 .map_err(map_storage_error)?,
+            scalar_alias,
         })
     }
     fn copy(&self) -> PyResult<Self> {
         Ok(Self {
             inner: self.inner.copy().map_err(map_storage_error)?,
+            scalar_alias: self.scalar_alias,
         })
     }
     fn __len__(&self) -> PyResult<usize> {
@@ -363,9 +415,20 @@ impl PyArray {
         let (indices, returns_scalar) = parse_indices(&self.inner, key)?;
         let selected = self.inner.index(&indices).map_err(map_storage_error)?;
         if returns_scalar {
-            scalar_to_python(py, selected.read_at(&[]).map_err(map_storage_error)?)
+            scalar_to_python(
+                py,
+                selected.read_at(&[]).map_err(map_storage_error)?,
+                self.scalar_alias,
+            )
         } else {
-            Ok(Py::new(py, Self { inner: selected })?.into_any())
+            Ok(Py::new(
+                py,
+                Self {
+                    inner: selected,
+                    scalar_alias: self.scalar_alias,
+                },
+            )?
+            .into_any())
         }
     }
     fn __setitem__(&self, key: &Bound<'_, PyAny>, value: &Bound<'_, PyAny>) -> PyResult<()> {
@@ -462,7 +525,7 @@ macro_rules! scalar_wrapper {
             fn __repr__(&self) -> String { format!("raptors.{}({:?})", $name, self.0) }
             fn __bool__(&self) -> bool { ($truth)(self.0) }
             #[getter]
-            fn dtype(&self, py: Python<'_>) -> PyResult<Py<PyDType>> { Py::new(py, PyDType { inner: DType::$dtype, byte_order: default_byte_order(DType::$dtype) }) }
+            fn dtype(&self, py: Python<'_>) -> PyResult<Py<PyDType>> { Py::new(py, PyDType { inner: DType::$dtype, byte_order: default_byte_order(DType::$dtype), scalar_alias: None }) }
             fn item(&self, py: Python<'_>) -> PyResult<Py<PyAny>> { Ok($native(self.0, py)?.unbind()) }
             fn __int__(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
                 let value = $native(self.0, py)?;
@@ -479,6 +542,82 @@ macro_rules! scalar_wrapper {
         }
     };
 }
+
+macro_rules! scalar_alias_wrapper {
+    ($class:ident, $name:literal, $ty:ty, $native:ident, $dtype:ident, $alias:expr, $truth:expr) => {
+        #[pyclass(name = $name, frozen, module = "raptors")]
+        #[derive(Clone)]
+        struct $class($ty);
+        #[pymethods]
+        impl $class {
+            fn __repr__(&self) -> String {
+                format!("raptors.{}({:?})", $name, self.0)
+            }
+            fn __bool__(&self) -> bool {
+                ($truth)(self.0)
+            }
+            #[getter]
+            fn dtype(&self, py: Python<'_>) -> PyResult<Py<PyDType>> {
+                Py::new(
+                    py,
+                    PyDType {
+                        inner: DType::$dtype,
+                        byte_order: default_byte_order(DType::$dtype),
+                        scalar_alias: Some($alias),
+                    },
+                )
+            }
+            fn item(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
+                Ok($native(self.0, py)?.unbind())
+            }
+            fn __int__(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
+                let value = $native(self.0, py)?;
+                Ok(PyModule::import(py, "builtins")?
+                    .getattr("int")?
+                    .call1((value,))?
+                    .unbind())
+            }
+            fn __float__(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
+                let value = $native(self.0, py)?;
+                Ok(PyModule::import(py, "builtins")?
+                    .getattr("float")?
+                    .call1((value,))?
+                    .unbind())
+            }
+            fn __index__(&self) -> $ty {
+                self.0
+            }
+            fn __richcmp__(
+                &self,
+                py: Python<'_>,
+                other: &Bound<'_, PyAny>,
+                op: CompareOp,
+            ) -> PyResult<Py<PyAny>> {
+                Ok($native(self.0, py)?.rich_compare(other, op)?.unbind())
+            }
+        }
+    };
+}
+
+scalar_alias_wrapper!(
+    PyLongLongScalar,
+    "LongLongScalar",
+    i64,
+    native_i64,
+    Int64,
+    ScalarAlias::LongLong,
+    |v: i64| v != 0
+);
+scalar_alias_wrapper!(
+    PyULongLongScalar,
+    "ULongLongScalar",
+    u64,
+    native_u64,
+    UInt64,
+    ScalarAlias::ULongLong,
+    |v: u64| v != 0
+);
+
 scalar_wrapper!(
     PyBoolScalar,
     "BoolScalar",
@@ -625,6 +764,7 @@ macro_rules! complex_scalar_wrapper {
                     PyDType {
                         inner: DType::$dtype,
                         byte_order: default_byte_order(DType::$dtype),
+                        scalar_alias: None,
                     },
                 )
             }
@@ -678,6 +818,7 @@ impl PyLongDoubleScalar {
             PyDType {
                 inner: DType::LongDouble,
                 byte_order: ByteOrder::Native,
+                scalar_alias: None,
             },
         )
     }
@@ -723,6 +864,7 @@ impl PyComplexLongDoubleScalar {
             PyDType {
                 inner: DType::ComplexLongDouble,
                 byte_order: ByteOrder::Native,
+                scalar_alias: None,
             },
         )
     }
@@ -736,29 +878,33 @@ impl PyComplexLongDoubleScalar {
 fn array(
     data: &Bound<'_, PyAny>,
     dtype: Option<&Bound<'_, PyAny>>,
-    copy: bool,
+    copy: Option<bool>,
     order: &str,
 ) -> PyResult<PyArray> {
     let requested = dtype.map(parse_dtype_spec).transpose()?;
     if let Ok(source) = data.extract::<PyRef<'_, PyArray>>() {
         let fortran = parse_array_order(order, Some(&source.inner))?;
-        let (target_dtype, target_byte_order) =
-            requested.unwrap_or((source.inner.dtype(), source.inner.byte_order()));
-        if !copy {
-            let order_matches = match order {
-                "C" => source.inner.is_c_contiguous(),
-                "F" => source.inner.is_f_contiguous(),
-                "A" | "K" => true,
-                _ => unreachable!("array order has already been validated"),
-            };
-            if target_dtype == source.inner.dtype()
-                && target_byte_order == source.inner.byte_order()
-                && order_matches
-            {
-                return Ok(PyArray {
-                    inner: source.inner.clone(),
-                });
-            }
+        let (target_dtype, target_byte_order, scalar_alias) = requested.unwrap_or((
+            source.inner.dtype(),
+            source.inner.byte_order(),
+            source.scalar_alias,
+        ));
+        let order_matches = match order {
+            "C" => source.inner.is_c_contiguous(),
+            "F" => source.inner.is_f_contiguous(),
+            "A" | "K" => true,
+            _ => unreachable!("array order has already been validated"),
+        };
+        let can_reuse = target_dtype == source.inner.dtype()
+            && target_byte_order == source.inner.byte_order()
+            && order_matches;
+        if can_reuse && copy != Some(true) {
+            return Ok(PyArray {
+                inner: source.inner.clone(),
+                scalar_alias,
+            });
+        }
+        if copy == Some(false) {
             return Err(PyValueError::new_err(
                 "copy=False cannot satisfy the requested dtype or memory order",
             ));
@@ -773,18 +919,21 @@ fn array(
                 .astype_with_layout(target_dtype, target_byte_order, fortran)
         }
         .map_err(map_storage_error)?;
-        return Ok(PyArray { inner });
+        return Ok(PyArray {
+            inner,
+            scalar_alias,
+        });
     }
-    if !copy {
+    if copy == Some(false) {
         return Err(PyValueError::new_err(
             "copy=False cannot avoid allocating storage for this input",
         ));
     }
     let fortran = parse_array_order(order, None)?;
-    let (shape, values) = flatten(data, requested.map(|(dtype, _)| dtype), 0)?;
-    let (dtype, byte_order) = match requested {
+    let (shape, values) = flatten(data, requested.map(|(dtype, _, _)| dtype), 0)?;
+    let (dtype, byte_order, scalar_alias) = match requested {
         Some(descriptor) => descriptor,
-        None => (infer_dtype(&values)?, ByteOrder::Native),
+        None => (infer_dtype(&values)?, ByteOrder::Native, None),
     };
     let values = values
         .iter()
@@ -793,6 +942,7 @@ fn array(
     Ok(PyArray {
         inner: View::from_values_with_layout(dtype, byte_order, shape, &values, fortran)
             .map_err(map_storage_error)?,
+        scalar_alias,
     })
 }
 
@@ -833,6 +983,7 @@ fn promote_types(left: &Bound<'_, PyAny>, right: &Bound<'_, PyAny>) -> PyResult<
     Ok(PyDType {
         inner,
         byte_order: default_byte_order(inner),
+        scalar_alias: None,
     })
 }
 
@@ -847,30 +998,25 @@ fn construct(
         "F" => true,
         _ => return Err(PyValueError::new_err("order must be 'C' or 'F'")),
     };
-    let (dtype, byte_order) = match dtype {
+    let (dtype, byte_order, scalar_alias) = match dtype {
         Some(value) if !value.is_none() => parse_dtype_spec(value)?,
-        _ => (DType::Float64, ByteOrder::Native),
+        _ => (DType::Float64, ByteOrder::Native, None),
     };
     let view = View::zeros_with_layout(dtype, byte_order, shape, fortran);
     Ok(PyArray {
         inner: view.map_err(map_storage_error)?,
+        scalar_alias,
     })
 }
 fn parse_shape(value: &Bound<'_, PyAny>) -> PyResult<Vec<usize>> {
-    let dims: Vec<Bound<'_, PyAny>> =
-        if value.is_instance_of::<PyInt>() && !value.is_instance_of::<PyBool>() {
-            vec![value.clone()]
-        } else if let Ok(tuple) = value.cast::<PyTuple>() {
-            tuple.iter().collect()
-        } else if let Ok(list) = value.cast::<PyList>() {
-            list.iter().collect()
-        } else {
-            return Err(PyTypeError::new_err(
-                "shape must be an integer or tuple/list of integers",
-            ));
-        };
+    let dims = shape_dimensions(value)?;
     let mut shape = Vec::with_capacity(dims.len());
     for dim in dims {
+        if dim.is_instance_of::<PyBool>() {
+            return Err(PyTypeError::new_err(
+                "shape dimensions must be integers, not booleans",
+            ));
+        }
         let dim = dim.extract::<isize>()?;
         if dim < 0 {
             return Err(PyValueError::new_err("negative dimensions are not allowed"));
@@ -883,6 +1029,68 @@ fn parse_shape(value: &Bound<'_, PyAny>) -> PyResult<Vec<usize>> {
         ));
     }
     Ok(shape)
+}
+
+fn parse_reshape_shape(value: &Bound<'_, PyAny>, input_size: usize) -> PyResult<Vec<usize>> {
+    let dims = shape_dimensions(value)?;
+    if dims.len() > 64 {
+        return Err(PyValueError::new_err(
+            "maximum supported number of dimensions is 64",
+        ));
+    }
+
+    let mut shape = Vec::with_capacity(dims.len());
+    let mut inferred_axis = None;
+    let mut known_size = 1usize;
+    for (axis, dim) in dims.into_iter().enumerate() {
+        if dim.is_instance_of::<PyBool>() {
+            return Err(PyTypeError::new_err(
+                "shape dimensions must be integers, not booleans",
+            ));
+        }
+        let dim = dim.extract::<isize>()?;
+        if dim == -1 {
+            if inferred_axis.replace(axis).is_some() {
+                return Err(PyValueError::new_err(
+                    "can only specify one unknown dimension",
+                ));
+            }
+            shape.push(0);
+        } else if dim < 0 {
+            return Err(PyValueError::new_err("negative dimensions are not allowed"));
+        } else {
+            let dim = dim as usize;
+            known_size = known_size
+                .checked_mul(dim)
+                .ok_or_else(|| PyValueError::new_err("requested shape is too large"))?;
+            shape.push(dim);
+        }
+    }
+
+    if let Some(axis) = inferred_axis {
+        if known_size == 0 || input_size % known_size != 0 {
+            return Err(PyValueError::new_err(format!(
+                "cannot reshape array of size {input_size} into shape {:?}",
+                shape
+            )));
+        }
+        shape[axis] = input_size / known_size;
+    }
+    Ok(shape)
+}
+
+fn shape_dimensions<'py>(value: &Bound<'py, PyAny>) -> PyResult<Vec<Bound<'py, PyAny>>> {
+    if value.is_instance_of::<PyInt>() && !value.is_instance_of::<PyBool>() {
+        Ok(vec![value.clone()])
+    } else if let Ok(tuple) = value.cast::<PyTuple>() {
+        Ok(tuple.iter().collect())
+    } else if let Ok(list) = value.cast::<PyList>() {
+        Ok(list.iter().collect())
+    } else {
+        Err(PyTypeError::new_err(
+            "shape must be an integer or tuple/list of integers",
+        ))
+    }
 }
 
 fn parse_axes(value: &Bound<'_, PyAny>) -> PyResult<Vec<isize>> {
@@ -1056,13 +1264,14 @@ fn infer_dtype(values: &[Scalar]) -> PyResult<DType> {
             promoted.promote(value.dtype())
         }))
 }
-fn parse_dtype_spec(value: &Bound<'_, PyAny>) -> PyResult<(DType, ByteOrder)> {
+fn parse_dtype_spec(value: &Bound<'_, PyAny>) -> PyResult<(DType, ByteOrder, Option<ScalarAlias>)> {
     if let Ok(dtype) = value.extract::<PyRef<'_, PyDType>>() {
-        return Ok((dtype.inner, dtype.byte_order));
+        return Ok((dtype.inner, dtype.byte_order, dtype.scalar_alias));
     }
     if let Ok(name) = value.extract::<String>() {
-        return dtype_from_spec(&name)
-            .ok_or_else(|| PyValueError::new_err(format!("unsupported preview dtype {name:?}")));
+        let (inner, byte_order) = dtype_from_spec(&name)
+            .ok_or_else(|| PyValueError::new_err(format!("unsupported preview dtype {name:?}")))?;
+        return Ok((inner, byte_order, dtype_alias_for_spec(&name, inner)));
     }
     let builtins = PyModule::import(value.py(), "builtins")?;
     for (name, dtype) in [
@@ -1079,12 +1288,28 @@ fn parse_dtype_spec(value: &Bound<'_, PyAny>) -> PyResult<(DType, ByteOrder)> {
         ("complex", DType::Complex128),
     ] {
         if value.is(&builtins.getattr(name)?) {
-            return Ok((dtype, default_byte_order(dtype)));
+            return Ok((dtype, default_byte_order(dtype), None));
         }
     }
     Err(PyTypeError::new_err(
         "dtype must be a raptors DType, a built-in numeric type, or a supported dtype name",
     ))
+}
+
+fn dtype_alias_for_spec(name: &str, dtype: DType) -> Option<ScalarAlias> {
+    let base = match name.as_bytes().first().copied() {
+        Some(b'<') | Some(b'>') | Some(b'=') | Some(b'|') => &name[1..],
+        _ => name,
+    };
+    match base {
+        "q" | "longlong" if dtype == DType::Int64 && DType::Int64.char() != 'q' => {
+            Some(ScalarAlias::LongLong)
+        }
+        "Q" | "ulonglong" if dtype == DType::UInt64 && DType::UInt64.char() != 'Q' => {
+            Some(ScalarAlias::ULongLong)
+        }
+        _ => None,
+    }
 }
 fn default_byte_order(dtype: DType) -> ByteOrder {
     if matches!(dtype, DType::Bool | DType::Int8 | DType::UInt8) {
@@ -1185,6 +1410,16 @@ fn parse_indices(array: &View, key: &Bound<'_, PyAny>) -> PyResult<(Vec<IndexIte
                     index_array.inner.ndim()
                 } else {
                     1
+                }
+            } else if key.is_instance_of::<PyList>() || key.is_instance_of::<PyTuple>() {
+                match flatten_index_array(key, 0) {
+                    Ok((shape, values))
+                        if !values.is_empty()
+                            && values.iter().all(|value| matches!(value, Scalar::Bool(_))) =>
+                    {
+                        shape.len()
+                    }
+                    _ => 1,
                 }
             } else {
                 1
@@ -1455,7 +1690,20 @@ fn flatten_index_array(
     }
     Ok((Vec::new(), vec![value_to_untyped_scalar(value)?]))
 }
-fn scalar_to_python(py: Python<'_>, value: Scalar) -> PyResult<Py<PyAny>> {
+fn scalar_to_python(
+    py: Python<'_>,
+    value: Scalar,
+    scalar_alias: Option<ScalarAlias>,
+) -> PyResult<Py<PyAny>> {
+    match (&value, scalar_alias) {
+        (Scalar::Int64(value), Some(ScalarAlias::LongLong)) => {
+            return Ok(Py::new(py, PyLongLongScalar(*value))?.into_any());
+        }
+        (Scalar::UInt64(value), Some(ScalarAlias::ULongLong)) => {
+            return Ok(Py::new(py, PyULongLongScalar(*value))?.into_any());
+        }
+        _ => {}
+    }
     match value {
         Scalar::Bool(x) => Ok(Py::new(py, PyBoolScalar(x))?.into_any()),
         Scalar::Int8(x) => Ok(Py::new(py, PyInt8Scalar(x))?.into_any()),
@@ -1513,6 +1761,8 @@ pub(super) fn register(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_class::<PyUInt32Scalar>()?;
     module.add_class::<PyInt64Scalar>()?;
     module.add_class::<PyUInt64Scalar>()?;
+    module.add_class::<PyLongLongScalar>()?;
+    module.add_class::<PyULongLongScalar>()?;
     module.add_class::<PyFloat16Scalar>()?;
     module.add_class::<PyFloat32Scalar>()?;
     module.add_class::<PyFloat64Scalar>()?;
@@ -1617,6 +1867,7 @@ pub(super) fn register(module: &Bound<'_, PyModule>) -> PyResult<()> {
                 PyDType {
                     inner: dtype,
                     byte_order: default_byte_order(dtype),
+                    scalar_alias: dtype_alias_for_spec(name, dtype),
                 },
             )?,
         )?;
@@ -1629,6 +1880,7 @@ pub(super) fn register(module: &Bound<'_, PyModule>) -> PyResult<()> {
                 PyDType {
                     inner: DType::LongDouble,
                     byte_order: default_byte_order(DType::LongDouble),
+                    scalar_alias: None,
                 },
             )?,
         )?;
@@ -1639,6 +1891,7 @@ pub(super) fn register(module: &Bound<'_, PyModule>) -> PyResult<()> {
                 PyDType {
                     inner: DType::ComplexLongDouble,
                     byte_order: default_byte_order(DType::ComplexLongDouble),
+                    scalar_alias: None,
                 },
             )?,
         )?;
