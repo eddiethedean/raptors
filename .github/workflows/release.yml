@@ -1,0 +1,161 @@
+name: Release to PyPI
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+permissions:
+  contents: read
+
+jobs:
+  validate-tag:
+    name: Validate release tag and package versions
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Check exact vX.Y.Z tag and version consistency
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          python - <<'PY'
+          import os
+          import pathlib
+          import re
+          import tomllib
+
+          tag = os.environ["RELEASE_TAG"]
+          match = re.fullmatch(r"v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)", tag)
+          if match is None:
+              raise SystemExit(f"Tag {tag!r} is not an exact vX.Y.Z release tag")
+          expected = ".".join(match.groups())
+
+          root = pathlib.Path.cwd()
+          versions = {
+              "root Cargo workspace": tomllib.loads((root / "Cargo.toml").read_text())["workspace"]["package"]["version"],
+              "raptors-core crate": tomllib.loads((root / "raptors-core/Cargo.toml").read_text())["package"]["version"],
+              "raptors-python crate": tomllib.loads((root / "raptors-python/Cargo.toml").read_text())["package"]["version"],
+              "Python project metadata": tomllib.loads((root / "raptors-python/pyproject.toml").read_text())["project"]["version"],
+          }
+          mismatches = {name: version for name, version in versions.items() if version != expected}
+          if mismatches:
+              details = ", ".join(f"{name}={version}" for name, version in versions.items())
+              raise SystemExit(f"Tag v{expected} does not match package versions: {details}")
+
+          print(f"Validated release tag {tag}; all package versions are {expected}.")
+          PY
+
+  rust-checks:
+    name: Rust checks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Check formatting
+        run: cargo fmt --all -- --check
+
+      - name: Run core Rust tests
+        run: cargo test --locked --package raptors-core --lib --tests
+
+      - name: Run Clippy
+        run: cargo clippy --locked --package raptors-core -- -D warnings
+
+  build-test-wheels:
+    name: Build and test ${{ matrix.os }} / Python ${{ matrix.python-version }}
+    needs: [validate-tag, rust-checks]
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        python-version: ['3.7', '3.8', '3.9', '3.10', '3.11', '3.12']
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install test dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install numpy pytest pytest-cov twine
+        shell: bash
+
+      - name: Build Linux manylinux wheel
+        if: matrix.os == 'ubuntu-latest'
+        uses: PyO3/maturin-action@86b9d133d34bc1b40018696f782949dac11bd380 # v1.49.4
+        env:
+          PYO3_PYTHON: python${{ matrix.python-version }}
+        with:
+          command: build
+          maturin-version: v1.11.5
+          manylinux: '2014'
+          docker-options: --env PYO3_PYTHON=python${{ matrix.python-version }}
+          args: --release --locked --manifest-path raptors-python/Cargo.toml --interpreter python${{ matrix.python-version }} --compatibility pypi --out dist
+
+      - name: Build macOS or Windows wheel
+        if: matrix.os != 'ubuntu-latest'
+        uses: PyO3/maturin-action@86b9d133d34bc1b40018696f782949dac11bd380 # v1.49.4
+        env:
+          PYO3_PYTHON: python
+        with:
+          command: build
+          maturin-version: v1.11.5
+          args: --release --locked --manifest-path raptors-python/Cargo.toml --interpreter python --out dist
+
+      - name: Install built wheel and runtime dependencies
+        run: python -m pip install --force-reinstall --no-deps dist/raptors-*.whl
+        shell: bash
+
+      - name: Require the installed extension to import
+        run: python -c "import raptors; print(raptors.__file__)"
+        shell: bash
+
+      - name: Run Python test suite
+        run: python -m pytest raptors-python/tests -v --tb=short
+        shell: bash
+
+      - name: Check wheel metadata
+        run: python -m twine check dist/raptors-*.whl
+        shell: bash
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist-${{ runner.os }}-py${{ matrix.python-version }}
+          path: dist/*.whl
+          if-no-files-found: error
+          retention-days: 7
+
+  publish:
+    name: Publish validated wheels to PyPI
+    needs: [validate-tag, rust-checks, build-test-wheels]
+    runs-on: ubuntu-latest
+    # Configure the PyPI Trusted Publisher for this repository, this workflow
+    # file (release.yml), and the GitHub environment named "pypi".
+    environment:
+      name: pypi
+      url: https://pypi.org/p/raptors
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: dist-*
+          path: dist
+          merge-multiple: true
+
+      - name: Publish package distributions to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1

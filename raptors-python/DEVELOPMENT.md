@@ -1,330 +1,56 @@
-# Development Guide for Raptors Python
+# Python development setup
 
-This guide explains how to set up and work on the Raptors Python bindings.
+These instructions are for inspecting and testing the **legacy prototype** while the [rebuild](../docs/REBUILD_PLAN.md) is planned. The supported rebuild toolchain and exact NumPy oracle will be pinned for v0.1.
 
-## Development Setup
+## Isolated environment
 
-### Prerequisites
-
-- Rust toolchain (install from https://rustup.rs/)
-- Python 3.7 or later
-- maturin (`pip install maturin` or `cargo install maturin`)
-- pytest (for running Python tests)
-
-### Initial Setup
-
-1. Clone the repository:
-   ```bash
-   git clone https://github.com/your-org/raptors.git
-   cd raptors
-   ```
-
-2. Set up the test environment (required for running Rust tests):
-   ```bash
-   cd raptors-python
-   ./setup_test_env.sh
-   ```
-   This script configures the Python library paths needed for linking tests.
-
-3. Install the package in editable mode:
-   ```bash
-   maturin develop
-   ```
-
-4. Install development dependencies:
-   ```bash
-   pip install -e .[dev]
-   ```
-
-## Project Structure
-
-```
-raptors-python/
-├── Cargo.toml          # Rust crate configuration
-├── pyproject.toml      # Python package configuration
-├── src/                # Rust source code
-│   ├── lib.rs         # Module entry point
-│   ├── array.rs       # Array bindings
-│   ├── dtype.rs       # DType bindings
-│   ├── ufunc.rs       # Ufunc bindings
-│   ├── iterators.rs   # Iterator bindings
-│   └── numpy_interop.rs  # NumPy interop
-├── tests/              # Test files
-│   ├── *.rs          # Rust unit tests
-│   └── test_*.py     # Python pytest tests
-├── examples/          # Example scripts
-└── README.md         # Package documentation
-```
-
-## Running Tests
-
-### Quick Start
-
-Run all tests (recommended):
+From the repository root, on macOS or Linux, use an available Python 3.11 interpreter as an initial inspection environment:
 
 ```bash
-# Using the test runner script
-./run_tests.sh
-
-# Or using Make
-make test
+python3.11 -m venv /tmp/raptors-dev-venv
+source /tmp/raptors-dev-venv/bin/activate
+python -m pip install maturin numpy pytest pytest-cov
+export PYO3_PYTHON="$VIRTUAL_ENV/bin/python"
+maturin develop --manifest-path raptors-python/Cargo.toml
+python -c "import raptors; print(raptors.__file__); print(raptors.__version__)"
 ```
 
-### Rust Tests
+These bootstrap dependencies are not a reproducible lock or the chosen oracle. Record exact versions and pin them before producing baseline evidence. Use a fresh environment instead of the old environment stored under the package directory.
 
-Run Rust unit tests:
+On Windows, create a separate environment with the selected interpreter, activate its `Scripts` environment, and set `PYO3_PYTHON` to that environment's Python executable. A validated Windows setup is part of the release matrix work.
+
+The checked-in [Cargo configuration](../.cargo/config.toml) contains a machine-specific Python path. The explicit environment variable selects your interpreter without rewriting that file.
+
+## Rebuild after Rust changes
+
+Run `maturin develop --manifest-path raptors-python/Cargo.toml` again after changing Rust. Editable installation does not automatically recompile native code. Confirm the imported artifact path to avoid testing an older installation.
+
+For optimized measurements, add `--release`. See [BUILD.md](BUILD.md) for wheel installation tests.
+
+## Existing checks
+
+From the repository root, with the environment active:
 
 ```bash
-cargo test --lib
+cargo test -p raptors-core --test array_test
+cargo check -p raptors-python
+python -c "import raptors; print(raptors.__file__)" &&
+python -m pytest raptors-python/tests/ -v
 ```
 
-Run specific test:
+The explicit import must succeed before Python tests run. Existing collection logic can otherwise skip tests when the module is missing. See [TESTING.md](TESTING.md) for full-suite commands, linking limitations, and expected baseline reporting.
 
-```bash
-cargo test test_array_creation
-```
+## Repository behavior to account for
 
-Run with output:
+- The core build script writes a generated header under `raptors-core/target/include/`, even with an external Cargo target directory.
+- The legacy `setup_test_env.sh` rewrites the workspace Cargo configuration. Inspect it before use; it is not the recommended default setup.
+- The legacy test runner and Make targets invoke library-only Rust tests. They do not establish full integration-test coverage.
+- Current CI and publishing workflows need v0.1 review; their existence is not a support guarantee.
 
-```bash
-cargo test --lib -- --nocapture
-```
+## Rebuild workflow
 
-### Python Tests
+Choose work from the [current milestone](../docs/CONVERSION_ROADMAP.md). Define reference behavior, add adversarial cases, review affected invariants, implement a small change, and capture actual verification results.
 
-**Important**: Ensure the module is built before running Python tests:
+The differential harness, compatibility manifest, and safety automation are planned. Do not describe them as present until implemented. Preserve unresolved failures and unsupported cases explicitly.
 
-```bash
-# Build the module first (if not already built)
-maturin develop
-```
-
-Then run pytest tests:
-
-```bash
-pytest tests/
-```
-
-Run specific test file:
-
-```bash
-pytest tests/test_array.py
-```
-
-Run with verbose output:
-
-```bash
-pytest tests/ -v
-```
-
-Run with coverage:
-
-```bash
-pytest tests/ --cov=raptors
-```
-
-### All Tests
-
-Run both Rust and Python tests:
-
-```bash
-# Using the test runner script
-./run_tests.sh
-
-# Or manually
-cargo test --lib && pytest tests/
-```
-
-## Development Workflow
-
-### Making Changes
-
-1. Make changes to Rust code in `src/`
-2. Rebuild automatically (if using `maturin develop`):
-   ```bash
-   maturin develop
-   ```
-3. Test your changes:
-   ```bash
-   cargo test
-   pytest tests/
-   ```
-
-### Testing Changes
-
-1. Build in release mode for performance testing:
-   ```bash
-   maturin develop --release
-   ```
-
-2. Test in Python:
-   ```python
-   import raptors
-   # Test your changes
-   ```
-
-3. Run examples:
-   ```bash
-   python examples/basic_usage.py
-   ```
-
-## Code Style
-
-### Rust
-
-- Use `rustfmt` for formatting:
-  ```bash
-  cargo fmt
-  ```
-
-- Use `clippy` for linting:
-  ```bash
-  cargo clippy
-  ```
-
-### Python
-
-- Follow PEP 8 style guide
-- Use `black` for formatting (if configured)
-- Use `pylint` or `flake8` for linting (if configured)
-
-## Debugging
-
-### Rust Debugging
-
-1. Build with debug symbols:
-   ```bash
-   maturin develop
-   ```
-
-2. Use `println!` or `dbg!` for debugging
-3. Use a Rust debugger (gdb, lldb)
-
-### Python Debugging
-
-1. Use Python debugger:
-   ```python
-   import pdb; pdb.set_trace()
-   ```
-
-2. Use IDE debugger (VS Code, PyCharm, etc.)
-
-### Common Issues
-
-**Import errors:**
-- Rebuild: `maturin develop`
-- Check Python path
-- Verify installation: `pip show raptors`
-
-**Build errors:**
-- Update Rust: `rustup update`
-- Update maturin: `pip install --upgrade maturin`
-- Clean build: `cargo clean && maturin develop`
-
-**Test failures:**
-- Check Python version compatibility
-- Verify dependencies are installed
-- Check test environment setup
-
-**Linker errors when running tests:**
-If you see linker errors like "symbol(s) not found for architecture", you need to configure the Python library path:
-```bash
-# Run the setup script (recommended)
-./setup_test_env.sh
-
-# Or manually create .cargo/config.toml with Python library paths
-# The setup script will do this automatically
-```
-
-## Building Locally
-
-### Development Build
-
-```bash
-maturin develop
-```
-
-### Release Build
-
-```bash
-maturin develop --release
-```
-
-### Build Wheel
-
-```bash
-maturin build --release
-```
-
-See [BUILD.md](BUILD.md) for more details.
-
-## Testing PyPI Uploads Locally
-
-1. Build the package:
-   ```bash
-   maturin build --release
-   ```
-
-2. Test installation from local wheel:
-   ```bash
-   pip install target/wheels/raptors-*.whl
-   ```
-
-3. Test in clean environment:
-   ```bash
-   python -m venv test_env
-   source test_env/bin/activate
-   pip install target/wheels/raptors-*.whl
-   python -c "import raptors; print(raptors.__version__)"
-   deactivate
-   rm -rf test_env
-   ```
-
-## Adding New Features
-
-### Adding a New Python Binding
-
-1. Add Rust code in `src/`:
-   ```rust
-   #[pyfunction]
-   fn my_new_function() -> PyResult<PyObject> {
-       // Implementation
-   }
-   ```
-
-2. Register in `src/lib.rs`:
-   ```rust
-   m.add_function(wrap_pyfunction!(my_new_function, m)?)?;
-   ```
-
-3. Add tests in `tests/`
-4. Update documentation
-
-### Adding Tests
-
-1. Add Rust test in `tests/*_test.rs`
-2. Add Python test in `tests/test_*.py`
-3. Run tests to verify
-
-## Version Management
-
-When updating the version:
-
-1. Update `Cargo.toml` (workspace root)
-2. Update `raptors-python/Cargo.toml`
-3. Update `raptors-python/pyproject.toml`
-4. Update changelog (if maintained)
-
-## Documentation
-
-- Update `README.md` for user-facing changes
-- Update docstrings in Rust code (they appear in Python)
-- Update examples if API changes
-
-## Getting Help
-
-- Check [BUILD.md](BUILD.md) for build issues
-- Check main [README.md](../README.md) for project overview
-- Check [CONTRIBUTING.md](../docs/CONTRIBUTING.md) for contribution guidelines
-- Open an issue on GitHub
-
+See [contribution guidance](../docs/CONTRIBUTING.md) and [test porting](../docs/TEST_PORTING.md).

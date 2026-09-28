@@ -1,401 +1,69 @@
-# Raptors Core API Guide
+# API guide
 
-This guide provides examples and patterns for using Raptors Core.
+**Status: legacy API orientation and target behavior.** The [rebuild plan](REBUILD_PLAN.md) defines the destination. This is not a complete or validated NumPy compatibility reference.
 
-## Getting Started
+## Target Python API
 
-### Basic Array Creation
+Applications should eventually keep their NumPy expressions and change the import:
 
-```rust
-use raptors_core::{Array, zeros, ones, empty};
-use raptors_core::types::{DType, NpyType};
-
-// Create a zero-filled array
-let shape = vec![3, 4];
-let dtype = DType::new(NpyType::Double);
-let array = zeros(shape.clone(), dtype).unwrap();
-
-// Create a one-filled array
-let array = ones(shape.clone(), dtype.clone()).unwrap();
-
-// Create an empty (uninitialized) array
-let array = empty(shape, dtype).unwrap();
+```python
+import raptors as np
 ```
 
-### Using the Builder Pattern
+The contract covers values, dtypes, scalar behavior, shapes, views, mutation, keywords, exceptions, warnings, protocols, and public submodules at a pinned NumPy release. Passing arrays to software that requires an actual NumPy object will need explicit adapters.
 
-```rust
-use raptors_core::array::builder::ArrayBuilder;
-use raptors_core::types::{DType, NpyType};
+The machine-readable compatibility inventory is a v0.1 deliverable. Until it exists and its cases pass, API availability must not be presented as conformance.
 
-let array = ArrayBuilder::new()
-    .with_shape(vec![3, 4])
-    .with_dtype(DType::new(NpyType::Double))
-    .with_fill_value(5.0)
-    .build()
-    .unwrap();
+## Existing Python entry points
+
+The [module registration](../raptors-python/src/lib.rs) currently exposes `PyArray`/`Array`, `PyDType`/`DType`, an iterator, constructors, dtype constants, selected ufunc functions, and NumPy conversion helpers.
+
+| Area | Existing names or locations | Validation needed |
+| --- | --- | --- |
+| Construction | `zeros`, `ones`, `empty`, `array` | Shape rules, dtype inference/conversion, initialization |
+| Properties | `shape`, `dtype`, `size`, `ndim`, `itemsize`, `strides`, layout flags | Return types and view/layout semantics |
+| Array operations | Arithmetic/comparison operators, indexing, assignment, copy, view, reshape, transpose, flatten | Aliasing, broadcasting, dtype promotion, errors |
+| Math and reductions | Functions registered in [ufunc.rs](../raptors-python/src/ufunc.rs) | Supported dtypes, keyword behavior, axes, numerical results |
+| Interoperation | `from_numpy`, `to_numpy`, conversion and DLPack methods | Copy behavior, ownership, protocol compliance |
+| Custom dtypes | Registration helpers in [dtype.rs](../raptors-python/src/dtype.rs) | Full semantics and lifetime contracts |
+
+This table maps source locations, not feature completeness. For example, a reduction with an `axis` argument does not establish support for the full NumPy signature.
+
+A minimal legacy inspection example, after building the extension:
+
+```python
+import raptors as np
+
+a = np.zeros([2, 3], dtype=np.float64)
+print(a.shape, a.size, a.ndim)
 ```
 
-## Array Properties
+Examples here describe registered entry points; they were not executed as part of the documentation update. Do not use list-to-array construction with arbitrary dtypes as a safety example: its existing `f64` copy path needs replacement.
+
+## Existing Rust API
+
+The core crate re-exports `Array`, `DType`, `zeros`, `ones`, and `empty`. Dtype identifiers live in `raptors_core::types`.
 
 ```rust
-// Get array properties
-println!("Shape: {:?}", array.shape());
-println!("Size: {}", array.size());
-println!("NDim: {}", array.ndim());
-println!("DType: {:?}", array.dtype());
-println!("Is C-contiguous: {}", array.is_c_contiguous());
-println!("Is writeable: {}", array.is_writeable());
+use raptors_core::{zeros, DType};
+use raptors_core::types::NpyType;
+
+let array = zeros(vec![2, 3], DType::new(NpyType::Double)).unwrap();
+assert_eq!(array.shape(), &[2, 3]);
+assert_eq!(array.size(), 6);
 ```
 
-## Indexing
-
-### Integer Indexing
-
-```rust
-use raptors_core::indexing::index_array;
-
-let indices = vec![1, 2];
-let element_ptr = index_array(&array, &indices).unwrap();
-
-// Access value (unsafe - must match dtype)
-unsafe {
-    let value = *(element_ptr as *const f64);
-    println!("Value at [1, 2]: {}", value);
-}
-```
-
-### Slice Indexing
-
-```rust
-use raptors_core::indexing::slicing::slice_array;
-
-let slice = slice_array(&array, &[(0, 2), (1, 3)]).unwrap();
-```
-
-## Array Operations
-
-### Arithmetic Operations
-
-```rust
-use raptors_core::operations::{add, subtract, multiply, divide};
-
-let a = zeros(vec![3, 4], DType::new(NpyType::Double)).unwrap();
-let b = ones(vec![3, 4], DType::new(NpyType::Double)).unwrap();
-
-// Element-wise operations
-let sum = add(&a, &b).unwrap();
-let diff = subtract(&a, &b).unwrap();
-let prod = multiply(&a, &b).unwrap();
-let quot = divide(&a, &b).unwrap();
-```
-
-### Comparison Operations
-
-```rust
-use raptors_core::operations::{equal, less, greater};
-
-let a = zeros(vec![3, 4], DType::new(NpyType::Double)).unwrap();
-let b = ones(vec![3, 4], DType::new(NpyType::Double)).unwrap();
-
-let eq = equal(&a, &b).unwrap();
-let lt = less(&a, &b).unwrap();
-let gt = greater(&a, &b).unwrap();
-```
-
-## Shape Manipulation
-
-```rust
-use raptors_core::shape::{reshape, transpose, squeeze, expand_dims};
-
-// Reshape array
-let reshaped = reshape(&array, vec![12]).unwrap();
-
-// Transpose array
-let transposed = transpose(&array).unwrap();
-
-// Remove dimensions of size 1
-let squeezed = squeeze(&array, None).unwrap();
-
-// Add dimensions
-let expanded = expand_dims(&array, 0).unwrap();
-```
-
-## Universal Functions
-
-### Mathematical Functions
-
-```rust
-use raptors_core::ufunc::loop_exec::create_unary_ufunc_loop;
-use raptors_core::ufunc::advanced::math_ufuncs::*;
-
-let array = zeros(vec![10], DType::new(NpyType::Double)).unwrap();
-
-// Create ufunc
-let sin_ufunc = create_sin_ufunc();
-let mut output = empty(vec![10], DType::new(NpyType::Double)).unwrap();
-
-// Execute ufunc
-create_unary_ufunc_loop(&sin_ufunc, &array, &mut output).unwrap();
-```
-
-### Reductions
-
-```rust
-use raptors_core::ufunc::reduction::{sum_along_axis, mean_along_axis};
-
-let array = ones(vec![3, 4], DType::new(NpyType::Double)).unwrap();
-
-// Sum along axis 0
-let sum = sum_along_axis(&array, Some(0)).unwrap();
-
-// Mean along axis 1
-let mean = mean_along_axis(&array, Some(1)).unwrap();
-
-// Sum all elements
-let total = sum_along_axis(&array, None).unwrap();
-```
-
-## Iteration
-
-### Flat Iteration
-
-```rust
-use raptors_core::iterators::FlatIterator;
-
-let array = zeros(vec![3, 4], DType::new(NpyType::Double)).unwrap();
-let mut iter = FlatIterator::new(&array);
-
-while let Some(ptr) = iter.next() {
-    // Process element at ptr
-    unsafe {
-        let value = *(ptr as *const f64);
-        println!("Value: {}", value);
-    }
-}
-```
-
-### Multi-dimensional Iteration
-
-```rust
-use raptors_core::iterators::ArrayIterator;
-
-let array = zeros(vec![3, 4], DType::new(NpyType::Double)).unwrap();
-let mut iter = ArrayIterator::new(&array);
-
-while let Some(ptr) = iter.next() {
-    let coords = iter.coordinates();
-    println!("Element at {:?}: {:p}", coords, ptr);
-}
-```
-
-## Broadcasting
-
-```rust
-use raptors_core::broadcasting::broadcast_shapes;
-
-let shape1 = vec![3, 4];
-let shape2 = vec![4];
-
-let broadcast_shape = broadcast_shapes(&shape1, &shape2).unwrap();
-println!("Broadcast shape: {:?}", broadcast_shape);
-```
-
-## Type Conversion
-
-```rust
-use raptors_core::conversion::{promote_dtypes, cast_array};
-
-let dtype1 = DType::new(NpyType::Int);
-let dtype2 = DType::new(NpyType::Double);
-
-// Promote types
-let promoted = promote_dtypes(&dtype1, &dtype2).unwrap();
-
-// Cast array
-let array = zeros(vec![3, 4], dtype1).unwrap();
-let casted = cast_array(&array, &dtype2).unwrap();
-```
-
-## Convenience Methods
-
-### From Slice
-
-```rust
-let data = vec![1.0, 2.0, 3.0, 4.0];
-let array = Array::from_slice(&data, vec![2, 2], DType::new(NpyType::Double)).unwrap();
-```
-
-### To Vec
-
-```rust
-let array = ones(vec![4], DType::new(NpyType::Double)).unwrap();
-let vec: Vec<f64> = unsafe { array.to_vec().unwrap() };
-```
-
-### Iterator
-
-```rust
-let array = zeros(vec![3, 4], DType::new(NpyType::Double)).unwrap();
-for ptr in array.iter() {
-    // Process element
-}
-```
-
-## Performance Tips
-
-1. **Use Contiguous Arrays**: C-contiguous arrays are faster for most operations
-2. **Avoid Unnecessary Copies**: Use views when possible
-3. **Use Parallel Operations**: Large arrays benefit from parallel operations
-4. **Choose Appropriate Types**: Use smaller types when precision allows
-5. **Batch Operations**: Combine multiple operations when possible
-
-## Error Handling
-
-All operations return `Result` types:
-
-```rust
-match zeros(shape, dtype) {
-    Ok(array) => {
-        // Use array
-    }
-    Err(e) => {
-        eprintln!("Error creating array: {}", e);
-    }
-}
-```
-
-## Common Patterns
-
-### Creating and Filling Arrays
-
-```rust
-let mut array = empty(vec![100], DType::new(NpyType::Double)).unwrap();
-unsafe {
-    array.fill_typed(42.0).unwrap();
-}
-```
-
-### Working with Views
-
-```rust
-let array = zeros(vec![3, 4], DType::new(NpyType::Double)).unwrap();
-let view = array.view().unwrap();
-// View shares memory with array
-```
-
-### Combining Operations
-
-```rust
-let a = zeros(vec![3, 4], DType::new(NpyType::Double)).unwrap();
-let b = ones(vec![3, 4], DType::new(NpyType::Double)).unwrap();
-let result = add(&a, &b)
-    .and_then(|sum| multiply(&sum, &a))
-    .unwrap();
-```
-
-## Phase 12 Features
-
-### NumPy Compatibility Tests
-
-Raptors includes comprehensive tests based on NumPy's test suite to ensure compatibility:
-
-```rust
-use raptors_core::array::Array;
-use raptors_core::types::{DType, NpyType};
-
-// Test array creation with various shapes (0-d, 1-d, 2-d, 3-d)
-let arr = Array::new(vec![], DType::new(NpyType::Double)).unwrap(); // 0-d
-let arr = Array::new(vec![5], DType::new(NpyType::Double)).unwrap(); // 1-d
-let arr = Array::new(vec![3, 4], DType::new(NpyType::Double)).unwrap(); // 2-d
-
-// Test broadcasting with scalars
-use raptors_core::broadcasting::broadcast_shapes;
-let scalar_shape = vec![];
-let array_shape = vec![3, 4];
-let result = broadcast_shapes(&scalar_shape, &array_shape).unwrap();
-assert_eq!(result, array_shape);
-```
-
-The NumPy compatibility test suite includes 25 tests covering:
-- Array creation edge cases (0-d arrays, empty arrays, single elements)
-- Broadcasting with scalars and leading 1 dimensions
-- Type promotion and dtype operations
-- Array manipulation (reshape, transpose, flatten, squeeze, expand_dims)
-- Array concatenation and stacking
-- Reduction operations (sum, min, max)
-- Array operations with different dtypes
-
-## Phase 12 Features
-
-### Custom Dtype Creation
-
-```rust
-use raptors_core::types::{CustomType, register_custom_type, create_custom_dtype};
-
-// Define a custom type
-struct MyCustomType {
-    itemsize: usize,
-    align: usize,
-    name: String,
-}
-
-impl CustomType for MyCustomType {
-    fn itemsize(&self) -> usize { self.itemsize }
-    fn align(&self) -> usize { self.align }
-    fn to_string(&self) -> String { self.name.clone() }
-    fn from_bytes(&self, bytes: &[u8]) -> Result<Vec<u8>, CustomTypeError> {
-        Ok(bytes.to_vec())
-    }
-    fn to_bytes(&self, value: &[u8]) -> Result<Vec<u8>, CustomTypeError> {
-        Ok(value.to_vec())
-    }
-    fn name(&self) -> &str { &self.name }
-}
-
-// Register the custom type
-let type_id = register_custom_type(MyCustomType {
-    itemsize: 16,
-    align: 8,
-    name: "MyType".to_string(),
-}).unwrap();
-
-// Create a dtype for the custom type
-let dtype = create_custom_dtype(type_id).unwrap();
-```
-
-### Array Subclassing
-
-```rust
-use raptors_core::array::{ArrayBase, SubclassableArray, isinstance};
-
-// Create a subclassable array
-let array = Array::new(vec![3, 4], DType::new(NpyType::Double)).unwrap();
-let subclassable = SubclassableArray::new(array, "MyArrayType");
-
-// Check type
-assert!(subclassable.isinstance("MyArrayType"));
-assert!(isinstance(&subclassable, "MyArrayType"));
-```
-
-### Memory Layout Optimization
-
-```rust
-// Analyze layout
-let analysis = array.analyze_layout();
-println!("Is C-contiguous: {}", analysis.is_c_contiguous);
-println!("Is strided: {}", analysis.is_strided);
-println!("Average stride: {}", analysis.average_stride);
-
-// Optimize layout
-let optimized = array.optimize_layout().unwrap();
-```
-
-### Broadcasting Enhancements
-
-Broadcasting now supports:
-- Complete ufunc broadcasting with proper stride calculation
-- All NumPy broadcasting rules including 0-d arrays and scalars
-- Optimized broadcasting with caching and fast paths
-- Broadcasting with masked arrays
-
+The existing [builder](../raptors-core/src/array/builder.rs), traits, and operation modules are implementation references. They may change during the rebuild. Raw-pointer access is not the proposed default safe Rust interface.
+
+## Behavior the rebuild must prove
+
+- Constructors preserve integer precision and requested dtypes.
+- Basic slices share storage; advanced indexing and copies follow NumPy's rules.
+- Deleting a parent does not invalidate a live view.
+- Negative strides, zero-sized dimensions, transposes, and broadcasting are valid inputs.
+- Overlapping assignment and `out=` preserve the reference result.
+- Scalar promotion and ufunc methods/keywords match the pinned NumPy release.
+- Errors, warnings, and numerical edge cases are compared as part of the contract.
+- Unsafe metadata and uncontrolled external mutation are outside an unconditional safety guarantee.
+
+See [architecture](ARCHITECTURE.md), [test porting](TEST_PORTING.md), and [migration guidance](CONVERSION_GUIDE.md). Public documentation will expand with passing compatibility evidence.

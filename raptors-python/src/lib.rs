@@ -1,6 +1,8 @@
 //! Raptors Python bindings
 //!
 //! This module provides Python bindings for Raptors Core using PyO3.
+//! The current bindings are a legacy prototype, not a validated NumPy replacement.
+//! See docs/REBUILD_PLAN.md for the target contract and acceptance gates.
 
 pub mod array;
 pub mod dtype;
@@ -202,4 +204,3 @@ pub fn array_from_list(py: Python, data: &Bound<'_, PyAny>, dtype: Option<&dtype
         inner: Arc::new(array),
     })
 }
-

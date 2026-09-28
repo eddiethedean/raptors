@@ -12,8 +12,8 @@ use std::any::Any;
 /// This trait defines the common interface that all array types must implement.
 /// Subclasses can override methods to customize behavior.
 ///
-/// Note: Array contains raw pointers, so we use unsafe impl Send + Sync
-/// which is safe because Array manages its own memory safely.
+/// This trait does not establish thread safety for underlying array storage.
+/// Shared ownership and mutable aliases require the rebuild's access contract.
 pub trait ArrayBase {
     /// Get the underlying array data
     fn array(&self) -> &Array;
@@ -232,4 +232,3 @@ impl ArrayBase for CustomArray {
 pub fn isinstance<T: ArrayBase>(array: &T, type_name: &str) -> bool {
     array.isinstance(type_name)
 }
-

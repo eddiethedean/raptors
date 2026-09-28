@@ -1,7 +1,9 @@
-//! Raptors Core - A Rust implementation of NumPy's C/C++ core
+//! Raptors Core - legacy array engine for the Raptors rebuild
 //!
-//! This crate provides a C API compatible implementation of NumPy's core
-//! array functionality, implemented in idiomatic Rust.
+//! Raptors targets NumPy's public Python functionality through a different import.
+//! This prototype has not established full compatibility or memory safety.
+//! The experimental C facade is not a NumPy ABI implementation.
+//! See docs/REBUILD_PLAN.md for the proposed replacement foundation and gates.
 
 #![warn(missing_docs)]
 #![allow(non_camel_case_types)]

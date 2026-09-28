@@ -1,17 +1,13 @@
-name: Publish Python Package
+name: Build Python Package (TestPyPI manual)
 
 on:
-  release:
-    types: [published]
   workflow_dispatch:
     inputs:
-      version:
-        description: 'Version to publish (e.g., 0.1.0)'
-        required: false
       test_pypi:
-        description: 'Publish to TestPyPI instead of PyPI'
+        description: 'Build and upload these wheels to TestPyPI'
         type: boolean
-        default: false
+        required: true
+        default: true
 
 jobs:
   build-and-publish:
@@ -59,41 +55,10 @@ jobs:
           path: raptors-python/dist/*.whl
           retention-days: 7
 
-  publish:
-    needs: build-and-publish
-    runs-on: ubuntu-latest
-    if: github.event_name == 'release' || (github.event_name == 'workflow_dispatch' && !github.event.inputs.test_pypi)
-    
-    steps:
-      - uses: actions/checkout@v4
-      
-      - name: Download all wheels
-        uses: actions/download-artifact@v4
-        with:
-          pattern: wheels-*
-          path: dist
-          merge-multiple: true
-      
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.10"
-      
-      - name: Install dependencies
-        run: |
-          pip install twine
-      
-      - name: Publish to PyPI
-        env:
-          TWINE_USERNAME: __token__
-          TWINE_PASSWORD: ${{ secrets.PYPI_API_TOKEN }}
-        run: |
-          twine upload dist/*.whl
-      
   publish-testpypi:
     needs: build-and-publish
     runs-on: ubuntu-latest
-    if: github.event_name == 'workflow_dispatch' && github.event.inputs.test_pypi
+    if: inputs.test_pypi
     
     steps:
       - uses: actions/checkout@v4
@@ -120,4 +85,3 @@ jobs:
           TWINE_PASSWORD: ${{ secrets.TEST_PYPI_API_TOKEN }}
         run: |
           twine upload --repository testpypi dist/*.whl
-

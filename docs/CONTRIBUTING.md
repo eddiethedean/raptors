@@ -1,212 +1,62 @@
-# Contributing to Raptors Core
+# Contributing to Raptors
 
-Thank you for your interest in contributing to Raptors Core!
+Raptors is rebuilding toward NumPy's public Python functionality through `import raptors as np`. Start with the [rebuild plan](REBUILD_PLAN.md), [architecture](ARCHITECTURE.md), and [0.x release roadmap](CONVERSION_ROADMAP.md).
 
-## Development Setup
+The current engine is a legacy prototype. New work should advance the current acceptance gate; broad feature additions before the storage and comparison infrastructure are proven recreate the original failure mode.
 
-### Prerequisites
+## Set up
 
-- Rust 1.70 or later
-- Cargo
-- Python 3.7+ (for Python bindings)
-- Git
+Clone the actual repository and follow the [Python development guide](../raptors-python/DEVELOPMENT.md):
 
-### Getting Started
-
-1. Clone the repository:
 ```bash
-git clone https://github.com/your-org/raptors.git
+git clone https://github.com/eddiethedean/raptors.git
 cd raptors
+cargo build -p raptors-core
 ```
 
-2. Build the project:
-```bash
-cargo build
-```
+Use an isolated Python environment outside the checkout. Release 0.1 will lock toolchains, reference versions, and the supported platform matrix. Current metadata and CI matrices are historical configurations, not verified support promises.
 
-3. Run tests:
-```bash
-cargo test
-```
+## Change workflow
 
-4. Run benchmarks:
-```bash
-cargo bench
-```
+1. State the exact NumPy behavior and reference version.
+2. Capture oracle cases and meaningful adversarial regressions.
+3. Identify storage, aliasing, dtype, or Python-lifetime invariants affected.
+4. Implement the smallest coherent change.
+5. Review semantics and unsafe assumptions separately.
+6. Run relevant correctness, safety, and performance checks.
+7. Update the compatibility evidence and documentation.
 
-## Code Style
+Do not weaken expected results, add blanket skips, suppress arbitrary errors, or change supported behavior to make a test green. Generated tests need behavioral assertions and reviewed provenance.
 
-### Rust Style
+## Relevant checks
 
-Follow Rust's official style guide:
-
-- Use `rustfmt` for formatting:
-```bash
-cargo fmt
-```
-
-- Use `clippy` for linting:
-```bash
-cargo clippy
-```
-
-### Naming Conventions
-
-- Functions: `snake_case`
-- Types: `PascalCase`
-- Constants: `UPPER_SNAKE_CASE`
-- Modules: `snake_case`
-
-### Documentation
-
-- Document all public APIs
-- Include examples in doc comments
-- Document safety requirements for unsafe code
-- Use `# Safety` sections for unsafe functions
-
-Example:
-```rust
-/// Create a new array
-///
-/// # Example
-/// ```
-/// use raptors_core::{Array, DType, NpyType};
-/// let array = Array::new(vec![3, 4], DType::new(NpyType::Double)).unwrap();
-/// ```
-///
-/// # Errors
-/// Returns `ArrayError::AllocationFailed` if memory allocation fails.
-pub fn new(shape: Vec<i64>, dtype: DType) -> Result<Self, ArrayError> {
-    // ...
-}
-```
-
-## Testing Requirements
-
-### Test Coverage
-
-- Aim for >80% test coverage per module
-- Test all public APIs
-- Test error cases
-- Test edge cases
-
-### Writing Tests
-
-Tests should be in `tests/` directory:
-
-```rust
-#[cfg(test)]
-mod tests {
-    use super::*;
-    
-    #[test]
-    fn test_array_creation() {
-        let array = zeros(vec![3, 4], DType::new(NpyType::Double)).unwrap();
-        assert_eq!(array.shape(), &[3, 4]);
-    }
-}
-```
-
-### Running Tests
+From the repository root:
 
 ```bash
-# Run all tests
-cargo test
-
-# Run specific test
-cargo test test_array_creation
-
-# Run with output
-cargo test -- --nocapture
+cargo test -p raptors-core --tests
+cargo test -p raptors-core --doc
+cargo fmt --all -- --check
+cargo clippy -p raptors-core -- -D warnings
 ```
 
-## Pull Request Process
+Run the relevant integration target while developing, then the required suite for the change. Legacy failures and warnings must be captured in the v0.1 baseline; these commands are not claimed to pass today. `cargo test --lib` does not run integration tests under `tests/`.
 
-1. **Fork the repository**
-2. **Create a feature branch**:
-```bash
-git checkout -b feature/my-feature
-```
+For binding changes, rebuild the extension and run the [Python tests](../raptors-python/TESTING.md) against that artifact. Native linking tests may require platform-specific Python configuration.
 
-3. **Make your changes**
-4. **Add tests** for new functionality
-5. **Update documentation** if needed
-6. **Run tests and linting**:
-```bash
-cargo test
-cargo fmt
-cargo clippy
-```
+## Safety review
 
-7. **Commit your changes**:
-```bash
-git commit -m "Add feature X"
-```
+Every unsafe block must explain its preconditions and the checks that establish them. Review ownership, layout bounds, initialization, alignment, aliases, access synchronization, and foreign lifetimes. `Arc` alone does not justify `Send` or `Sync`.
 
-8. **Push to your fork**:
-```bash
-git push origin feature/my-feature
-```
+Miri, fuzzing, and supported sanitizers supplement review. The new gates are planned infrastructure; record what actually ran and any limitations.
 
-9. **Create a Pull Request**
+## Review and release evidence
 
-### PR Checklist
+A change description should explain the trigger, resulting behavior, reference cases, verification, and remaining limitations. Performance changes need comparable measurements. Public completion claims must correspond to the compatibility manifest once v0.1 creates it.
 
-- [ ] Code follows style guidelines
-- [ ] Tests pass
-- [ ] Documentation updated
-- [ ] No clippy warnings
-- [ ] Code formatted with rustfmt
-- [ ] Tests added for new functionality
-- [ ] Breaking changes documented
+Release gates include clean wheel installs, declared-platform tests, real application cases, reconciled license metadata, and evidence-backed documentation. Existing publishing automation is not proof of release readiness.
 
-## Module Conversion Guidelines
+Preserve NumPy attribution and licensing for reused code or tests. Keep generated build output and machine-specific environments out of future changes.
 
-When converting NumPy modules:
+## Documentation
 
-1. **Study NumPy's implementation** in `numpy-reference/`
-2. **Match NumPy's behavior** exactly
-3. **Use Rust idioms** where possible
-4. **Maintain C API compatibility** if applicable
-5. **Add comprehensive tests**
-6. **Document differences** from NumPy
-
-### Conversion Steps
-
-1. Create module structure
-2. Implement core functionality
-3. Add tests
-4. Add C API wrappers (if needed)
-5. Update documentation
-6. Update roadmap
-
-## Code Review
-
-All code must be reviewed before merging:
-
-- At least one approval required
-- All CI checks must pass
-- No unresolved discussions
-
-## Issue Reporting
-
-When reporting issues:
-
-1. Check existing issues first
-2. Use the issue template
-3. Include:
-   - Rust version
-   - OS and architecture
-   - Minimal reproduction case
-   - Expected vs actual behavior
-
-## Questions?
-
-- Open an issue for questions
-- Check existing documentation
-- Review code examples
-
-## License
-
-By contributing, you agree that your contributions will be licensed under the same license as the project.
-
+Use [docs/README.md](README.md) to find the relevant guide. Distinguish current behavior, proposed design, and observed results. Update the canonical rebuild plan when the accepted direction changes, then align related guides. Source-level API comments should follow the same rule.

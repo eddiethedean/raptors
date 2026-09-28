@@ -1,7 +1,8 @@
 //! Foreign Function Interface (FFI) module
 //!
-//! This module provides the C API compatibility layer,
-//! exposing NumPy-compatible C functions for use as a drop-in replacement.
+//! Legacy experimental C facade with NumPy-inspired function names.
+//! Its structures and behavior do not establish NumPy ABI compatibility.
+//! The rebuild targets public Python functionality; see docs/REBUILD_PLAN.md.
 
 mod array_api;
 mod conversion;
@@ -31,8 +32,8 @@ use libc::{c_int, c_void, size_t};
 
 /// C-compatible array object structure
 ///
-/// This matches NumPy's PyArrayObject structure for C API compatibility.
-/// Fields are public for C API compatibility.
+/// This is a Raptors-specific legacy layout, not NumPy's PyArrayObject layout.
+/// It must not be passed to extensions expecting NumPy's binary interface.
 #[repr(C)]
 pub struct PyArrayObject {
     /// Object header (for Python compatibility, will be NULL in pure C usage)
@@ -158,4 +159,3 @@ pub extern "C" fn PyArray_Check(op: *mut c_void) -> c_int {
     // In full implementation, would check ob_type or similar
     1 // Assume it's an array if not null (simplified)
 }
-

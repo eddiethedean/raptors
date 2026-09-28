@@ -1,216 +1,68 @@
-# Raptors Core Architecture
+# Raptors architecture
 
-This document describes the architecture and design decisions of Raptors Core.
+**Status: proposed rebuild design, with a legacy implementation in the repository.** The [rebuild plan](REBUILD_PLAN.md) defines the acceptance gates. This document does not claim the proposed safeguards already exist.
 
-## Repository Structure
+## Public contract
 
-Raptors Core uses a Rust workspace structure with two main crates:
+The Python package targets NumPy's public functionality and defined behavior for a pinned release. The import may be `raptors`. A NumPy-compatible C ABI is outside the release requirement; the existing C facade must not be treated as one.
 
-- **`raptors-core/`**: The core Rust library implementing NumPy's functionality
-- **`raptors-python/`**: Python bindings using PyO3
+Rust APIs support the Python implementation and may change during the rebuild. Array API standard conformance can be an early test target, but does not cover the full NumPy goal.
 
-This structure allows both crates to be developed together while maintaining clear separation of concerns.
+## Existing implementation
 
-## Overview
+| Component | Current location | Rebuild treatment |
+| --- | --- | --- |
+| Raw data pointers, metadata, ownership flags, and views | [arrayobject.rs](../raptors-core/src/array/arrayobject.rs) | Replace the foundation; audit reuse against written invariants |
+| Dtypes, promotion, and casts | [types](../raptors-core/src/types/), [conversion](../raptors-core/src/conversion/) | Validate against the pinned NumPy reference |
+| Broadcasting, iterators, and kernels | [ufunc](../raptors-core/src/ufunc/), [operations](../raptors-core/src/operations/) | Consolidate around one checked execution plan |
+| Python objects and conversion | [Python sources](../raptors-python/src/) | Preserve compatible behavior only after differential validation |
+| Experimental C wrappers | [ffi](../raptors-core/src/ffi/) | Legacy interface; no NumPy ABI guarantee |
 
-Raptors Core is a Rust implementation of NumPy's C/C++ core, providing C API compatibility for use as a drop-in replacement. The project aims to match NumPy's functionality while leveraging Rust's safety guarantees.
+Manual `Send`/`Sync` implementations in the bindings and shared `Arc` ownership do not establish safe concurrent mutation. Existing view, allocation, and conversion code requires review before reuse.
 
-## Core Design Principles
+## Proposed layers
 
-1. **NumPy Compatibility**: Maintain compatibility with NumPy's C API and behavior
-2. **Memory Safety**: Use Rust's type system to ensure memory safety where possible
-3. **Performance**: Match or exceed NumPy's performance characteristics
-4. **Idiomatic Rust**: Use Rust idioms while maintaining compatibility
+```text
+Python API and PyO3 bindings
+           |
+Array semantics: dtypes, indexing, broadcasting, output rules
+           |
+Checked execution plan
+           |
+Reference kernels / optimized kernels / specialized backends
+           |
+Shared storage, checked layouts, and guarded access
+```
 
-## Architecture Components
+Python-specific exceptions, dispatch, and callbacks stay at the binding boundary. Array semantics determine output types and layout before execution. Scalar reference kernels provide an oracle for optimized implementations, alongside NumPy comparisons.
 
-### 1. Array Core (`src/array/`)
+Use maintained numerical components when their semantics, licensing, platform support, and safety boundaries fit the contract. Component selection is part of the v0.2 storage prototype.
 
-The core array structure is defined in `arrayobject.rs`. Key components:
+## Storage and layout invariants
 
-- **Array Structure**: Core array object with data pointer, shape, strides, dtype, and flags
-- **Memory Management**: Automatic memory management with proper alignment
-- **Views**: Zero-copy views using `Arc` and `Weak` references
-- **Flags**: Array flags (C-contiguous, F-contiguous, writeable, etc.)
+- One allocation owner may support many view descriptors. Each descriptor carries dtype, shape, signed byte strides, and offset.
+- A view keeps its storage alive after the original Python array is deleted.
+- Dimensions, products, allocation sizes, and reachable byte ranges are checked before pointer arithmetic. Negative strides and empty arrays need explicit handling.
+- Access guards belong to the shared allocation. Borrowing one wrapper mutably does not prove exclusive access to its bytes.
+- Multi-array operations account for aliases and acquire access in a stable order. Overlapping writes use correct traversal or a temporary snapshot.
+- Safe typed reads require initialized, aligned, valid data. Initially initialize buffers exposed by `empty()`; optimize only with a reviewed initialization strategy.
+- Conversions preserve dtype-specific values. Large integers must not pass through a floating-point intermediate.
+- Writeability and copy decisions follow the compatibility contract. Copy-on-write must not silently change observable view mutation.
 
-**Key Design Decisions**:
-- Uses raw pointers for data storage (required for C API compatibility)
-- Manages memory ownership with `owns_data` flag
-- Uses `Arc<Array>` for shared ownership in views
-- Uses `Weak<Array>` to prevent circular references
+## Unsafe and foreign boundaries
 
-### 2. Type System (`src/types/`)
+Restrict unsafe code to allocation, specialized kernels, and foreign adapters. Document the preconditions for each block and the checks establishing them. Safe callers must not be able to construct invalid layouts or trigger undefined behavior.
 
-The type system matches NumPy's dtype system:
+Foreign buffers require a retained owner, known bounds, and an access contract. Copy when those conditions cannot be established. A read-only export alone cannot stop mutation through another alias. Explicit `copy=False` requests must either avoid a copy or fail appropriately.
 
-- **NpyType**: Enumeration of NumPy-compatible types
-- **DType**: Type descriptor with metadata (itemsize, alignment, name)
-- **Type Promotion**: Automatic type promotion in operations
-- **Type Casting**: Safe type casting with validation
-- **Custom Types**: User-defined dtype system with registration and conversion hooks (Phase 12)
+Raw-pointer escape hatches and external native libraries are trust boundaries. Full memory-safety claims cannot include arbitrary external writes.
 
-### 3. Memory Management (`src/memory/`)
+## Threads and Python lifetimes
 
-Memory allocation with proper alignment:
+Parallel execution and GIL release depend on proven storage access rules. Reference counting alone is insufficient. Object arrays, callbacks, writable buffer exports, resize, and free-threaded Python need separate tests for lifetimes, reentrancy, and synchronization.
 
-- Uses Rust's `std::alloc` for memory allocation
-- Respects dtype alignment requirements
-- Handles large arrays (>2GB) through proper size calculations
-- Memory-mapped arrays via `memmap2` crate
+Preserve eager NumPy semantics. Async scheduling and implicit lazy fusion are not part of the rebuild foundation; see [deferred async design](raptors_vs_numpy_async_design.md).
 
-### 4. Broadcasting (`src/broadcasting/`)
+## Evidence required
 
-Shape computation and validation for broadcasting:
-
-- Computes broadcast shapes from input shapes
-- Validates broadcasting compatibility
-- Calculates broadcast strides
-- Supports NumPy's broadcasting rules
-- Broadcasting optimizations with caching and fast paths (Phase 12)
-- Broadcasting support for masked arrays (Phase 12)
-
-### 5. Universal Functions (`src/ufunc/`)
-
-Ufunc infrastructure for element-wise operations:
-
-- **Ufunc Structure**: Generic ufunc with type resolution
-- **Loop Execution**: Efficient loop execution with type dispatch
-- **Parallel Execution**: Parallel ufuncs using Rayon
-- **Reductions**: Sum, mean, min, max with axis support
-
-**Architecture**:
-- Type resolution: Determines output types from input types
-- Loop registration: Registers type-specific loop functions
-- Execution: Dispatches to appropriate loop based on types
-
-### 6. Iterators (`src/iterators/`)
-
-Efficient array iteration:
-
-- **ArrayIterator**: Multi-dimensional iteration with coordinate tracking
-- **FlatIterator**: Flat iteration over all elements
-- **StridedIterator**: Iteration with custom strides
-- **NdIter**: Multi-array iteration with broadcasting
-
-### 7. Indexing (`src/indexing/`)
-
-Array indexing and slicing:
-
-- **Integer Indexing**: Direct element access
-- **Slice Indexing**: Slice-based access with normalization
-- **Fancy Indexing**: Integer array indexing
-- **Boolean Indexing**: Mask-based indexing
-
-### 8. Shape Manipulation (`src/shape/`)
-
-Array shape operations:
-
-- **Reshape**: Change array shape (with validation)
-- **Transpose**: Transpose array dimensions
-- **Squeeze**: Remove dimensions of size 1
-- **Expand Dims**: Add dimensions of size 1
-
-### 9. Operations (`src/operations/`)
-
-High-level array operations:
-
-- **Arithmetic**: Add, subtract, multiply, divide
-- **Comparison**: Equal, less, greater, etc.
-- Built on ufunc infrastructure
-
-### 10. C API Compatibility (`src/ffi/`)
-
-C API wrapper layer:
-
-- **PyArrayObject**: C-compatible array structure
-- **C API Functions**: 40+ NumPy-compatible C functions
-- **Conversion**: Array <-> PyArrayObject conversion
-- **Memory Management**: Proper memory handling for C API
-
-### 11. Array Subclassing (`src/array/subclassing.rs`) (Phase 12)
-
-Array subclassing framework:
-
-- **ArrayBase Trait**: Common interface for all array types
-- **SubclassableArray**: Wrapper providing subclassing capabilities
-- **Method Resolution Order (MRO)**: Type hierarchy support
-- **Custom Array Types**: Example implementations (CustomArray)
-- **Type Checking**: isinstance equivalent functionality
-
-### 12. Memory Layout Optimization (Phase 12)
-
-Advanced memory layout optimizations:
-
-- **Layout Analysis**: analyze_layout() method for layout characteristics
-- **Layout Optimization**: optimize_layout() for performance improvements
-- **SIMD Alignment**: Platform-specific alignment (x86_64, ARM)
-- **Alignment Verification**: Utilities for checking memory alignment
-
-## Memory Layout
-
-Arrays support two memory layouts:
-
-1. **C-contiguous (row-major)**: Last dimension stride = itemsize
-2. **Fortran-contiguous (column-major)**: First dimension stride = itemsize
-
-Strides are computed automatically based on shape and itemsize.
-
-## Threading
-
-Threading support via Rayon:
-
-- Parallel reductions for large arrays
-- Parallel ufunc operations
-- Configurable thread pool
-- Automatic threshold detection (only parallelize for large arrays)
-
-## Error Handling
-
-Error types:
-
-- **ArrayError**: Array-specific errors (allocation, shape, type mismatch)
-- **BroadcastError**: Broadcasting errors
-- **UfuncError**: Ufunc errors (unsupported types, invalid inputs)
-- **LoopExecutionError**: Loop execution errors
-
-All errors implement `std::error::Error` for compatibility.
-
-## Safety Considerations
-
-### Unsafe Code
-
-Unsafe code is used for:
-
-1. **Raw Pointer Operations**: Required for C API compatibility
-2. **Memory Allocation**: Direct allocation with custom layouts
-3. **Type Casting**: Converting between types at runtime
-4. **FFI**: C API compatibility layer
-
-All unsafe code is:
-- Documented with safety requirements
-- Minimized to necessary operations
-- Validated with tests
-
-### Memory Safety
-
-- Arrays own their data or reference it via views
-- Views use `Arc`/`Weak` to prevent use-after-free
-- Proper cleanup in `Drop` implementation
-- No data races (immutable by default, mutable only when writeable)
-
-## Performance Optimizations
-
-1. **Contiguous Fast Paths**: Optimized paths for contiguous arrays
-2. **Pairwise Summation**: Accurate summation for large arrays
-3. **Cache-Friendly Algorithms**: Blocked operations for cache efficiency
-4. **Parallel Operations**: Multi-threaded operations for large arrays
-5. **Copy Avoidance**: Views and zero-copy operations where possible
-
-## Future Enhancements
-
-- Advanced SIMD optimizations
-- GPU array support
-- JIT compilation
-- Async support
-- Advanced memory layout optimizations
-
+The foundation gate combines written invariants, review of unsafe code, differential cases, operation-sequence fuzzing, Miri on isolated Rust code, and supported sanitizer builds. No single tool proves soundness. See [test porting](TEST_PORTING.md) and [performance](PERFORMANCE.md) for the corresponding behavioral and measurement requirements.

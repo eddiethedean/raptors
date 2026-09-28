@@ -42,8 +42,9 @@ pub struct PyArray {
     pub(crate) inner: Arc<Array>,
 }
 
-// SAFETY: Array contains raw pointers but they are managed safely through Arc
-// The data is owned by the Array struct, and Arc provides thread-safe reference counting
+// Legacy unsafe assertions requiring review during the rebuild:
+// Arc protects reference counts, but does not synchronize aliased array data.
+// These implementations do not establish the proposed storage safety contract.
 unsafe impl Send for PyArray {}
 unsafe impl Sync for PyArray {}
 
@@ -1353,4 +1354,3 @@ impl PyArray {
         Ok(())
     }
 }
-

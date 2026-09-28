@@ -1,127 +1,38 @@
-# Raptors Python Tests
+# Python binding tests
 
-This directory contains comprehensive tests for the Raptors Python bindings.
+These tests belong to the legacy prototype. They are input to the rebuild audit, not proof of complete NumPy compatibility.
 
-## Test Structure
+Use the parent [testing guide](../TESTING.md) for commands and the [test porting guide](../../docs/TEST_PORTING.md) for reference provenance and differential testing requirements.
 
-### Rust Unit Tests
+## Directory map
 
-Rust unit tests are located in `tests/*_test.rs` files. These tests use PyO3's testing utilities to test the Python bindings from Rust.
+| Files | Scope |
+| --- | --- |
+| `test_array.py` | Array properties, construction, operators, and methods |
+| `test_dtype.py` | Dtype bindings |
+| `test_ufunc.py` | Functions and reductions |
+| `test_numpy_interop.py` | NumPy conversion |
+| `numpy_port/*.py` | Additional compatibility-oriented cases |
+| `*_test.rs` | Rust integration tests for bindings |
 
-**Test Files:**
-- `array_test.rs` - Tests for Array creation, properties, operations, and manipulation
-- `dtype_test.rs` - Tests for DType creation and properties
-- `ufunc_test.rs` - Tests for ufunc operations
-- `iterator_test.rs` - Tests for array iteration
+The `numpy_port` label does not establish a faithful upstream port. Audit the source revision, original assertion, and adaptation for each reused case.
 
-### Python Pytest Tests
+## Run against a fresh build
 
-Python tests use pytest and are located in `tests/test_*.py` files. These test the public Python API.
-
-**Test Files:**
-- `test_array.py` - Comprehensive tests for Array functionality
-- `test_dtype.py` - Tests for DType functionality
-- `test_ufunc.py` - Tests for ufunc operations
-- `test_numpy_interop.py` - Tests for NumPy interoperability (when implemented)
-- `conftest.py` - Pytest configuration and fixtures
-
-## Running Tests
-
-### Rust Tests
-
-Run Rust unit tests:
+From the repository root, after activating the environment described in [development setup](../DEVELOPMENT.md):
 
 ```bash
-cd raptors-python
-cargo test
+maturin develop --manifest-path raptors-python/Cargo.toml
+python -c "import raptors; print(raptors.__file__)" &&
+python -m pytest raptors-python/tests/ -v
 ```
 
-Run specific test:
+An import failure must stop validation. Current collection code can skip when the package is missing; fixing that is a v0.1 deliverable.
 
-```bash
-cargo test test_array_creation
-```
+For the Rust integration files, use `cargo test -p raptors-python --tests`; library-only tests do not include them. Platform-specific Python linking may be required, and failures must be reported.
 
-Run with output:
+## Adding or revising cases
 
-```bash
-cargo test -- --nocapture
-```
+Match the pinned NumPy behavior and test observable results, dtypes, errors, warnings, and alias effects. Include adversarial input and lifetime sequences. Keep unsupported cases visible with a specific milestone and removal condition.
 
-### Python Tests
-
-First, ensure the Python module is built and installed:
-
-```bash
-# Build the Python extension
-cd raptors-python
-maturin develop
-
-# Or if using cargo directly:
-cargo build --release
-# Then copy the .so/.dylib to a location in PYTHONPATH
-```
-
-Then run pytest:
-
-```bash
-# Install pytest if not already installed
-pip install pytest
-
-# Run all tests
-pytest tests/
-
-# Run specific test file
-pytest tests/test_array.py
-
-# Run with verbose output
-pytest tests/ -v
-
-# Run with coverage
-pytest tests/ --cov=raptors
-```
-
-## Test Coverage
-
-The test suite covers:
-
-- ✅ Array creation (zeros, ones, empty)
-- ✅ Array properties (shape, size, ndim, dtype, strides)
-- ✅ Array operations (arithmetic, comparison)
-- ✅ Array manipulation (reshape, transpose, copy, view)
-- ✅ Array indexing (getitem, setitem)
-- ✅ Array iteration
-- ✅ DType creation and properties
-- ✅ Ufunc operations (arithmetic, math, reductions)
-- ⏳ NumPy interoperability (partially implemented)
-
-## Adding New Tests
-
-When adding new functionality:
-
-1. **Add Rust tests** in `tests/*_test.rs` for testing the bindings layer
-2. **Add Python tests** in `tests/test_*.py` for testing the public API
-3. **Update this README** with new test coverage
-
-### Example: Adding a Test
-
-**Rust Test:**
-```rust
-#[test]
-fn test_new_feature() {
-    Python::with_gil(|py| {
-        let raptors = PyModule::import(py, "raptors").unwrap();
-        // Test code here
-    });
-}
-```
-
-**Python Test:**
-```python
-def test_new_feature():
-    """Test new feature"""
-    import raptors
-    # Test code here
-    assert condition
-```
-
+Do not change expected values to fit the implementation or count generated placeholders as coverage. The [verification record](../../docs/NUMPY_TEST_VERIFICATION.md) is the place for actual run evidence.

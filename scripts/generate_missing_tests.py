@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
-"""Generate comprehensive test additions for all NumPy port test categories"""
+"""Legacy count-based test generator, including placeholder bodies.
+
+Generated output is not NumPy conformance evidence. Audit assertions and upstream
+provenance before reuse; see docs/TEST_PORTING.md and docs/REBUILD_PLAN.md.
+"""
 
 import os
 
@@ -178,4 +182,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-

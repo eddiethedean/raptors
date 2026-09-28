@@ -21,7 +21,9 @@ except ImportError as e:
 
 # Filter out pytest deprecation warnings
 import warnings
-warnings.filterwarnings("ignore", category=pytest.PytestRemovedIn9Warning)
+pytest_removed_in_9_warning = getattr(pytest, "PytestRemovedIn9Warning", None)
+if pytest_removed_in_9_warning is not None:
+    warnings.filterwarnings("ignore", category=pytest_removed_in_9_warning)
 
 # NumPy testing utilities for Python tests
 try:
@@ -49,4 +51,3 @@ except ImportError:
     
     def assert_almost_equal(*args, **kwargs):
         pass
-

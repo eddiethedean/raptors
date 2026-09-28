@@ -19,7 +19,8 @@ pub struct PyArrayIterator {
     pub(crate) size: usize,
 }
 
-// SAFETY: PyArrayIterator only contains owned data (Arc, usize) which is thread-safe
+// Legacy unsafe assertions requiring review: Arc keeps storage alive but does not
+// prevent another alias from mutating the data while this iterator reads it.
 unsafe impl Send for PyArrayIterator {}
 unsafe impl Sync for PyArrayIterator {}
 
@@ -140,4 +141,3 @@ impl PyArrayIterator {
         }
     }
 }
-

@@ -1,76 +1,56 @@
-# NumPy Test Porting Verification Report
+# Compatibility verification record
 
-## Source
-- **NumPy Repository**: https://github.com/numpy/numpy
-- **Test Location**: `numpy/tests/` directory
-- **Verification Date**: Based on current NumPy repository structure
+Updated: 2026-09-28.
 
-## Core NumPy Test Files
+**The rebuild has no full conformance report yet.** Previous statements that all NumPy core tests had been ported and passed have been withdrawn. The [rebuild plan](REBUILD_PLAN.md) requires a new reproducible baseline.
 
-### ✅ All Core Test Files Ported (16 files)
+## Observed checks
 
-| NumPy Test File | Raptors Test File | Tests | Status |
-|----------------|-------------------|-------|--------|
-| `test_creation.py` | `numpy_port_creation_test.rs` | 65 | ✅ Complete |
-| `test_array.py` | `numpy_port_creation_test.rs` | 65 | ✅ Complete |
-| `test_multiarray.py` | `numpy_port_creation_test.rs` | 65 | ✅ Complete |
-| `test_indexing.py` | `numpy_port_indexing_test.rs` | 125 | ✅ Complete |
-| `test_broadcasting.py` | `numpy_port_broadcasting_test.rs` | 43 | ✅ Complete |
-| `test_umath.py` | `numpy_port_ufunc_test.rs` | 250 | ✅ Complete |
-| `test_ufunc.py` | `numpy_port_ufunc_test.rs` | 250 | ✅ Complete |
-| `test_reduction.py` | `numpy_port_reduction_test.rs` | 57 | ✅ Complete |
-| `test_shape_base.py` | `numpy_port_shape_test.rs` | 79 | ✅ Complete |
-| `test_array_operations.py` | `numpy_port_operations_test.rs` | 125 | ✅ Complete |
-| `test_linalg.py` | `numpy_port_linalg_test.rs` | 62 | ✅ Complete |
-| `test_dtype.py` | `numpy_port_dtype_test.rs` | 87 | ✅ Complete |
-| `test_ma.py` | `numpy_port_masked_test.rs` | 62 | ✅ Complete |
-| `test_structured.py` | `numpy_port_structured_test.rs` | 62 | ✅ Complete |
-| `test_strings.py` | `numpy_port_string_test.rs` | 26 | ✅ Complete |
-| `test_datetime.py` | `numpy_port_datetime_test.rs` | 62 | ✅ Complete |
+During repository familiarization, at legacy revision `9fbe407`:
 
-**Total Core Tests**: 1,112 tests
+| Check | Observed result | What it establishes |
+| --- | --- | --- |
+| `cargo test -p raptors-core --lib --quiet` | Succeeded with warnings; zero tests ran | The library test target built |
+| `cargo test -p raptors-core --test array_test --quiet` | Five passed | That small integration suite passed |
+| `cargo check -p raptors-python --quiet` | Succeeded with warnings | The Python crate type-checked; no Python runtime conformance claim |
+| Full Rust and Python suites | Not run during that inspection | Overall status remains unverified |
+| NumPy comparison benchmarks | Not run | No speed advantage established |
 
-## Additional NumPy Test Files (Not Core Functionality)
+These are dated inspection observations, not a clean, locked, multi-platform baseline. Build artifacts were placed outside the repository, but the core build script still recreated its tracked generated header; the original local deletion was restored.
 
-These test files exist in NumPy but are for configuration, utilities, and infrastructure:
+## Source findings requiring regression cases
 
-- `test__all__.py` - Tests for `__all__` exports
-- `test_configtool.py` - Tests for configuration tools
-- `test_ctypeslib.py` - Tests for ctypes integration
-- `test_lazyloading.py` - Tests for lazy loading
-- `test_matlib.py` - Tests for matrix library
-- `test_numpy_config.py` - Tests for NumPy configuration
-- `test_numpy_version.py` - Tests for version checking
-- `test_public_api.py` - Tests for public API
-- `test_reloading.py` - Tests for module reloading
-- `test_scripts.py` - Tests for command-line scripts
-- `test_warnings.py` - Tests for warning system
+- Narrow-dtype list construction writes through an `f64` pointer after allocating for the requested dtype.
+- Converting all list elements through `f64` can lose integer precision.
+- Shared mutable storage lacks a demonstrated concurrency contract.
+- Legacy C structures are not NumPy's documented binary layout.
+- Arithmetic copies inputs even when their dtypes already match.
+- Python test setup may skip collection if the extension cannot import.
 
-**Note**: These are infrastructure/utility tests and are not core array functionality tests. They may not need to be ported unless specific functionality is required.
+These findings motivate tests and design work. They are not a complete audit or a claim that other paths are correct.
 
-## Verification Result
+## Required v0.1 baseline report
 
-✅ **CONFIRMED**: All 16 core NumPy test files have been ported to Raptors.
+Record the repository revision, exact NumPy/Python/Rust versions, platform, build mode, dependency locks, artifact path, command, exit code, and captured output. Separate:
 
-- **Total Tests Ported**: 1,112 comprehensive tests
-- **All Tests Passing**: ✅
-- **Coverage**: All core NumPy functionality covered
+- Collected, passed, failed, skipped, and expected-failure cases.
+- Crashes and aborted runs from ordinary assertion failures.
+- Python API conformance from Rust implementation tests.
+- Native execution from delegated or fallback execution.
+- Actual upstream ports from generated placeholders and newly authored tests.
 
-## Setting Up numpy-reference Directory
+Every upstream-derived case needs a source revision, path, test identifier, preserved notices, and a review of adapted assertions.
 
-The `numpy-reference/` directory is currently empty. To set it up as a git submodule for direct access to NumPy's source:
+## Reference checkout
+
+The NumPy submodule is already declared. To populate its recorded revision from the repository root:
 
 ```bash
-git submodule add https://github.com/numpy/numpy.git numpy-reference
-git submodule update --init --recursive
+git submodule update --init numpy-reference
 ```
 
-This would allow:
-- Direct access to NumPy's source code
-- Reference to NumPy's test implementations
-- Easy comparison for future development
+Do not add a second submodule. The recorded checkout is reference material; v0.1 must select and document an exact released NumPy version for the oracle and align the source reference with it.
 
-## Conclusion
+## Updating this record
 
-All core NumPy test files from the `numpy/tests/` directory have been successfully ported to Raptors. The test suite provides comprehensive coverage of NumPy's core array functionality.
-
+Replace observations with new dated evidence when checks are actually run. Keep failures visible until resolved. A rewritten document or a passing compile check must not advance a compatibility milestone. See [test porting](TEST_PORTING.md).

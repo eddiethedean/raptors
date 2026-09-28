@@ -1,193 +1,63 @@
-# Raptors Core Performance Guide
+# Performance validation
 
-This guide covers performance characteristics and optimization tips for Raptors Core.
+**Status: no reproducible NumPy speed advantage has been established.** The existing [Criterion benchmarks](../raptors-core/benches/) measure selected Rust operations. They are useful local probes, but do not demonstrate end-to-end Python performance against NumPy.
 
-## Performance Characteristics
+The [rebuild plan](REBUILD_PLAN.md) makes performance a separate acceptance gate after the foundation is correct.
 
-### Array Creation
+## Baseline before optimization
 
-- **Empty arrays**: Fast allocation, uninitialized memory
-- **Zero-filled arrays**: Requires memory initialization (slower)
-- **One-filled arrays**: Requires type-specific initialization (slower)
+Release 0.1 establishes a Python benchmark harness and representative application workloads. Release 0.3 records the first correct numeric path. Release 0.4 profiles and optimizes it.
 
-**Tip**: Use `empty()` when you'll fill the array yourself.
+Measure equivalent work through both public Python APIs, with matching inputs, dtypes, layouts, output reuse, and correctness criteria. Include allocations and conversions when an application would incur them.
 
-### Memory Layout
+Record exact versions, compiler/build options, CPU, operating system, numerical backend, thread counts, and fallback state. Use optimized builds, warmups, repeated samples, and variability estimates. Run controlled single-thread comparisons and realistic defaults separately.
 
-- **C-contiguous arrays**: Fastest for most operations
-- **F-contiguous arrays**: Fastest for column-major operations
-- **Strided arrays**: Slower due to non-contiguous memory access
+## Workload matrix
 
-**Tip**: Use `as_contiguous()` to ensure optimal layout.
+| Dimension | Cases |
+| --- | --- |
+| Array size | Tiny arrays dominated by call overhead; medium and large arrays |
+| Layout | C/F order, slices, transposes, negative strides, broadcast dimensions |
+| Dtype | Integer, float, complex, mixed-type and scalar promotion |
+| Output | New allocation, reusable `out=`, in-place and overlapping outputs |
+| Operations | Construction, arithmetic, reductions, conversion, and later specialized kernels |
+| Applications | Preregistered multi-operation Python workflows |
 
-### Operations
+Report latency, throughput where meaningful, allocation count, native peak memory, and conversion/copy costs. Python-only allocation tracking is insufficient for native buffers.
 
-- **Contiguous arrays**: Fast paths for contiguous memory
-- **Strided arrays**: Slower due to stride calculations
-- **Large arrays**: Benefit from parallel operations
+## Optimization order
 
-## Optimization Tips
+1. Remove redundant input copies, metadata allocations, and per-element binding overhead.
+2. Improve the validated iteration plan and contiguous fast paths.
+3. Add dtype-specific kernels and runtime-selected SIMD where supported.
+4. Add parallel thresholds based on measurements and the storage access model.
+5. Evaluate specialized numerical backends under the same semantic tests.
 
-### 1. Use Contiguous Arrays
+NumPy already dispatches optimized SIMD kernels. Rust is an implementation choice, not speed evidence; see [NumPy's SIMD documentation](https://numpy.org/doc/stable/reference/simd/index.html).
 
-```rust
-// Ensure array is contiguous
-let array = array.as_contiguous(Order::C).unwrap();
-```
+Keep scalar reference kernels and run optimized paths against them and NumPy. Preserve eager behavior, numerical requirements, errors, and mutation visibility. Implicit fusion or reassociation cannot change the promised result.
 
-### 2. Avoid Unnecessary Copies
+## Proposed 0.4 release gate
 
-```rust
-// Use views instead of copies when possible
-let view = array.view().unwrap();
-// Instead of
-let copy = array.copy().unwrap();
-```
+Before tuning, finalize the workloads and thresholds proposed in the rebuild plan:
 
-### 3. Batch Operations
+- At least three preregistered application workloads improve median end-to-end time by 20% or more, with evidence beyond measurement noise.
+- No regression over 10% on the declared common-operation suite remains unexplained and unaccepted.
+- Correctness is maintained, with memory and allocation results reported alongside timing.
+- The report includes regressions and delegated execution, not only favorable results.
 
-```rust
-// Combine operations
-let result = add(&a, &b)
-    .and_then(|sum| multiply(&sum, &c))
-    .unwrap();
-```
+These thresholds are proposals, not achieved results or a promise that every operation will be faster.
 
-### 4. Choose Appropriate Types
+## Existing benchmark commands
 
-```rust
-// Use smaller types when precision allows
-let array = zeros(shape, DType::new(NpyType::Float));  // 32-bit
-// Instead of
-let array = zeros(shape, DType::new(NpyType::Double));  // 64-bit
-```
-
-### 5. Use Parallel Operations
-
-For large arrays, parallel operations are automatically used:
-
-```rust
-// Automatic parallelization for large arrays
-let sum = sum_along_axis(&large_array, None).unwrap();
-```
-
-## Memory Access Patterns
-
-### Cache-Friendly Access
-
-- Access elements in order (C-contiguous)
-- Process data in blocks
-- Minimize random access
-
-### Example: Block Processing
-
-```rust
-// Process array in blocks for cache efficiency
-let block_size = 1024;
-for i in (0..array.size()).step_by(block_size) {
-    let end = (i + block_size).min(array.size());
-    // Process block [i..end]
-}
-```
-
-## Threading
-
-### Parallel Operations
-
-Raptors Core uses Rayon for parallel operations:
-
-- Automatic threshold detection
-- Configurable thread pool
-- Thread-safe operations
-
-### Thread Pool Configuration
-
-Set `RAYON_NUM_THREADS` environment variable:
+From the repository root:
 
 ```bash
-export RAYON_NUM_THREADS=4
+cargo bench -p raptors-core --bench array_creation
+cargo bench -p raptors-core --bench operations
+cargo bench -p raptors-core --bench indexing
 ```
 
-## Benchmarking
+The previously documented `numpy_comparison` benchmark is not present. Use [Python build instructions](../raptors-python/BUILD.md) for an optimized extension. Do not infer acceleration from the presence of Rayon or SIMD-related modules.
 
-Use the benchmark suite to measure performance:
-
-```bash
-cargo bench
-```
-
-### Benchmark Categories
-
-1. **Array Creation**: `benches/array_creation.rs`
-2. **Operations**: `benches/operations.rs`
-3. **Indexing**: `benches/indexing.rs`
-4. **NumPy Comparison**: `benches/numpy_comparison.rs`
-
-## Performance vs NumPy
-
-Raptors Core aims to match NumPy's performance:
-
-- **Array creation**: Similar performance
-- **Operations**: Similar or better for contiguous arrays
-- **Indexing**: Similar performance
-- **Reductions**: Similar or better with parallel operations
-
-See benchmark results in `benches/` for detailed comparisons.
-
-## Profiling
-
-Use Rust profiling tools:
-
-```bash
-# Install cargo-flamegraph
-cargo install flamegraph
-
-# Profile your code
-cargo flamegraph --bench array_creation
-```
-
-## Common Performance Issues
-
-### 1. Non-Contiguous Arrays
-
-**Problem**: Strided arrays are slower
-
-**Solution**: Use `as_contiguous()` when possible
-
-### 2. Unnecessary Copies
-
-**Problem**: Copying large arrays is expensive
-
-**Solution**: Use views when possible
-
-### 3. Type Conversions
-
-**Problem**: Type conversions add overhead
-
-**Solution**: Use consistent types throughout
-
-### 4. Small Array Overhead
-
-**Problem**: Parallel operations have overhead for small arrays
-
-**Solution**: Operations automatically detect array size and use sequential for small arrays
-
-## Best Practices
-
-1. **Profile First**: Measure before optimizing
-2. **Use Appropriate Types**: Match precision needs
-3. **Minimize Copies**: Use views and references
-4. **Batch Operations**: Combine when possible
-5. **Use Parallel Operations**: For large arrays
-6. **Ensure Contiguity**: For hot paths
-
-## Future Optimizations
-
-Planned optimizations:
-
-- Advanced SIMD support
-- GPU array support
-- JIT compilation
-- Advanced cache optimizations
-- Memory pool management
-
+Async service latency, GPU execution, and distributed throughput are deferred topics, outside the initial NumPy compatibility performance gate.

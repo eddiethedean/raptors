@@ -6,7 +6,9 @@ import os
 import warnings
 
 # Filter out pytest deprecation warnings about async fixtures
-warnings.filterwarnings("ignore", category=pytest.PytestRemovedIn9Warning)
+pytest_removed_in_9_warning = getattr(pytest, "PytestRemovedIn9Warning", None)
+if pytest_removed_in_9_warning is not None:
+    warnings.filterwarnings("ignore", category=pytest_removed_in_9_warning)
 
 # Add the parent directory to the path so we can import raptors
 # This ensures we can import the module even if it's not installed
@@ -44,4 +46,3 @@ def ones_array():
     """Fixture for creating an array of ones"""
     import raptors
     return raptors.ones([3, 4], dtype=raptors.float64)
-

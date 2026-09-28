@@ -16,7 +16,9 @@ use super::{DLTensor, DLDevice, DLDeviceType, DLDataType, DLDataTypeCode, DLPack
 ///
 /// # Safety
 /// The returned DLTensor must be freed using `delete_dlpack_tensor`
-/// Note: This creates a copy of shape/strides data to ensure memory safety
+/// Shape and stride metadata are copied, but the tensor borrows the data pointer.
+/// The caller must keep the array storage alive and prevent conflicting access
+/// for the tensor's entire use. Metadata copies alone do not establish safety.
 pub unsafe fn array_to_dlpack(array: &Array) -> Result<*mut DLTensor, DLPackError> {
     // Convert dtype
     let dtype = npy_type_to_dlpack_dtype(array.dtype().type_())?;
@@ -173,4 +175,3 @@ fn dlpack_dtype_to_npy_type(dtype: DLDataType) -> Result<NpyType, DLPackError> {
         _ => Err(DLPackError::UnsupportedDtype),
     }
 }
-

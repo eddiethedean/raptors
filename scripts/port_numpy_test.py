@@ -2,6 +2,9 @@
 """
 NumPy Test Porting Script
 
+Legacy scaffolding only: generated Rust stubs do not establish compatibility.
+Review source provenance and assertions as described in docs/TEST_PORTING.md.
+
 This script helps port NumPy tests to Raptors by:
 1. Parsing NumPy test files
 2. Identifying test functions
@@ -138,5 +141,4 @@ def main():
 
 if __name__ == '__main__':
     main()
-
 

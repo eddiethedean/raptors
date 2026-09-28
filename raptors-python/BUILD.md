@@ -1,218 +1,67 @@
-# Building and Publishing Raptors Python Package
+# Building and releasing Raptors Python
 
-This document describes how to build and publish the Raptors Python package.
+**Status: build guidance and tagged publishing automation.** Building and testing a wheel does not establish full NumPy compatibility or satisfy every roadmap release gate. Follow the [rebuild plan](../docs/REBUILD_PLAN.md).
 
-## Prerequisites
+## Development build
 
-- Rust toolchain (install from https://rustup.rs/)
-- Python 3.7 or later
-- maturin (install with `pip install maturin` or `cargo install maturin`)
-
-## Local Development Build
-
-### Install in Editable Mode
-
-For development, install the package in editable mode:
+Create the isolated environment in [DEVELOPMENT.md](DEVELOPMENT.md). From the repository root:
 
 ```bash
-cd raptors-python
-maturin develop
+maturin develop --manifest-path raptors-python/Cargo.toml
+python -c "import raptors; print(raptors.__file__)"
 ```
 
-This will:
-- Build the Rust extension
-- Install it in your current Python environment
-- Make changes immediately available without reinstalling
-
-### Release Build
-
-For optimized builds:
+Repeat the build after Rust edits. Use an optimized build for measurements:
 
 ```bash
-maturin develop --release
+maturin develop --release --manifest-path raptors-python/Cargo.toml
 ```
 
-## Building Distributions
+The current package links the local core crate and depends on NumPy at runtime. The rebuild's native execution and optional-adapter dependency policy is not yet implemented.
 
-### Build Wheel
+## Build a wheel
 
-Build a wheel for your current platform:
+From the repository root with the development environment active:
 
 ```bash
-maturin build
+maturin build --release --manifest-path raptors-python/Cargo.toml --out /tmp/raptors-wheels
 ```
 
-Build in release mode:
+Install the exact newly produced wheel into a second clean environment. Avoid a wildcard that may select stale builds. Verify the imported path and version, then run the required tests from the checkout using that environment's interpreter.
 
-```bash
-maturin build --release
-```
+For source distributions, verify that the sibling core crate and required manifests/source are included and that a clean source build succeeds. The existing packaging declarations require validation.
 
-The wheel will be created in `target/wheels/`.
+## Version and platform policy
 
-### Build Source Distribution
+Release 0.1 selects exact Python, NumPy, Rust, and tool versions. Do not infer support from historical Python 3.7+ classifiers or the existing CI matrix.
 
-Build a source distribution (sdist):
+The tagged workflow currently builds the historical Python 3.7–3.12 grid. Confirm or change that matrix when release 0.1 declares its supported Python versions; passing these jobs alone does not establish the support policy.
 
-```bash
-maturin build --sdist
-```
+Version declarations currently exist in the root `Cargo.toml`, both crate manifests, and `pyproject.toml`; the crate declarations are not automatically inherited from the workspace. Reconcile them during release preparation.
 
-The source distribution will be created in `target/wheels/`.
+The intended release matrix includes Linux, macOS, and Windows with explicitly declared architectures. Validate wheel tags, imports, runtime dependencies, numerical backends, and installed-package behavior on each supported combination.
 
-### Build for Multiple Python Versions
+## Existing automation
 
-To build for a specific Python version:
+Push an exact `vX.Y.Z` tag to trigger the [PyPI release workflow](../.github/workflows/release.yml). It checks that the tag matches every package version declaration, runs Rust formatting/tests/Clippy, builds and tests wheels across the configured operating-system and Python matrix, checks wheel metadata, and publishes only after those jobs pass.
 
-```bash
-maturin build --python 3.8
-maturin build --python 3.9
-maturin build --python 3.10
-# etc.
-```
+Configure the PyPI Trusted Publisher for repository `eddiethedean/raptors`, workflow file `release.yml`, and GitHub environment `pypi`. The [manual TestPyPI workflow](../.github/workflows/publish-python.yml) is separate and does not publish to PyPI.
 
-### Build for Multiple Platforms
+These automated checks do not establish full NumPy compatibility, memory-safety evidence, or a performance advantage. Do not tag a public release until the applicable roadmap gate also passes. Remaining release evidence includes:
 
-For cross-platform builds, use Docker or CI/CD:
+1. Pinned reference and compatibility manifest for the release.
+2. Required semantic tests, with build/import failures fatal.
+3. Safety review and applicable Miri, sanitizer, and fuzz evidence.
+4. Reproducible benchmarks for every public performance claim.
+5. Clean wheel installs and application tests on the declared platform matrix.
+6. Consistent package metadata, actual license files, upstream notices, and documentation.
 
-```bash
-# Linux (manylinux)
-docker run --rm -v $(pwd):/io ghcr.io/pyo3/maturin build --release
-
-# macOS (universal)
-maturin build --release --target universal2-apple-darwin
-
-# Windows
-maturin build --release
-```
-
-## Testing the Build
-
-### Test Local Installation
-
-1. Build the wheel:
-   ```bash
-   maturin build --release
-   ```
-
-2. Install from wheel:
-   ```bash
-   pip install target/wheels/raptors-*.whl
-   ```
-
-3. Test the installation:
-   ```bash
-   python -c "import raptors; print(raptors.__version__)"
-   ```
-
-### Test in Clean Environment
-
-Create a clean virtual environment and test:
-
-```bash
-python -m venv test_env
-source test_env/bin/activate  # On Windows: test_env\Scripts\activate
-pip install target/wheels/raptors-*.whl
-pytest tests/
-deactivate
-rm -rf test_env
-```
-
-## Version Management
-
-The version must be synchronized across:
-
-1. `Cargo.toml` (workspace root) - `version = "0.1.0"`
-2. `raptors-python/Cargo.toml` - `version = "0.1.0"` (or use workspace version)
-3. `raptors-python/pyproject.toml` - `version = "0.1.0"`
-
-**Important**: When updating the version, update all three files.
-
-## Publishing to PyPI
-
-### Prerequisites
-
-1. Create a PyPI account at https://pypi.org/account/register/
-2. Create an API token at https://pypi.org/manage/account/token/
-3. Configure credentials (see `.pypirc.example`)
-
-### TestPyPI (Recommended First Step)
-
-Always test on TestPyPI before publishing to PyPI:
-
-```bash
-# Build the package
-maturin build --release
-
-# Publish to TestPyPI
-maturin publish --test
-
-# Test installation from TestPyPI
-pip install --index-url https://test.pypi.org/simple/ raptors
-```
-
-### PyPI Publishing
-
-Once tested on TestPyPI:
-
-```bash
-# Build the package
-maturin build --release
-
-# Publish to PyPI
-maturin publish
-```
-
-**Note**: Publishing is permanent. Make sure:
-- Version number is correct
-- All tests pass
-- Documentation is up to date
-- You've tested on TestPyPI first
-
-### Using API Tokens
-
-Set environment variables:
-
-```bash
-export MATURIN_PYPI_TOKEN="pypi-..."
-```
-
-Or use `.pypirc` file (see `.pypirc.example`).
-
-## CI/CD Publishing
-
-For automated publishing, see `.github/workflows/publish-python.yml` (if created).
-
-The workflow should:
-- Build wheels for multiple Python versions
-- Build for multiple platforms (Linux, macOS, Windows)
-- Publish to TestPyPI on pull requests
-- Publish to PyPI on version tags
+Publishing should consume the validated artifacts. The documentation update itself does not authorize or trigger a release.
 
 ## Troubleshooting
 
-### Build Fails
+Check the selected `PYO3_PYTHON`, interpreter version, extension path, and captured build output first. The checked-in Cargo configuration is machine-specific. Native Rust tests for the bindings can also need Python embedding/linker configuration.
 
-- Ensure Rust toolchain is up to date: `rustup update`
-- Ensure maturin is up to date: `pip install --upgrade maturin`
-- Check Python version: `python --version`
-- Check for missing dependencies
+The core build script currently writes its header into the source tree; directing Cargo output elsewhere does not prevent that. Generated-output cleanup is a v0.1 task.
 
-### Import Errors After Installation
-
-- Verify installation: `pip show raptors`
-- Check Python path: `python -c "import sys; print(sys.path)"`
-- Reinstall: `pip uninstall raptors && maturin develop`
-
-### Version Conflicts
-
-- Ensure version is synced across all files
-- Clear build cache: `cargo clean`
-- Rebuild: `maturin build --release`
-
-## Additional Resources
-
-- [Maturin Documentation](https://maturin.rs/)
-- [PyPI Packaging Guide](https://packaging.python.org/)
-- [Python Packaging User Guide](https://packaging.python.org/guides/)
-
+See [testing](TESTING.md) and [verification](../docs/NUMPY_TEST_VERIFICATION.md) before interpreting a successful build as functional evidence.

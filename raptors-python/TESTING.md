@@ -1,258 +1,75 @@
-# Testing Guide for Raptors Python
+# Testing Raptors Python
 
-This guide explains how to run and write tests for the Raptors Python bindings.
+The current tests exercise the legacy prototype. The [rebuild plan](../docs/REBUILD_PLAN.md) requires a new NumPy differential harness and explicit compatibility evidence; those systems are planned.
 
-## Quick Start
+## Build and verify the artifact
 
-### Run All Tests
-
-```bash
-# Using the test runner script (recommended)
-./run_tests.sh
-
-# Or using Make
-make test
-```
-
-This will:
-1. Check if the module is built
-2. Build it if necessary
-3. Run Rust unit tests
-4. Run Python pytest tests
-
-## Test Structure
-
-### Rust Unit Tests
-
-Located in `tests/*_test.rs`. These test the Python bindings from Rust using PyO3's testing utilities.
-
-**Files:**
-- `array_test.rs` - Array creation, properties, operations
-- `dtype_test.rs` - DType functionality
-- `ufunc_test.rs` - Universal functions
-- `iterator_test.rs` - Array iteration
-
-**Run Rust tests:**
-```bash
-cargo test --lib
-cargo test --lib test_array_creation  # Specific test
-cargo test --lib -- --nocapture       # With output
-```
-
-### Python Pytest Tests
-
-Located in `tests/test_*.py`. These test the public Python API.
-
-**Files:**
-- `test_array.py` - Comprehensive array tests
-- `test_dtype.py` - DType tests
-- `test_ufunc.py` - Ufunc tests
-- `test_numpy_interop.py` - NumPy interoperability
-
-**Run Python tests:**
-```bash
-# Ensure module is built first
-maturin develop
-
-# Run all tests
-pytest tests/
-
-# Run specific file
-pytest tests/test_array.py
-
-# Run with verbose output
-pytest tests/ -v
-
-# Run with coverage
-pytest tests/ --cov=raptors
-```
-
-## Prerequisites
-
-### Required
-
-- Rust toolchain (`rustup`)
-- Python 3.7+
-- maturin (`pip install maturin` or `cargo install maturin`)
-- pytest (`pip install pytest`)
-
-### Optional
-
-- pytest-cov for coverage (`pip install pytest-cov`)
-- Make (for Makefile targets)
-
-## Building the Module
-
-Before running Python tests, the module must be built:
+Follow [DEVELOPMENT.md](DEVELOPMENT.md), then run from the repository root:
 
 ```bash
-# Development build (recommended for testing)
-maturin develop
-
-# Release build (for performance testing)
-maturin develop --release
+maturin develop --manifest-path raptors-python/Cargo.toml
+python -c "import raptors; print(raptors.__file__); print(raptors.__version__)" &&
+python -m pytest raptors-python/tests/ -v
 ```
 
-## Running Tests
+The explicit import is essential: existing `conftest.py` files can skip collection if the extension cannot load. Correcting that skip is a v0.1 gate. Confirm the path points to the newly built artifact.
 
-### Individual Test Suites
+To run a selected file:
 
-**Rust tests only:**
 ```bash
-make test-rust
-# or
-cargo test --lib
+python -c "import raptors" &&
+python -m pytest raptors-python/tests/test_array.py -v
 ```
 
-**Python tests only:**
+Capture failures and crashes as baseline evidence. These commands are not claimed to pass today.
+
+## Rust checks
+
+From the repository root:
+
 ```bash
-make test-python
-# or
-pytest tests/
+cargo test -p raptors-core --tests
+cargo test -p raptors-core --doc
+cargo check -p raptors-python
+cargo test -p raptors-python --tests
 ```
 
-**All tests:**
-```bash
-make test
-# or
-./run_tests.sh
-```
+The last command exercises binding integration targets and may need Python embedding/linker setup for the platform. A linker failure is a failed check, not a successful or silently skipped suite.
 
-### Test Options
+`cargo test --lib` does not run integration files in `tests/`. The initial core library-only run collected zero tests. `cargo check` compiles without demonstrating Python runtime behavior.
 
-**Run specific test:**
-```bash
-# Rust
-cargo test --lib test_array_creation
+## Existing layout
 
-# Python
-pytest tests/test_array.py::TestArrayCreation::test_zeros
-```
+| Location | Purpose |
+| --- | --- |
+| [test_array.py](tests/test_array.py) | Array construction, properties, operators, and methods |
+| [test_dtype.py](tests/test_dtype.py) | Dtype bindings |
+| [test_ufunc.py](tests/test_ufunc.py) | Registered functions and reductions |
+| [test_numpy_interop.py](tests/test_numpy_interop.py) | Conversion behavior |
+| [numpy_port](tests/numpy_port/) | Additional compatibility-oriented Python tests |
+| [Rust integration tests](tests/) | Binding tests written in Rust |
+| [Core integration tests](../raptors-core/tests/) | Rust engine behavior |
 
-**Run with output:**
-```bash
-# Rust
-cargo test --lib -- --nocapture
+Filenames and old test totals do not prove upstream provenance or complete coverage.
 
-# Python
-pytest tests/ -v -s
-```
+## Planned differential gate
 
-**Run with coverage:**
-```bash
-pytest tests/ --cov=raptors --cov-report=html
-# Coverage report in htmlcov/
-```
+Execute the same cases against the pinned NumPy version and Raptors. Compare values, dtype, scalar/array return, shape, applicable strides/flags, alias mutation, exceptions, and warnings.
 
-## Writing Tests
+Prioritize narrow-dtype construction, large integer precision, negative strides, overlapping assignment, zero-sized dimensions, owner deletion, scalar promotion, and `out=` behavior. Add generated operation sequences and retain minimized failures.
 
-### Adding Rust Tests
+Use exact structural/integer comparisons and operation-specific numerical criteria. Keep native and delegated execution separate. Required native cases must pass with fallback disabled.
 
-Add to appropriate `tests/*_test.rs` file:
+## Reporting and skips
 
-```rust
-#[test]
-fn test_new_feature() {
-    Python::with_gil(|py| {
-        let raptors = PyModule::import(py, "raptors").unwrap();
-        // Test code here
-        assert!(condition);
-    });
-}
-```
+Record revision, environment, artifact path, commands, exit codes, collected/passed/failed/skipped cases, and crashes. Every skip or expected failure needs a specific reason and removal condition. Required supported cases cannot stay skipped at their release gate.
 
-### Adding Python Tests
+Legacy `run_tests.sh` and Make targets are convenience wrappers, not the acceptance authority. The runner also pipes a Rust command through `tee` without enabling pipeline failure propagation; v0.1 must correct that before relying on its success message.
 
-Add to appropriate `tests/test_*.py` file:
+## Safety and CI
 
-```python
-def test_new_feature():
-    """Test new feature"""
-    import raptors
-    # Test code here
-    assert condition
-```
+Miri for isolated Rust storage/layout code, property tests, fuzzing, and supported sanitizer builds complement Python behavioral tests. They do not replace review of unsafe preconditions, aliases, and foreign lifetimes.
 
-### Test Organization
+The current workflow is [ci.yml](../.github/workflows/ci.yml). Release 0.1 will audit its build dependencies, coverage, and failure handling. The release gates are not yet enforced by it.
 
-- Group related tests in classes
-- Use descriptive test names
-- Add docstrings explaining what is tested
-- Use fixtures from `conftest.py` when appropriate
-
-## Continuous Integration
-
-Tests run automatically on:
-- Push to main/develop branches
-- Pull requests
-
-See `.github/workflows/tests.yml` for CI configuration.
-
-## Troubleshooting
-
-### Module Not Found
-
-**Error:** `ModuleNotFoundError: No module named 'raptors'`
-
-**Solution:**
-```bash
-maturin develop
-```
-
-### Import Errors in Tests
-
-**Error:** Import errors when running pytest
-
-**Solution:**
-- Ensure `conftest.py` is in the tests directory
-- Check that the module is built: `python -c "import raptors"`
-- Verify PYTHONPATH if using custom setup
-
-### Rust Tests Fail
-
-**Error:** Rust tests fail to compile or run
-
-**Solution:**
-- Update Rust: `rustup update`
-- Clean build: `cargo clean && cargo test --lib`
-- Check for missing dependencies
-
-### Python Tests Fail
-
-**Error:** Python tests fail with import or runtime errors
-
-**Solution:**
-- Rebuild module: `maturin develop`
-- Check Python version: `python --version` (needs 3.7+)
-- Verify pytest is installed: `pip install pytest`
-- Run with verbose output: `pytest tests/ -v -s`
-
-## Test Coverage
-
-Current test coverage includes:
-
-- ✅ Array creation (zeros, ones, empty)
-- ✅ Array properties (shape, size, ndim, dtype, strides)
-- ✅ Array operations (arithmetic, comparison)
-- ✅ Array manipulation (reshape, transpose, copy, view)
-- ✅ Array indexing (getitem, setitem)
-- ✅ Array iteration
-- ✅ DType creation and properties
-- ✅ Ufunc operations (arithmetic, math, reductions)
-- ⏳ NumPy interoperability (partially implemented)
-
-## Best Practices
-
-1. **Always test both Rust and Python**: Rust tests verify bindings, Python tests verify API
-2. **Use fixtures**: Share common setup code via `conftest.py`
-3. **Test edge cases**: Empty arrays, single elements, large arrays
-4. **Test error cases**: Invalid inputs, type mismatches
-5. **Keep tests fast**: Use small arrays for unit tests
-6. **Document tests**: Explain what each test verifies
-
-## Additional Resources
-
-- [Pytest Documentation](https://docs.pytest.org/)
-- [PyO3 Testing Guide](https://pyo3.rs/latest/testing.html)
-- [Rust Testing](https://doc.rust-lang.org/book/ch11-00-testing.html)
-
+See [test porting](../docs/TEST_PORTING.md) and the dated [verification record](../docs/NUMPY_TEST_VERIFICATION.md).

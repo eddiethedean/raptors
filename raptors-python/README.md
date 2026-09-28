@@ -1,156 +1,39 @@
 # Raptors Python
 
-Python bindings for Raptors Core - A Rust implementation of NumPy's C/C++ core.
-
-## Installation
-
-### From PyPI (when available)
-
-```bash
-pip install raptors
-```
-
-### From Source
-
-```bash
-# Clone the repository
-git clone https://github.com/your-org/raptors.git
-cd raptors/raptors-python
-
-# Install using maturin
-pip install maturin
-maturin develop
-```
-
-### Development Installation
-
-```bash
-# Install in editable mode with dev dependencies
-maturin develop
-pip install -e .[dev]
-```
-
-## Quick Start
+Python bindings for the experimental Raptors array engine. The project is rebuilding toward NumPy's public functionality through:
 
 ```python
-import raptors
-import numpy as np
-
-# Create arrays
-arr = raptors.zeros([3, 4], dtype=raptors.float64)
-ones = raptors.ones([2, 3], dtype=raptors.float64)
-
-# Array properties
-print(f"Shape: {arr.shape}")
-print(f"Size: {arr.size}")
-print(f"NDim: {arr.ndim}")
-print(f"DType: {arr.dtype}")
-
-# Array operations
-a = raptors.ones([3, 3], dtype=raptors.float64)
-b = raptors.ones([3, 3], dtype=raptors.float64)
-result = a + b
-
-# Array manipulation
-reshaped = arr.reshape([12])
-transposed = arr.transpose()
-
-# Ufuncs
-result = raptors.sin(arr)
-result = raptors.cos(arr)
-result = raptors.sum(arr)
+import raptors as np
 ```
 
-## Features
+**That is the compatibility goal, not a claim that the current package is a drop-in replacement.** The [rebuild plan](../docs/REBUILD_PLAN.md) defines the design and acceptance gates.
 
-- **NumPy-Compatible API**: Familiar interface for NumPy users
-- **High Performance**: Rust implementation for speed and safety
-- **Array Operations**: Creation, manipulation, and arithmetic operations
-- **Universal Functions**: Mathematical, trigonometric, and reduction functions
-- **Type System**: Full dtype support matching NumPy's type system
-- **Iterators**: Efficient array iteration
+## Current package
 
-## API Overview
+The extension uses PyO3 and delegates array work to the local `raptors-core` crate. It exposes array/dtype classes, constructors, selected operations and reductions, iteration, and NumPy conversion helpers. See the [API guide](../docs/API_GUIDE.md) for source locations and limitations.
 
-### Array Creation
+Known issues include unsafe narrow-dtype list construction and unproven view/concurrency contracts. Existing modules need differential validation before they count as compatible.
 
-```python
-raptors.zeros(shape, dtype=raptors.float64)
-raptors.ones(shape, dtype=raptors.float64)
-raptors.Array.empty(shape, dtype=raptors.float64)
-```
-
-### Array Properties
-
-- `shape`: Array dimensions
-- `size`: Total number of elements
-- `ndim`: Number of dimensions
-- `dtype`: Data type
-- `strides`: Memory strides
-- `is_c_contiguous`: C-order contiguity flag
-- `is_f_contiguous`: Fortran-order contiguity flag
-
-### Array Operations
-
-- Arithmetic: `+`, `-`, `*`, `/`
-- Comparison: `==`, `<`, `>`
-- Manipulation: `reshape()`, `transpose()`, `copy()`, `view()`
-- Indexing: `arr[index]` for 1D arrays
-
-### Universal Functions
-
-**Arithmetic:**
-- `raptors.add(a, b)`
-- `raptors.subtract(a, b)`
-- `raptors.multiply(a, b)`
-- `raptors.divide(a, b)`
-
-**Mathematical:**
-- `raptors.sin(a)`, `raptors.cos(a)`, `raptors.tan(a)`
-- `raptors.exp(a)`, `raptors.log(a)`, `raptors.sqrt(a)`
-- `raptors.abs(a)`, `raptors.floor(a)`, `raptors.ceil(a)`
-
-**Reductions:**
-- `raptors.sum(a, axis=None)`
-- `raptors.mean(a, axis=None)`
-- `raptors.min(a, axis=None)`
-- `raptors.max(a, axis=None)`
-
-### DTypes
-
-```python
-raptors.float64  # 64-bit float
-raptors.float32  # 32-bit float
-raptors.int64    # 64-bit integer
-raptors.int32    # 32-bit integer
-raptors.bool_    # Boolean
-
-# Create custom dtype
-dtype = raptors.DType("float64")
-```
-
-## Requirements
-
-- Python 3.7 or later
-- NumPy 1.16.0 or later
+The current Python metadata depends on NumPy. The rebuild targets native numeric execution without NumPy fallback, with NumPy serving as the reference oracle and optional interoperability dependency. That dependency change has not yet been implemented.
 
 ## Development
 
-See [DEVELOPMENT.md](DEVELOPMENT.md) for development setup instructions.
+Follow [DEVELOPMENT.md](DEVELOPMENT.md) to create an isolated environment and explicitly rebuild the extension. Use [BUILD.md](BUILD.md) for wheel validation and [TESTING.md](TESTING.md) for the existing test commands and planned gates.
 
-## Building
+This documentation does not assert that a public PyPI release is available or ready. The historical Python version classifiers and publishing matrix have not been validated as the rebuilt support policy.
 
-See [BUILD.md](BUILD.md) for build and publishing instructions.
+## Compatibility and safety
+
+The final scope includes NumPy's public dtypes, functions, methods, ufunc behavior, and submodules. Earlier releases must state their supported subset. Compiled extensions requiring NumPy objects need explicit adapters; NumPy binary-interface replacement is outside the release requirement.
+
+Memory safety depends on checked storage and controlled mutation, including aliases and foreign buffers. Performance claims require equivalent Python workloads, including allocation and conversion costs.
 
 ## Documentation
 
-For more detailed documentation, see the main [Raptors Core README](../README.md).
+- [Project overview](../README.md)
+- [Documentation index](../docs/README.md)
+- [Architecture proposal](../docs/ARCHITECTURE.md)
+- [Contribution guide](../docs/CONTRIBUTING.md)
+- [Verification record](../docs/NUMPY_TEST_VERIFICATION.md)
 
-## License
-
-MIT License - See LICENSE file for details.
-
-## Contributing
-
-Contributions are welcome! Please see [CONTRIBUTING.md](../docs/CONTRIBUTING.md) for guidelines.
-
+The metadata currently declares MIT; a top-level license file and consistent declarations are still needed before release.
