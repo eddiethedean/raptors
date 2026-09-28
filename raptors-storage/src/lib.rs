@@ -753,6 +753,7 @@ pub enum IndexItem {
     NewAxis,
     Fancy {
         shape: Vec<usize>,
+        strides: Vec<isize>,
         indices: Vec<isize>,
     },
     BoolScalar(bool),
@@ -1473,6 +1474,81 @@ impl View {
             allocation_len: len,
         })
     }
+
+    /// Builds an owning array from logical C-order values using explicit
+    /// non-overlapping strides. This is used for NumPy-compatible indexed
+    /// copies whose physical axis order follows the source subspace.
+    fn from_values_with_strides(
+        dtype: DType,
+        byte_order: ByteOrder,
+        shape: Vec<usize>,
+        values: &[Scalar],
+        strides: Vec<isize>,
+    ) -> Result<Self, StorageError> {
+        let len = element_count(&shape)?;
+        if len != values.len() {
+            return Err(StorageError::ShapeMismatch);
+        }
+        if shape.len() != strides.len() {
+            return Err(StorageError::InvalidLayout);
+        }
+        if values.iter().any(|value| value.dtype() != dtype) {
+            return Err(StorageError::DTypeMismatch);
+        }
+        if len
+            .checked_mul(dtype.itemsize())
+            .ok_or(StorageError::ShapeOverflow)?
+            > isize::MAX as usize
+        {
+            return Err(StorageError::ShapeOverflow);
+        }
+        if byte_order == ByteOrder::NotApplicable && dtype.itemsize() > 1 {
+            return Err(StorageError::InvalidLayout);
+        }
+        let byte_order = if dtype.itemsize() == 1 {
+            ByteOrder::NotApplicable
+        } else {
+            byte_order.normalized()
+        };
+        let itemsize =
+            isize::try_from(dtype.itemsize()).map_err(|_| StorageError::ShapeOverflow)?;
+        let mut buffer = Buffer::zeroed(dtype, byte_order, len)?;
+        for (linear, value) in values.iter().enumerate() {
+            let coordinates = coordinates_for_shape(&shape, linear)?;
+            let byte_offset = coordinates.iter().zip(&strides).try_fold(
+                0isize,
+                |offset, (&coordinate, &stride)| {
+                    let coordinate =
+                        isize::try_from(coordinate).map_err(|_| StorageError::ShapeOverflow)?;
+                    offset
+                        .checked_add(
+                            coordinate
+                                .checked_mul(stride)
+                                .ok_or(StorageError::ShapeOverflow)?,
+                        )
+                        .ok_or(StorageError::ShapeOverflow)
+                },
+            )?;
+            if byte_offset < 0 || byte_offset % itemsize != 0 {
+                return Err(StorageError::InvalidLayout);
+            }
+            let physical_index =
+                usize::try_from(byte_offset / itemsize).map_err(|_| StorageError::InvalidLayout)?;
+            buffer.write(physical_index, value.clone())?;
+        }
+        let view = Self {
+            storage: Arc::new(RwLock::new(buffer)),
+            dtype,
+            byte_order,
+            shape,
+            strides,
+            offset: 0,
+            allocation_len: len,
+        };
+        view.validate_layout()?;
+        Ok(view)
+    }
+
     pub fn dtype(&self) -> DType {
         self.dtype
     }
@@ -1678,7 +1754,7 @@ impl View {
                 IndexItem::Fancy { .. } | IndexItem::BoolScalar(_) | IndexItem::BoolMask { .. }
             )
         }) {
-            let (shape, offsets) = self.advanced_offsets(indices)?;
+            let (shape, offsets, strides) = self.advanced_offsets(indices)?;
             let storage = self
                 .storage
                 .read()
@@ -1687,7 +1763,13 @@ impl View {
                 .into_iter()
                 .map(|offset| storage.read(offset))
                 .collect::<Result<Vec<_>, _>>()?;
-            return Self::from_values_with_order(self.dtype, self.byte_order, shape, &values);
+            return Self::from_values_with_strides(
+                self.dtype,
+                self.byte_order,
+                shape,
+                &values,
+                strides,
+            );
         }
         let consuming = indices
             .iter()
@@ -1909,7 +1991,7 @@ impl View {
         value: Scalar,
     ) -> Result<(), StorageError> {
         let value = value.cast(self.dtype)?;
-        let (_, offsets) = self.advanced_offsets(indices)?;
+        let (_, offsets, _) = self.advanced_offsets(indices)?;
         let mut storage = self
             .storage
             .write()
@@ -1925,7 +2007,7 @@ impl View {
         indices: &[IndexItem],
         source: &Self,
     ) -> Result<(), StorageError> {
-        let (target_shape, offsets) = self.advanced_offsets(indices)?;
+        let (target_shape, offsets, _) = self.advanced_offsets(indices)?;
         if source.ndim() > target_shape.len()
             || source
                 .shape
@@ -1968,7 +2050,7 @@ impl View {
     fn advanced_offsets(
         &self,
         indices: &[IndexItem],
-    ) -> Result<(Vec<usize>, Vec<usize>), StorageError> {
+    ) -> Result<(Vec<usize>, Vec<usize>, Vec<isize>), StorageError> {
         let advanced_positions = indices
             .iter()
             .enumerate()
@@ -2023,6 +2105,9 @@ impl View {
         };
         let mut advanced_axis_start = if separated { Some(0) } else { None };
         let mut output_axis_for_term = vec![None; indices.len()];
+        let mut basic_shape = Vec::new();
+        let mut basic_source_strides = Vec::new();
+        let mut basic_output_axes = Vec::new();
         let mut input_axis = 0usize;
         for (position, item) in indices.iter().enumerate() {
             let consumed = match item {
@@ -2038,8 +2123,12 @@ impl View {
             }
             match item {
                 IndexItem::NewAxis => {
-                    output_axis_for_term[position] = Some(output_shape.len());
+                    let output_axis = output_shape.len();
+                    output_axis_for_term[position] = Some(output_axis);
                     output_shape.push(1);
+                    basic_shape.push(1);
+                    basic_source_strides.push(0);
+                    basic_output_axes.push(output_axis);
                 }
                 IndexItem::BoolScalar(_) => {
                     if !separated && position == first_advanced {
@@ -2057,11 +2146,21 @@ impl View {
                 }
                 IndexItem::Slice { start, step, len } => {
                     validate_slice(input_axis, self.shape[input_axis], *start, *step, *len)?;
-                    output_axis_for_term[position] = Some(output_shape.len());
+                    let output_axis = output_shape.len();
+                    output_axis_for_term[position] = Some(output_axis);
                     output_shape.push(*len);
+                    basic_shape.push(*len);
+                    basic_source_strides.push(if *len == 0 {
+                        self.strides[input_axis]
+                    } else {
+                        self.strides[input_axis]
+                            .checked_mul(*step)
+                            .ok_or(StorageError::ShapeOverflow)?
+                    });
+                    basic_output_axes.push(output_axis);
                     input_axis += 1;
                 }
-                IndexItem::Fancy { shape, indices } => {
+                IndexItem::Fancy { shape, indices, .. } => {
                     if element_count(shape)? != indices.len() {
                         return Err(StorageError::InvalidFancyIndex);
                     }
@@ -2100,8 +2199,12 @@ impl View {
         let tail_input_axis_start = input_axis;
         let mut tail_output_axes = Vec::new();
         while input_axis < self.ndim() {
-            tail_output_axes.push(output_shape.len());
+            let output_axis = output_shape.len();
+            tail_output_axes.push(output_axis);
             output_shape.push(self.shape[input_axis]);
+            basic_shape.push(self.shape[input_axis]);
+            basic_source_strides.push(self.strides[input_axis]);
+            basic_output_axes.push(output_axis);
             input_axis += 1;
         }
         if output_shape.len() > 64 {
@@ -2110,6 +2213,82 @@ impl View {
         let output_size = element_count(&output_shape)?;
         let mut offsets = Vec::with_capacity(output_size);
         let advanced_axis_start = advanced_axis_start.ok_or(StorageError::InvalidFancyIndex)?;
+        let output_strides = if output_size == 0 {
+            c_strides(self.dtype, &output_shape)?
+        } else {
+            let basic_size = element_count(&basic_shape)?;
+            let mut strides = vec![0isize; output_shape.len()];
+            if basic_size == 1 {
+                let index_strides = advanced_positions
+                    .iter()
+                    .map(|&position| match &indices[position] {
+                        IndexItem::Fancy { shape, strides, .. } => {
+                            if shape.len() != strides.len() {
+                                return Err(StorageError::InvalidFancyIndex);
+                            }
+                            Ok((shape.clone(), strides.clone()))
+                        }
+                        IndexItem::BoolScalar(value) => {
+                            let shape = vec![usize::from(*value)];
+                            // Boolean scalars are converted to a 1-D integer
+                            // index array by NumPy's advanced-index iterator.
+                            Ok((shape, vec![std::mem::size_of::<isize>() as isize]))
+                        }
+                        IndexItem::BoolMask { indices, .. } => Ok((
+                            vec![indices.len()],
+                            vec![std::mem::size_of::<isize>() as isize],
+                        )),
+                        _ => Err(StorageError::InvalidFancyIndex),
+                    })
+                    .collect::<Result<Vec<_>, _>>()?;
+                let axis_order = advanced_keep_order_axes(&advanced_shape, &index_strides)?;
+                let mut advanced_stride = isize::try_from(self.dtype.itemsize())
+                    .map_err(|_| StorageError::ShapeOverflow)?;
+                for axis in axis_order {
+                    strides[advanced_axis_start + axis] = advanced_stride;
+                    advanced_stride = advanced_stride
+                        .checked_mul(
+                            isize::try_from(advanced_shape[axis])
+                                .map_err(|_| StorageError::ShapeOverflow)?,
+                        )
+                        .ok_or(StorageError::ShapeOverflow)?;
+                }
+            } else {
+                let mut advanced_stride = isize::try_from(self.dtype.itemsize())
+                    .map_err(|_| StorageError::ShapeOverflow)?
+                    .checked_mul(
+                        isize::try_from(basic_size).map_err(|_| StorageError::ShapeOverflow)?,
+                    )
+                    .ok_or(StorageError::ShapeOverflow)?;
+                for axis in (0..advanced_shape.len()).rev() {
+                    strides[advanced_axis_start + axis] = advanced_stride;
+                    advanced_stride = advanced_stride
+                        .checked_mul(
+                            isize::try_from(advanced_shape[axis])
+                                .map_err(|_| StorageError::ShapeOverflow)?,
+                        )
+                        .ok_or(StorageError::ShapeOverflow)?;
+                }
+            }
+            let mut basic_permutation = (0..basic_shape.len()).collect::<Vec<_>>();
+            basic_permutation.sort_by(|&left, &right| {
+                basic_source_strides[right]
+                    .unsigned_abs()
+                    .cmp(&basic_source_strides[left].unsigned_abs())
+            });
+            let mut basic_stride =
+                isize::try_from(self.dtype.itemsize()).map_err(|_| StorageError::ShapeOverflow)?;
+            for axis in basic_permutation.into_iter().rev() {
+                strides[basic_output_axes[axis]] = basic_stride;
+                basic_stride = basic_stride
+                    .checked_mul(
+                        isize::try_from(basic_shape[axis])
+                            .map_err(|_| StorageError::ShapeOverflow)?,
+                    )
+                    .ok_or(StorageError::ShapeOverflow)?;
+            }
+            strides
+        };
         for linear in 0..output_size {
             let output_coords = coordinates_for_shape(&output_shape, linear)?;
             let advanced_end = advanced_axis_start + advanced_shape.len();
@@ -2157,6 +2336,7 @@ impl View {
                     IndexItem::Fancy {
                         shape,
                         indices: selected,
+                        ..
                     } => {
                         let selected_linear = broadcast_index(shape, broadcast_coords)?;
                         input_coords.push(normalize_integer_index(
@@ -2177,7 +2357,7 @@ impl View {
             }
             offsets.push(self.element_offset(&input_coords)?);
         }
-        Ok((output_shape, offsets))
+        Ok((output_shape, offsets, output_strides))
     }
     pub fn copy(&self) -> Result<Self, StorageError> {
         self.copy_order(false)
@@ -2464,6 +2644,72 @@ fn broadcast_index_shapes(shapes: &[Vec<usize>]) -> Result<Vec<usize>, StorageEr
         }
     }
     Ok(result)
+}
+
+/// Reproduces the stable axis ordering NumPy's NpyIter uses for KEEPORDER.
+/// The returned axes are ordered from fastest to slowest in memory.
+fn advanced_keep_order_axes(
+    shape: &[usize],
+    operands: &[(Vec<usize>, Vec<isize>)],
+) -> Result<Vec<usize>, StorageError> {
+    if operands.iter().any(|(operand_shape, strides)| {
+        operand_shape.len() != strides.len() || operand_shape.len() > shape.len()
+    }) {
+        return Err(StorageError::InvalidFancyIndex);
+    }
+    let effective_stride = |operand: &(Vec<usize>, Vec<isize>), axis: usize| {
+        let (operand_shape, operand_strides) = operand;
+        let leading = shape.len().saturating_sub(operand_shape.len());
+        if axis < leading {
+            return Ok(0);
+        }
+        let operand_axis = axis - leading;
+        let dimension = operand_shape[operand_axis];
+        if dimension == shape[axis] {
+            Ok(operand_strides[operand_axis])
+        } else if dimension == 1 {
+            Ok(0)
+        } else {
+            Err(StorageError::InvalidFancyIndex)
+        }
+    };
+
+    // NpyIter starts in C iteration order, with the last axis fastest.
+    let mut order = (0..shape.len()).rev().collect::<Vec<_>>();
+    for position in 1..order.len() {
+        let candidate = order[position];
+        let mut insertion = position;
+        for previous_position in (0..position).rev() {
+            let previous = order[previous_position];
+            let mut ambiguous = true;
+            let mut should_swap = false;
+            for operand in operands {
+                let candidate_stride = effective_stride(operand, candidate)?;
+                let previous_stride = effective_stride(operand, previous)?;
+                if candidate_stride != 0 && previous_stride != 0 {
+                    if previous_stride.unsigned_abs() <= candidate_stride.unsigned_abs() {
+                        // Conflicting operands resolve in favor of C order.
+                        should_swap = false;
+                    } else if ambiguous {
+                        should_swap = true;
+                    }
+                    ambiguous = false;
+                }
+            }
+            if !ambiguous {
+                if should_swap {
+                    insertion = previous_position;
+                } else {
+                    break;
+                }
+            }
+        }
+        if insertion != position {
+            order.remove(position);
+            order.insert(insertion, candidate);
+        }
+    }
+    Ok(order)
 }
 
 fn broadcast_index(shape: &[usize], coordinates: &[usize]) -> Result<usize, StorageError> {
@@ -2915,6 +3161,7 @@ mod tests {
                 },
                 IndexItem::Fancy {
                     shape: vec![2],
+                    strides: vec![std::mem::size_of::<isize>() as isize],
                     indices: vec![0, 2],
                 },
             ])

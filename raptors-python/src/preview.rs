@@ -1686,7 +1686,7 @@ fn dtype_from_name(name: &str) -> Option<DType> {
         } else {
             DType::UInt32
         }),
-        "float16" | "f2" | "e" => Some(DType::Float16),
+        "float16" | "f2" | "e" | "half" => Some(DType::Float16),
         "float32" | "f4" | "f" | "single" => Some(DType::Float32),
         "float64" | "f8" | "d" | "double" | "float" => Some(DType::Float64),
         "complex64" | "c8" | "F" | "csingle" => Some(DType::Complex64),
@@ -1816,6 +1816,7 @@ fn parse_indices(array: &View, key: &Bound<'_, PyAny>) -> PyResult<(Vec<IndexIte
                     dimensions: array.ndim(),
                 }));
             }
+            let index_strides = index_array.inner.strides().to_vec();
             let snapshot = index_array.inner.snapshot().map_err(map_storage_error)?;
             let (shape, selected) = if dtype == DType::Bool {
                 let rank = index_array.inner.ndim();
@@ -1860,6 +1861,7 @@ fn parse_indices(array: &View, key: &Bound<'_, PyAny>) -> PyResult<(Vec<IndexIte
             };
             indices.push(IndexItem::Fancy {
                 shape,
+                strides: index_strides,
                 indices: selected,
             });
             axis += 1;
@@ -1915,8 +1917,10 @@ fn parse_indices(array: &View, key: &Bound<'_, PyAny>) -> PyResult<(Vec<IndexIte
                             .and_then(|value| scalar_to_isize(&value))
                     })
                     .collect::<PyResult<Vec<_>>>()?;
+                let strides = c_index_strides(&shape)?;
                 indices.push(IndexItem::Fancy {
                     shape,
+                    strides,
                     indices: selected,
                 });
                 axis += 1;
@@ -1962,14 +1966,25 @@ fn scalar_to_isize(value: &Scalar) -> PyResult<isize> {
         Scalar::UInt16(v) => Ok(*v as isize),
         Scalar::Int32(v) => Ok(*v as isize),
         Scalar::UInt32(v) => Ok(*v as isize),
-        Scalar::Int64(v) => {
-            isize::try_from(*v).map_err(|_| PyIndexError::new_err("index is too large"))
-        }
-        Scalar::UInt64(v) => {
-            isize::try_from(*v).map_err(|_| PyIndexError::new_err("index is too large"))
-        }
+        Scalar::Int64(v) => Ok(*v as isize),
+        Scalar::UInt64(v) => Ok(*v as isize),
         _ => Err(PyIndexError::new_err("index arrays must contain integers")),
     }
+}
+
+fn c_index_strides(shape: &[usize]) -> PyResult<Vec<isize>> {
+    let mut strides = vec![0isize; shape.len()];
+    let mut stride = isize::try_from(std::mem::size_of::<isize>())
+        .map_err(|_| PyOverflowError::new_err("index array stride is too large"))?;
+    for axis in (0..shape.len()).rev() {
+        strides[axis] = stride;
+        let dimension = isize::try_from(shape[axis].max(1))
+            .map_err(|_| PyOverflowError::new_err("index array shape is too large"))?;
+        stride = stride
+            .checked_mul(dimension)
+            .ok_or_else(|| PyOverflowError::new_err("index array stride is too large"))?;
+    }
+    Ok(strides)
 }
 
 fn flatten_index_array(

@@ -49,6 +49,18 @@ def test_boolean_conversion_accepts_arbitrary_size_python_integers(value):
     assert_array_matches(expected_assignment, actual_assignment)
 
 
+def test_half_dtype_alias_matches_numpy_float16():
+    expected_dtype = np.dtype("half")
+    actual_dtype = raptors.DType("half")
+    assert actual_dtype.name == expected_dtype.name
+    assert actual_dtype.itemsize == expected_dtype.itemsize
+    assert actual_dtype.char == expected_dtype.char
+    assert_array_matches(
+        np.array([1.25, -2.5], dtype="half"),
+        raptors.array([1.25, -2.5], dtype="half"),
+    )
+
+
 def test_csingle_dtype_alias_matches_numpy_complex64():
     expected_dtype = np.dtype("csingle")
     actual_dtype = raptors.DType("csingle")
@@ -468,6 +480,59 @@ def test_scalar_integer_indices_participate_in_advanced_axis_placement():
         assert tuple(actual.shape) == expected.shape
         for coordinates in np.ndindex(expected.shape):
             assert int(actual[tuple(map(int, coordinates))]) == int(expected[coordinates])
+
+
+@pytest.mark.parametrize("order", ["C", "F"])
+def test_advanced_index_result_strides_match_numpy(order):
+    values_2d = np.arange(12, dtype=np.int64).reshape((3, 4), order=order)
+    candidate_2d = raptors.array(values_2d.tolist(), dtype=raptors.int64, order=order)
+    index = raptors.array([0, 2], dtype=raptors.int64)
+    assert_array_matches(values_2d[:, [0, 2]], candidate_2d[:, index])
+
+    values_3d = np.arange(24, dtype=np.int64).reshape((2, 3, 4), order=order)
+    candidate_3d = raptors.array(values_3d.tolist(), dtype=raptors.int64, order=order)
+    assert_array_matches(values_3d[:, :, [0, 2]], candidate_3d[:, :, index])
+
+
+@pytest.mark.parametrize("index_order", ["C", "F"])
+def test_advanced_index_result_order_follows_index_arrays_for_singleton_subspace(index_order):
+    values = np.arange(4, dtype=np.int64)
+    candidate = raptors.array(values.tolist(), dtype=raptors.int64)
+    index_values = np.array([[0, 1], [2, 3]], dtype=np.int64, order=index_order)
+    index = raptors.array(index_values.tolist(), dtype=raptors.int64, order=index_order)
+
+    assert_array_matches(values[index_values], candidate[index])
+
+
+@pytest.mark.parametrize(
+    "first_order, second_order",
+    [("C", "C"), ("F", "F"), ("C", "F"), ("F", "C")],
+)
+def test_advanced_index_result_order_with_multiple_index_operands(first_order, second_order):
+    values = np.arange(24, dtype=np.int64).reshape(4, 6)
+    candidate = raptors.array(values.tolist(), dtype=raptors.int64)
+    first_values = np.array([[0, 1], [2, 3]], dtype=np.int64, order=first_order)
+    second_values = np.array([[1, 2], [3, 4]], dtype=np.int64, order=second_order)
+    first = raptors.array(first_values.tolist(), dtype=raptors.int64, order=first_order)
+    second = raptors.array(second_values.tolist(), dtype=raptors.int64, order=second_order)
+
+    assert_array_matches(values[first_values, second_values], candidate[first, second])
+
+
+@pytest.mark.parametrize("use_array_index", [False, True])
+def test_uint64_fancy_indices_wrap_to_platform_index_width(use_array_index):
+    reference = np.arange(12, dtype=np.int64)
+    candidate = raptors.array(reference.tolist(), dtype=raptors.int64)
+    value = 2**64 - 1
+    reference_index = np.array([value], dtype=np.uint64)
+    candidate_index = (
+        raptors.array([value], dtype=raptors.uint64) if use_array_index else [value]
+    )
+
+    assert_array_matches(reference[reference_index], candidate[candidate_index])
+    reference[reference_index] = 77
+    candidate[candidate_index] = 77
+    assert_array_matches(reference, candidate)
 
 
 def test_zero_dimensional_integer_array_index_returns_scalar():
