@@ -1239,6 +1239,9 @@ fn scalar_alias_from_value(value: &Bound<'_, PyAny>) -> Option<ScalarAlias> {
 }
 
 fn value_to_scalar(value: &Bound<'_, PyAny>, dtype: DType) -> PyResult<Scalar> {
+    if dtype == DType::Bool && value.is_instance_of::<PyInt>() {
+        return Ok(Scalar::Bool(value.is_truthy()?));
+    }
     if let Some(scalar) = checked_python_integer(value, dtype)? {
         return Ok(scalar);
     }
@@ -1686,8 +1689,8 @@ fn dtype_from_name(name: &str) -> Option<DType> {
         "float16" | "f2" | "e" => Some(DType::Float16),
         "float32" | "f4" | "f" | "single" => Some(DType::Float32),
         "float64" | "f8" | "d" | "double" | "float" => Some(DType::Float64),
-        "complex64" | "c8" | "F" => Some(DType::Complex64),
-        "complex128" | "c16" | "D" | "complex" | "csingle" | "cdouble" => Some(DType::Complex128),
+        "complex64" | "c8" | "F" | "csingle" => Some(DType::Complex64),
+        "complex128" | "c16" | "D" | "complex" | "cdouble" => Some(DType::Complex128),
         "longdouble" | "long_double" | "g" => Some(DType::LongDouble),
         "float128" if DType::LongDouble.itemsize() > 8 => Some(DType::LongDouble),
         "clongdouble" | "G" => Some(DType::ComplexLongDouble),

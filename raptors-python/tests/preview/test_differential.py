@@ -32,6 +32,35 @@ def test_zero_dimensional_arrays(dtype):
     assert_array_matches(reference, candidate)
 
 
+@pytest.mark.parametrize("value", [10**100, -(10**100)])
+def test_boolean_conversion_accepts_arbitrary_size_python_integers(value):
+    expected_scalar = np.array(value, dtype=np.bool_)
+    actual_scalar = raptors.array(value, dtype=raptors.bool_)
+    assert_array_matches(expected_scalar, actual_scalar)
+
+    expected_sequence = np.array([value], dtype=np.bool_)
+    actual_sequence = raptors.array([value], dtype=raptors.bool_)
+    assert_array_matches(expected_sequence, actual_sequence)
+
+    expected_assignment = np.zeros(1, dtype=np.bool_)
+    actual_assignment = raptors.zeros(1, dtype=raptors.bool_)
+    expected_assignment[0] = value
+    actual_assignment[0] = value
+    assert_array_matches(expected_assignment, actual_assignment)
+
+
+def test_csingle_dtype_alias_matches_numpy_complex64():
+    expected_dtype = np.dtype("csingle")
+    actual_dtype = raptors.DType("csingle")
+    assert actual_dtype.name == expected_dtype.name
+    assert actual_dtype.itemsize == expected_dtype.itemsize
+    assert actual_dtype.char == expected_dtype.char
+
+    expected = np.array([1 + 2**-30 + 2j], dtype="csingle")
+    actual = raptors.array([1 + 2**-30 + 2j], dtype="csingle")
+    assert_array_matches(expected, actual)
+
+
 @pytest.mark.parametrize("shape", [(), (0,), (2, 0, 3), (1, 3), (2, 3)])
 def test_zeros_and_empty_metadata(shape):
     reference = np.zeros(shape, dtype=np.float64)
