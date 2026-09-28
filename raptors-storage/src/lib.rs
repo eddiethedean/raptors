@@ -116,7 +116,11 @@ impl DType {
             return if matches!(self, Complex64 | Complex128)
                 || matches!(other, Complex64 | Complex128)
             {
-                ComplexLongDouble
+                if long_double_size() > 8 {
+                    ComplexLongDouble
+                } else {
+                    Complex128
+                }
             } else {
                 LongDouble
             };
@@ -1463,8 +1467,9 @@ impl View {
         Ok(view)
     }
 
-    /// Reshapes in C order. A non-contiguous source is copied unless `copy` is
-    /// explicitly false, in which case the operation fails.
+    /// Reshapes in C order, preserving storage whenever the existing strides
+    /// can represent the requested shape. Otherwise a copy is made unless
+    /// `copy` is explicitly false.
     pub fn reshape(&self, shape: Vec<usize>, copy: Option<bool>) -> Result<Self, StorageError> {
         self.reshape_order(shape, copy, false)
     }
@@ -1478,12 +1483,9 @@ impl View {
         if element_count(&shape)? != self.size()? {
             return Err(StorageError::ShapeMismatch);
         }
-        let can_view = if fortran {
-            self.is_f_contiguous()
-        } else {
-            self.is_c_contiguous()
-        };
-        let should_copy = copy == Some(true) || !can_view;
+        let view_strides =
+            reshape_view_strides(&self.shape, &self.strides, &shape, self.dtype, fortran)?;
+        let should_copy = copy == Some(true) || view_strides.is_none();
         if should_copy && copy == Some(false) {
             return Err(StorageError::InvalidLayout);
         }
@@ -1515,11 +1517,7 @@ impl View {
             storage: Arc::clone(&self.storage),
             dtype: self.dtype,
             byte_order: self.byte_order,
-            strides: if fortran {
-                f_strides(self.dtype, &shape)?
-            } else {
-                c_strides(self.dtype, &shape)?
-            },
+            strides: view_strides.expect("a no-copy reshape has inferred strides"),
             shape,
             offset: self.offset,
             allocation_len: self.allocation_len,
@@ -2363,6 +2361,201 @@ fn element_count(shape: &[usize]) -> Result<usize, StorageError> {
     }
     Ok(count)
 }
+
+/// Infer strides for a reshape that can keep the existing storage. Adjacent
+/// source dimensions may be merged only when their strides are contiguous in
+/// the requested iteration order. This follows the same chunking rule used
+/// by NumPy's no-copy reshape path, including negative and stepped strides.
+fn reshape_view_strides(
+    old_shape: &[usize],
+    old_strides: &[isize],
+    new_shape: &[usize],
+    dtype: DType,
+    fortran: bool,
+) -> Result<Option<Vec<isize>>, StorageError> {
+    if old_shape.len() != old_strides.len() {
+        return Err(StorageError::InvalidLayout);
+    }
+    if old_shape == new_shape {
+        return Ok(Some(old_strides.to_vec()));
+    }
+    let size = element_count(old_shape)?;
+    if size == 0 {
+        return Ok(Some(reshape_empty_strides(dtype, new_shape, fortran)?));
+    }
+
+    let old_axes = old_shape
+        .iter()
+        .enumerate()
+        .filter_map(|(axis, &dim)| (dim != 1).then_some(axis))
+        .collect::<Vec<_>>();
+    let new_axes = new_shape
+        .iter()
+        .enumerate()
+        .filter_map(|(axis, &dim)| (dim != 1).then_some(axis))
+        .collect::<Vec<_>>();
+    let old_dims = old_axes
+        .iter()
+        .map(|&axis| old_shape[axis])
+        .collect::<Vec<_>>();
+    let new_dims = new_axes
+        .iter()
+        .map(|&axis| new_shape[axis])
+        .collect::<Vec<_>>();
+
+    if old_dims.is_empty() || new_dims.is_empty() {
+        if size != 1 {
+            return Ok(None);
+        }
+        return Ok(Some(if fortran {
+            f_strides(dtype, new_shape)?
+        } else {
+            c_strides(dtype, new_shape)?
+        }));
+    }
+
+    let mut inferred = vec![0isize; new_shape.len()];
+    let (mut old_start, mut new_start) = (0usize, 0usize);
+    while old_start < old_dims.len() && new_start < new_dims.len() {
+        let (mut old_end, mut new_end) = (old_start, new_start);
+        let (mut old_product, mut new_product) = (old_dims[old_end], new_dims[new_end]);
+        while old_product != new_product {
+            if old_product < new_product {
+                old_end += 1;
+                if old_end >= old_dims.len() {
+                    return Ok(None);
+                }
+                old_product = old_product
+                    .checked_mul(old_dims[old_end])
+                    .ok_or(StorageError::ShapeOverflow)?;
+            } else {
+                new_end += 1;
+                if new_end >= new_dims.len() {
+                    return Ok(None);
+                }
+                new_product = new_product
+                    .checked_mul(new_dims[new_end])
+                    .ok_or(StorageError::ShapeOverflow)?;
+            }
+        }
+
+        for axis in old_start..old_end {
+            let contiguous = if fortran {
+                let expected = old_strides[old_axes[axis]]
+                    .checked_mul(
+                        isize::try_from(old_dims[axis]).map_err(|_| StorageError::ShapeOverflow)?,
+                    )
+                    .ok_or(StorageError::ShapeOverflow)?;
+                old_strides[old_axes[axis + 1]] == expected
+            } else {
+                let expected = old_strides[old_axes[axis + 1]]
+                    .checked_mul(
+                        isize::try_from(old_dims[axis + 1])
+                            .map_err(|_| StorageError::ShapeOverflow)?,
+                    )
+                    .ok_or(StorageError::ShapeOverflow)?;
+                old_strides[old_axes[axis]] == expected
+            };
+            if !contiguous {
+                return Ok(None);
+            }
+        }
+
+        if fortran {
+            let mut stride = old_strides[old_axes[old_start]];
+            for compact_axis in new_start..=new_end {
+                inferred[new_axes[compact_axis]] = stride;
+                stride = stride
+                    .checked_mul(
+                        isize::try_from(new_dims[compact_axis])
+                            .map_err(|_| StorageError::ShapeOverflow)?,
+                    )
+                    .ok_or(StorageError::ShapeOverflow)?;
+            }
+        } else {
+            let mut stride = old_strides[old_axes[old_end]];
+            for compact_axis in (new_start..=new_end).rev() {
+                inferred[new_axes[compact_axis]] = stride;
+                stride = stride
+                    .checked_mul(
+                        isize::try_from(new_dims[compact_axis])
+                            .map_err(|_| StorageError::ShapeOverflow)?,
+                    )
+                    .ok_or(StorageError::ShapeOverflow)?;
+            }
+        }
+        old_start = old_end + 1;
+        new_start = new_end + 1;
+    }
+    if old_start != old_dims.len() || new_start != new_dims.len() {
+        return Ok(None);
+    }
+
+    // Size-one axes do not affect addresses. Match the conventional strides
+    // NumPy assigns around the non-singleton axes, including stepped layouts.
+    for axis in 0..new_shape.len() {
+        if new_shape[axis] != 1 {
+            continue;
+        }
+        if fortran {
+            if let Some(next) = (axis + 1..new_shape.len()).find(|&i| new_shape[i] > 1) {
+                inferred[axis] = inferred[next];
+            } else if let Some(previous) = (0..axis).rfind(|&i| new_shape[i] > 1) {
+                inferred[axis] = inferred[previous]
+                    .checked_mul(
+                        isize::try_from(new_shape[previous])
+                            .map_err(|_| StorageError::ShapeOverflow)?,
+                    )
+                    .ok_or(StorageError::ShapeOverflow)?;
+            } else {
+                inferred[axis] =
+                    isize::try_from(dtype.itemsize()).map_err(|_| StorageError::ShapeOverflow)?;
+            }
+        } else if let Some(next) = (axis + 1..new_shape.len()).find(|&i| new_shape[i] > 1) {
+            inferred[axis] = inferred[next]
+                .checked_mul(
+                    isize::try_from(new_shape[next]).map_err(|_| StorageError::ShapeOverflow)?,
+                )
+                .ok_or(StorageError::ShapeOverflow)?;
+        } else if let Some(previous) = (0..axis).rfind(|&i| new_shape[i] > 1) {
+            inferred[axis] = inferred[previous];
+        } else {
+            inferred[axis] =
+                isize::try_from(dtype.itemsize()).map_err(|_| StorageError::ShapeOverflow)?;
+        }
+    }
+    Ok(Some(inferred))
+}
+
+fn reshape_empty_strides(
+    dtype: DType,
+    shape: &[usize],
+    fortran: bool,
+) -> Result<Vec<isize>, StorageError> {
+    let mut strides = vec![0; shape.len()];
+    let mut stride = isize::try_from(dtype.itemsize()).map_err(|_| StorageError::ShapeOverflow)?;
+    if fortran {
+        for axis in 0..shape.len() {
+            strides[axis] = stride;
+            stride = stride
+                .checked_mul(
+                    isize::try_from(shape[axis].max(1)).map_err(|_| StorageError::ShapeOverflow)?,
+                )
+                .ok_or(StorageError::ShapeOverflow)?;
+        }
+    } else {
+        for axis in (0..shape.len()).rev() {
+            strides[axis] = stride;
+            stride = stride
+                .checked_mul(
+                    isize::try_from(shape[axis].max(1)).map_err(|_| StorageError::ShapeOverflow)?,
+                )
+                .ok_or(StorageError::ShapeOverflow)?;
+        }
+    }
+    Ok(strides)
+}
+
 fn c_strides(dtype: DType, shape: &[usize]) -> Result<Vec<isize>, StorageError> {
     let mut strides = vec![0; shape.len()];
     if shape.contains(&0) {
@@ -2540,6 +2733,9 @@ mod tests {
         );
         dst.assign_view(&View::zeros(DType::UInt64, vec![2]).unwrap())
             .unwrap();
-        assert_eq!(dst.snapshot().unwrap(), vec![Scalar::Int64(0), Scalar::Int64(0)]);
+        assert_eq!(
+            dst.snapshot().unwrap(),
+            vec![Scalar::Int64(0), Scalar::Int64(0)]
+        );
     }
 }

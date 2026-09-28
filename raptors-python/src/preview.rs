@@ -6,8 +6,8 @@ use pyo3::exceptions::{
 };
 use pyo3::prelude::*;
 use pyo3::types::{
-    PyBool, PyComplex, PyComplexMethods, PyEllipsis, PyFloat, PyInt, PyList, PyModule, PyNone,
-    PySlice, PySliceMethods, PyTuple, PyTupleMethods,
+    PyBool, PyComplex, PyComplexMethods, PyDict, PyEllipsis, PyFloat, PyInt, PyList, PyModule,
+    PyNone, PySlice, PySliceMethods, PyTuple, PyTupleMethods, PyType,
 };
 use raptors_storage::{ByteOrder, DType, IndexItem, Scalar, StorageError, View};
 use std::ffi::CString;
@@ -197,7 +197,11 @@ impl PyDType {
                 "byte order '|' is only valid for one-byte dtypes",
             ));
         }
-        let byte_order = byte_order.normalized();
+        let byte_order = if self.inner.itemsize() == 1 {
+            ByteOrder::NotApplicable
+        } else {
+            byte_order.normalized()
+        };
         Ok(Self {
             inner: self.inner,
             byte_order,
@@ -401,6 +405,7 @@ impl PyArray {
         };
         if target_dtype != self.inner.dtype() {
             warn_view_cast_overflow(py, &self.inner, target_dtype)?;
+            warn_view_complex_cast(py, &self.inner, target_dtype)?;
         }
         Ok(Self {
             inner: self
@@ -426,7 +431,11 @@ impl PyArray {
     fn __getitem__(&self, py: Python<'_>, key: &Bound<'_, PyAny>) -> PyResult<Py<PyAny>> {
         let (indices, returns_scalar) = parse_indices(&self.inner, key)?;
         let selected = self.inner.index(&indices).map_err(map_storage_error)?;
-        if returns_scalar {
+        let scalar_from_zero_dim_integer_array = selected.ndim() == 0
+            && indices
+                .iter()
+                .any(|item| matches!(item, IndexItem::Fancy { shape, .. } if shape.is_empty()));
+        if returns_scalar || scalar_from_zero_dim_integer_array {
             scalar_to_python(
                 py,
                 selected.read_at(&[]).map_err(map_storage_error)?,
@@ -453,6 +462,7 @@ impl PyArray {
             )
         }) {
             if let Ok(source) = value.extract::<PyRef<'_, PyArray>>() {
+                warn_view_complex_cast(value.py(), &source.inner, self.inner.dtype())?;
                 return self
                     .inner
                     .assign_fancy_view(&indices, &source.inner)
@@ -471,6 +481,7 @@ impl PyArray {
         }
         let selected = self.inner.index(&indices).map_err(map_storage_error)?;
         if let Ok(source) = value.extract::<PyRef<'_, PyArray>>() {
+            warn_view_complex_cast(value.py(), &source.inner, self.inner.dtype())?;
             selected
                 .assign_view(&source.inner)
                 .map_err(map_storage_error)
@@ -923,6 +934,7 @@ fn array(
         }
         if target_dtype != source.inner.dtype() {
             warn_view_cast_overflow(data.py(), &source.inner, target_dtype)?;
+            warn_view_complex_cast(data.py(), &source.inner, target_dtype)?;
         }
         let inner = if target_dtype == source.inner.dtype()
             && target_byte_order == source.inner.byte_order()
@@ -1239,9 +1251,24 @@ fn value_to_scalar(value: &Bound<'_, PyAny>, dtype: DType) -> PyResult<Scalar> {
         }
     }
     let scalar = value_to_untyped_scalar(value)?;
+    check_complex_real_scalar_cast(&scalar, dtype)?;
     check_nonfinite_integer_cast(&scalar, dtype)?;
+    check_float_integer_range_cast(&scalar, dtype)?;
     warn_scalar_cast_overflow(value.py(), &scalar, dtype)?;
     scalar.cast(dtype).map_err(map_storage_error)
+}
+
+fn check_complex_real_scalar_cast(value: &Scalar, dtype: DType) -> PyResult<()> {
+    if matches!(
+        value.dtype(),
+        DType::Complex64 | DType::Complex128 | DType::ComplexLongDouble
+    ) && matches!(dtype.kind(), "i" | "u" | "f")
+    {
+        return Err(PyTypeError::new_err(
+            "cannot cast a complex scalar to a real dtype",
+        ));
+    }
+    Ok(())
 }
 
 fn checked_python_integer(value: &Bound<'_, PyAny>, dtype: DType) -> PyResult<Option<Scalar>> {
@@ -1316,6 +1343,43 @@ fn check_nonfinite_integer_cast(value: &Scalar, dtype: DType) -> PyResult<()> {
     Ok(())
 }
 
+fn check_float_integer_range_cast(value: &Scalar, dtype: DType) -> PyResult<()> {
+    if !matches!(
+        value.dtype(),
+        DType::Float16 | DType::Float32 | DType::Float64 | DType::LongDouble
+    ) {
+        return Ok(());
+    }
+    let bits = match dtype {
+        DType::Int8 | DType::UInt8 => 8,
+        DType::Int16 | DType::UInt16 => 16,
+        DType::Int32 | DType::UInt32 => 32,
+        DType::Int64 | DType::UInt64 => 64,
+        _ => return Ok(()),
+    };
+    let number = value.as_f64().map_err(map_storage_error)?.trunc();
+    if !number.is_finite() {
+        return Ok(());
+    }
+    let out_of_range = match dtype {
+        DType::Int8 | DType::Int16 | DType::Int32 | DType::Int64 => {
+            let bound = 2.0_f64.powi(bits - 1);
+            number < -bound || number >= bound
+        }
+        DType::UInt8 | DType::UInt16 | DType::UInt32 | DType::UInt64 => {
+            let bound = 2.0_f64.powi(bits);
+            number < 0.0 || number >= bound
+        }
+        _ => false,
+    };
+    if out_of_range {
+        return Err(PyOverflowError::new_err(
+            "Python float is outside the requested dtype range",
+        ));
+    }
+    Ok(())
+}
+
 fn warn_scalar_cast_overflow(py: Python<'_>, value: &Scalar, dtype: DType) -> PyResult<()> {
     if scalar_cast_overflows(value, dtype) {
         emit_cast_overflow_warning(py)?;
@@ -1324,7 +1388,7 @@ fn warn_scalar_cast_overflow(py: Python<'_>, value: &Scalar, dtype: DType) -> Py
 }
 
 fn warn_view_cast_overflow(py: Python<'_>, source: &View, dtype: DType) -> PyResult<()> {
-    if !matches!(dtype, DType::Float16 | DType::Float32) {
+    if !matches!(dtype, DType::Float16 | DType::Float32 | DType::Complex64) {
         return Ok(());
     }
     if source
@@ -1341,12 +1405,14 @@ fn warn_view_cast_overflow(py: Python<'_>, source: &View, dtype: DType) -> PyRes
 fn scalar_cast_overflows(value: &Scalar, dtype: DType) -> bool {
     let overflow_threshold = match dtype {
         DType::Float16 => 65_520.0,
-        DType::Float32 => f32::MAX as f64 + 2.0_f64.powi(103),
+        DType::Float32 | DType::Complex64 => f32::MAX as f64 + 2.0_f64.powi(103),
         _ => return false,
     };
-    value
-        .as_f64()
-        .is_ok_and(|number| number.is_finite() && number.abs() >= overflow_threshold)
+    let Ok((real, imag)) = value.as_complex() else {
+        return false;
+    };
+    let overflows = |number: f64| number.is_finite() && number.abs() >= overflow_threshold;
+    overflows(real) || (dtype == DType::Complex64 && overflows(imag))
 }
 
 fn emit_cast_overflow_warning(py: Python<'_>) -> PyResult<()> {
@@ -1354,6 +1420,24 @@ fn emit_cast_overflow_warning(py: Python<'_>) -> PyResult<()> {
         .expect("static warning text contains no NUL bytes");
     let category = py.get_type::<PyRuntimeWarning>();
     PyErr::warn(py, &category, message.as_c_str(), 2)
+}
+
+fn warn_view_complex_cast(py: Python<'_>, source: &View, dtype: DType) -> PyResult<()> {
+    if matches!(
+        source.dtype(),
+        DType::Complex64 | DType::Complex128 | DType::ComplexLongDouble
+    ) && matches!(dtype.kind(), "i" | "u" | "f")
+    {
+        emit_complex_warning(py)?;
+    }
+    Ok(())
+}
+
+fn emit_complex_warning(py: Python<'_>) -> PyResult<()> {
+    let message = CString::new("Casting complex values to real discards the imaginary part")
+        .expect("static warning text contains no NUL bytes");
+    let category = PyModule::import(py, "raptors")?.getattr("ComplexWarning")?;
+    PyErr::warn(py, category.cast::<PyType>()?, message.as_c_str(), 2)
 }
 
 fn value_to_untyped_scalar(value: &Bound<'_, PyAny>) -> PyResult<Scalar> {
@@ -1947,6 +2031,7 @@ fn map_storage_error(error: StorageError) -> PyErr {
 }
 
 pub(super) fn register(module: &Bound<'_, PyModule>) -> PyResult<()> {
+    register_complex_warning(module)?;
     module.add_class::<PyDType>()?;
     module.add_class::<PyArray>()?;
     module.add_class::<PyArrayFlags>()?;
@@ -2099,4 +2184,16 @@ pub(super) fn register(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(empty, module)?)?;
     module.add_function(wrap_pyfunction!(promote_types, module)?)?;
     Ok(())
+}
+
+fn register_complex_warning(module: &Bound<'_, PyModule>) -> PyResult<()> {
+    let py = module.py();
+    let builtins = PyModule::import(py, "builtins")?;
+    let bases = PyTuple::new(py, [py.get_type::<PyRuntimeWarning>()])?;
+    let namespace = PyDict::new(py);
+    namespace.set_item("__module__", "raptors")?;
+    let warning = builtins
+        .getattr("type")?
+        .call1(("ComplexWarning", bases, namespace))?;
+    module.add("ComplexWarning", warning)
 }

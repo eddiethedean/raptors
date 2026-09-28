@@ -67,6 +67,29 @@ def test_conversion_and_ragged_errors(values, dtype, error):
 
 
 @pytest.mark.parametrize(
+    "value,dtype",
+    [(1e20, raptors.int64), (-1e20, raptors.uint64)],
+)
+def test_float_to_integer_overflow_matches_numpy(value, dtype):
+    with pytest.raises(OverflowError):
+        np.array([value], dtype=dtype.name)
+    with pytest.raises(OverflowError):
+        raptors.array([value], dtype=dtype)
+
+    expected = np.zeros(1, dtype=dtype.name)
+    actual = raptors.zeros(1, dtype=dtype)
+    with pytest.raises(OverflowError):
+        expected[0] = value
+    with pytest.raises(OverflowError):
+        actual[0] = value
+
+
+def test_fractional_float_to_unsigned_integer_truncates_toward_zero():
+    assert np.array([-0.7], dtype=np.uint8)[0] == 0
+    assert raptors.array([-0.7], dtype=raptors.uint8)[0] == 0
+
+
+@pytest.mark.parametrize(
     "shape,error",
     [(-1, ValueError), ((2, -1), ValueError), (1.5, TypeError), (True, TypeError)],
 )
@@ -96,6 +119,45 @@ def test_reshape_infers_one_dimension():
             reference.reshape(shape)
         with pytest.raises(ValueError):
             candidate.reshape(shape)
+
+    empty_reference = np.empty((0,), dtype=np.int64)
+    empty_candidate = raptors.empty((0,), dtype=raptors.int64)
+    for shape, order in [((0, 1), "C"), ((0, 2, 1), "F")]:
+        assert_array_matches(
+            empty_reference.reshape(shape, order=order),
+            empty_candidate.reshape(shape, order=order),
+        )
+
+
+def test_reshape_views_compatible_stepped_source():
+    reference_owner = np.arange(6, dtype=np.int64)
+    candidate_owner = raptors.array(reference_owner.tolist(), dtype=raptors.int64)
+    reference_source = reference_owner[::2]
+    candidate_source = candidate_owner[::2]
+
+    expected = reference_source.reshape((1, 3), copy=False)
+    actual = candidate_source.reshape((1, 3), copy=False)
+    assert_array_matches(expected, actual)
+
+    expected[0, 1] = 71
+    actual[0, 1] = 71
+    assert_array_matches(reference_owner, candidate_owner)
+
+    reference_matrix = np.arange(24, dtype=np.int64).reshape(4, 6)
+    candidate_matrix = raptors.array(reference_matrix.tolist(), dtype=raptors.int64)
+    expected_stepped_view = reference_matrix[::2].reshape((2, 1, 6), copy=False)
+    actual_stepped_view = candidate_matrix[::2].reshape((2, 1, 6), copy=False)
+    assert_array_matches(expected_stepped_view, actual_stepped_view)
+    expected_stepped_view[1, 0, 0] = 89
+    actual_stepped_view[1, 0, 0] = 89
+    assert_array_matches(reference_matrix, candidate_matrix)
+
+    expected_fortran_view = reference_matrix.reshape((2, 2, 6), order="F", copy=False)
+    actual_fortran_view = candidate_matrix.reshape((2, 2, 6), order="F", copy=False)
+    assert_array_matches(expected_fortran_view, actual_fortran_view)
+    expected_fortran_view[1, 0, 0] = 91
+    actual_fortran_view[1, 0, 0] = 91
+    assert_array_matches(reference_matrix, candidate_matrix)
 
 
 def test_array_copy_none_accepts_copy_if_needed_semantics():
@@ -145,6 +207,15 @@ def test_longlong_dtype_alias_metadata_survives_arrays_and_scalars():
             assert raptors.promote_types(code, expected.name).char == np.promote_types(
                 code, expected.name
             ).char
+
+
+@pytest.mark.parametrize("complex_dtype", [raptors.complex64, raptors.complex128])
+def test_complex_and_longdouble_promotion_matches_numpy(complex_dtype):
+    expected = np.promote_types(np.dtype(complex_dtype.name), np.dtype(np.longdouble))
+    actual = raptors.promote_types(complex_dtype, raptors.DType("longdouble"))
+    assert actual.kind == expected.kind
+    assert actual.itemsize == expected.itemsize
+    assert actual.char == expected.char
 
 
 def test_ellipsis_counts_nested_boolean_list_rank():
@@ -205,6 +276,61 @@ def test_array_casts_warn_when_finite_values_overflow_float32():
     assert_array_matches(expected, copied)
 
 
+def test_complex_to_real_scalar_conversion_raises_type_error():
+    with pytest.raises(TypeError):
+        np.array([1 + 2j], dtype=np.float32)
+    with pytest.raises(TypeError):
+        raptors.array([1 + 2j], dtype=raptors.float32)
+
+    reference = np.zeros(1, dtype=np.float32)
+    candidate = raptors.zeros(1, dtype=raptors.float32)
+    with pytest.raises(TypeError):
+        reference[0] = 1 + 2j
+    with pytest.raises(TypeError):
+        candidate[0] = 1 + 2j
+
+
+def test_complex_to_real_array_cast_emits_complex_warning():
+    reference_source = np.array([1 + 2j, 3 + 0j], dtype=np.complex128)
+    candidate_source = raptors.array([1 + 2j, 3 + 0j], dtype=raptors.complex128)
+
+    with pytest.warns(np.exceptions.ComplexWarning, match="discards the imaginary part") as expected_warnings:
+        expected = reference_source.astype(np.float32)
+    with pytest.warns(raptors.ComplexWarning, match="discards the imaginary part") as actual_warnings:
+        actual = candidate_source.astype(raptors.float32)
+    assert len(actual_warnings) == len(expected_warnings) == 1
+    assert_array_matches(expected, actual)
+
+    with pytest.warns(raptors.ComplexWarning, match="discards the imaginary part"):
+        copied = raptors.array(candidate_source, dtype=raptors.float32)
+    assert_array_matches(expected, copied)
+
+    reference_assignment = np.zeros(2, dtype=np.float32)
+    candidate_assignment = raptors.zeros(2, dtype=raptors.float32)
+    with pytest.warns(np.exceptions.ComplexWarning, match="discards the imaginary part"):
+        reference_assignment[:] = reference_source
+    with pytest.warns(raptors.ComplexWarning, match="discards the imaginary part"):
+        candidate_assignment[:] = candidate_source
+    assert_array_matches(reference_assignment, candidate_assignment)
+
+
+def test_complex64_overflow_emits_runtime_warning():
+    reference_source = np.array([1e100, -1e100], dtype=np.float64)
+    candidate_source = raptors.array([1e100, -1e100], dtype=raptors.float64)
+
+    with pytest.warns(RuntimeWarning, match="overflow encountered in cast") as expected_warnings:
+        expected = reference_source.astype(np.complex64)
+    with pytest.warns(RuntimeWarning, match="overflow encountered in cast") as actual_warnings:
+        actual = candidate_source.astype(raptors.complex64)
+    assert len(actual_warnings) == len(expected_warnings)
+    assert np.isinf(actual[0].item().real) and np.isinf(actual[1].item().real)
+    assert_array_matches(expected, actual)
+
+    with pytest.warns(RuntimeWarning, match="overflow encountered in cast"):
+        constructed = raptors.array([1e100 + 0j], dtype=raptors.complex64)
+    assert np.isinf(constructed[0].item().real)
+
+
 @pytest.mark.parametrize("key", [slice(None, None, -1), slice(1, 5, 2), slice(5, 5, -1)])
 def test_negative_stepped_and_empty_slices(key):
     values = np.arange(6, dtype=np.int64)
@@ -226,6 +352,16 @@ def test_tuple_integer_and_slice_indexing():
     assert scalar.dtype.name == "float32"
 
 
+def test_zero_dimensional_integer_array_index_returns_scalar():
+    reference = np.array([10, 20], dtype=np.int64)
+    candidate = raptors.array([10, 20], dtype=raptors.int64)
+    expected = reference[np.array(1, dtype=np.int64)]
+    actual = candidate[raptors.array(1, dtype=raptors.int64)]
+    assert np.isscalar(expected)
+    assert type(actual).__name__ == "Int64Scalar"
+    assert actual == expected
+
+
 def test_invalid_indices_match_numpy_errors():
     reference = np.arange(3, dtype=np.int64)
     candidate = raptors.array([0, 1, 2], dtype=raptors.int64)
@@ -238,6 +374,17 @@ def test_invalid_indices_match_numpy_errors():
         _ = reference[::0]
     with pytest.raises(ValueError):
         _ = candidate[::0]
+
+
+@pytest.mark.parametrize("name", ["bool", "int8", "uint8"])
+def test_one_byte_newbyteorder_remains_native_and_equal(name):
+    expected_base = np.dtype(name)
+    expected = expected_base.newbyteorder(">")
+    base = raptors.DType(name)
+    actual = base.newbyteorder(">")
+    assert actual.byteorder == expected.byteorder == "|"
+    assert actual.isnative == expected.isnative
+    assert actual == base
 
 
 def test_scalar_assignment_views_copy_and_overlapping_assignment():
