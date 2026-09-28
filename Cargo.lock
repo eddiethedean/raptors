@@ -612,6 +612,9 @@ dependencies = [
 [[package]]
 name = "raptors-storage"
 version = "0.1.0"
+dependencies = [
+ "half",
+]
 
 [[package]]
 name = "rayon"

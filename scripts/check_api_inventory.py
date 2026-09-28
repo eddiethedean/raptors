@@ -1,12 +1,15 @@
 #!/usr/bin/env python3
 """Validate the generated NumPy inventory and its link to the 0.1 contract."""
 import json
+import re
 from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
 INVENTORY = ROOT / "compat/numpy-api-2.5.3.json"
 CONTRACT = ROOT / "compat/raptors-0.1.json"
+DRAFT_CONTRACT = ROOT / "compat/raptors-0.2.json"
+DTYPE_PLAN = ROOT / "docs/DTYPE_ARCHITECTURE.md"
 RELEASES = {f"0.{minor}" for minor in range(1, 9)}
 PREVIEW = {"numpy.array", "numpy.zeros", "numpy.empty"}
 
@@ -14,6 +17,7 @@ PREVIEW = {"numpy.array", "numpy.zeros", "numpy.empty"}
 def main():
     inventory = json.loads(INVENTORY.read_text())
     contract = json.loads(CONTRACT.read_text())
+    draft_contract = json.loads(DRAFT_CONTRACT.read_text())
     entries = inventory.get("entries")
     if not isinstance(entries, list):
         raise SystemExit("inventory entries must be a JSON array")
@@ -53,7 +57,28 @@ def main():
     contract_inventory = contract.get("api_inventory", {})
     if contract_inventory.get("entry_count") != len(entries):
         raise SystemExit("0.1 contract inventory count is stale")
-    print(f"Validated {len(entries)} NumPy 2.5.3 inventory entries and the 0.1 preview contract.")
+    if draft_contract.get("release") != "0.2" or draft_contract.get("status") != "in_progress":
+        raise SystemExit("0.2 snapshot must remain an in-progress, unpublished contract")
+    draft_reference = draft_contract.get("reference", {})
+    if any(
+        draft_reference.get(key) != inventory["reference"].get(key)
+        for key in ("distribution", "version", "source_tag", "source_commit")
+    ):
+        raise SystemExit("0.2 snapshot NumPy reference does not match the generated inventory")
+    numeric_kinds = set(draft_contract.get("scope", {}).get("dtype_kinds", []))
+    if numeric_kinds != {"b", "i", "u", "f", "c"}:
+        raise SystemExit("0.2 snapshot must remain scoped to the five numeric dtype kinds")
+    if draft_contract.get("evidence", {}).get("release_gates") != "not_passed":
+        raise SystemExit("0.2 snapshot cannot claim passed release gates")
+    planned_kinds = set(
+        re.findall(r"(?m)^\|\s*`([biufcmMOSUVT])`\s*\|", DTYPE_PLAN.read_text())
+    )
+    if planned_kinds != set("biufcmMOSUVT"):
+        raise SystemExit("dtype plan must cover the eleven legacy families and NumPy 2.x StringDType")
+    print(
+        f"Validated {len(entries)} NumPy 2.5.3 inventory entries, the 0.1 preview contract, "
+        "the 0.2 numeric scope, and the complete dtype-family plan."
+    )
 
 
 if __name__ == "__main__":

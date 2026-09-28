@@ -1,6 +1,6 @@
 # API guide
 
-**Status: 0.1 preview API plus legacy source orientation.** The [rebuild plan](REBUILD_PLAN.md) defines the destination. The [0.1 manifest](../compat/raptors-0.1.json) is the authority for current availability; the generated NumPy inventory is a preliminary backlog, not a conformance reference.
+**Status: 0.1 is the published package contract. The current worktree contains an unverified 0.2 implementation snapshot.** The [0.1 manifest](../compat/raptors-0.1.json) is the authority for the published package. The [0.2 draft](../compat/raptors-0.2.json) describes the worktree surface and its unverified areas. The generated NumPy inventory is a backlog map, not a conformance reference.
 
 ## Current Python preview
 
@@ -14,9 +14,13 @@ column = a[::-1, 1]
 column[0] = 9
 ```
 
-The preview exposes `array(data, dtype)`, `zeros(shape, dtype=None)`, `empty(shape, dtype=None)`, the dtype constants `bool_`, `int64`, `uint64`, `float32`, `float64`, and a limited `Array` with `shape`, `ndim`, `size`, `dtype`, `strides`, basic integer/slice indexing, scalar assignment, same-dtype exact-shape array assignment, and `copy()`.
+The published preview exposes `array(data, dtype)`, `zeros(shape, dtype=None)`, `empty(shape, dtype=None)`, the dtype constants `bool_`, `int64`, `uint64`, `float32`, `float64`, and a limited `Array` with metadata, basic integer/slice indexing, scalar assignment, same-dtype exact-shape array assignment, and `copy()`.
 
-It does not expose arithmetic, broadcasting, reductions, dtype inference, reshape/transpose, advanced indexing, or NumPy interoperation. Scalar indexing returns typed Raptors wrappers, not NumPy scalar classes. Check the manifest before using any call in an application.
+The published preview does not expose arithmetic, broadcasting, reductions, dtype inference, reshape/transpose, advanced indexing, or NumPy interoperation. Scalar indexing returns typed Raptors wrappers, not NumPy scalar classes. Check the 0.1 manifest before using the published package in an application.
+
+## Unreleased 0.2 worktree surface
+
+The current worktree adds fixed-width numeric dtypes, dtype inference and promotion, numeric casts, C/F construction and reshape order, transpose, integer/slice/boolean/fancy indexing, broadcast assignment, and endian-aware storage. Its current signatures are `array(data, dtype=None, copy=True, order='K')`, `zeros(shape, dtype=None, order='C')`, and `empty(shape, dtype=None, order='C')`. Dtype objects expose `kind`, `char`, `itemsize`, `alignment`, `byteorder`, `isnative`, `str`, and `type`. These behaviors are still unverified against the pinned NumPy oracle; see the [0.2 draft contract](../compat/raptors-0.2.json).
 
 ## Legacy source tree
 
@@ -33,7 +37,7 @@ The preview's PyO3 module is [`preview.rs`](../raptors-python/src/preview.rs), b
 
 ## Rust implementation API
 
-`raptors-storage` supplies typed initialized vectors, checked views, indexing, snapshot assignment, and independent copies. It is an internal foundation for the Python preview, not a stable public Rust compatibility layer. The older `raptors-core` types are unrelated to the preview's storage contract.
+`raptors-storage` supplies byte-addressed numeric storage, endian-aware checked reads and writes, checked views, indexing, snapshot assignment, and independent copies. It is an internal foundation for the Python preview, not a stable public Rust compatibility layer. The older `raptors-core` types are unrelated to the preview's storage contract.
 
 ## Behavior still to prove in later releases
 

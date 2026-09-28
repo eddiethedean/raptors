@@ -1,6 +1,6 @@
-# Compatibility inventory and 0.1 manifest
+# Compatibility inventory and release manifests
 
-[`raptors-0.1.json`](raptors-0.1.json) is the executable description of the supported preview. It records the exact `package_version` and whether that contract has been published; the README stats use those fields to select the newest released version. [`numpy-api-2.5.3.json`](numpy-api-2.5.3.json) records the NumPy 2.5.3 public names and members discovered by the pinned inventory generator.
+[`raptors-0.1.json`](raptors-0.1.json) is the executable description of the published preview. [`raptors-0.2.json`](raptors-0.2.json) is an unreleased implementation snapshot; it makes no conformance or package-version claim. README release stats use only manifests whose status is `published`. [`numpy-api-2.5.3.json`](numpy-api-2.5.3.json) records the NumPy 2.5.3 public names and members discovered by the pinned inventory generator.
 
 ## Inventory scope
 
@@ -16,15 +16,15 @@ Each entry records:
 - `case_plan_status`: `authored` for the 0.1 preview calls and `planned_not_authored` for later work;
 - `known_limits`: the specific preview boundary or a reminder to review per-entry semantics before implementation.
 
-The later-release assignments and generic case plans are intentionally preliminary. Review and specialize them against versioned NumPy documentation before implementing each API family. A plan entry is not a test case, a conformance claim, or evidence for a release gate. `required_cases` points only to the current 0.1 tests.
+The release assignments have been narrowed so the 0.2 bucket contains numeric dtype descriptors and the array foundation, rather than every `ndarray`, scalar, and ufunc member. Later assignments and generic case plans remain preliminary. Review and specialize them against versioned NumPy documentation before implementing each API family. A plan entry is not a test case, a conformance claim, or evidence for a release gate. `required_cases` points only to the current 0.1 tests.
 
 ## Regeneration
 
 Use the exact NumPy wheel in the lock file in the canonical generation environment: macOS ARM64, CPython 3.14.3. NumPy exposes a small number of inventory members differently across operating systems, so the checked-in inventory and its byte-for-byte release check use this platform and interpreter patch:
 
 ```bash
-uv sync --project raptors-python --extra dev --locked --python 3.14.3 --no-install-project
-uv run --project raptors-python --extra dev --locked --no-sync python scripts/generate_numpy_api_inventory.py
+UV_PROJECT_ENVIRONMENT=/tmp/raptors-numpy-api-env uv sync --project raptors-python --extra dev --locked --python 3.14.3 --no-install-project
+UV_PROJECT_ENVIRONMENT=/tmp/raptors-numpy-api-env uv run --project raptors-python --extra dev --locked --no-sync python scripts/generate_numpy_api_inventory.py
 ```
 
 The generator rejects any NumPy version other than 2.5.3 and normalizes address-bearing default representations. CI and release validation run it on the same macOS ARM64/CPython 3.14.3 environment and compare the output byte-for-byte. `scripts/check_api_inventory.py` also checks the reference, entry count, unique sorted names, release assignments, case plans, and preview entries. Review entry-count and target changes in the same change as an intentional reference-version update; do not overwrite the pin silently.

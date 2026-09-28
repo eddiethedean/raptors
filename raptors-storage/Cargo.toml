@@ -3,8 +3,11 @@ name = "raptors-storage"
 version.workspace = true
 edition.workspace = true
 license = "MIT"
-description = "Checked safe storage and basic views for the Raptors 0.1 preview"
+description = "Checked safe numeric storage and views for the Raptors 0.2 foundation"
 
 [lib]
 name = "raptors_storage"
 path = "src/lib.rs"
+
+[dependencies]
+half = "2.7"

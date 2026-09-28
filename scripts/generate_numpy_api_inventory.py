@@ -51,6 +51,32 @@ SCALAR_PROTOCOLS = {
     "__matmul__", "__ne__", "__repr__", "__setitem__", "__str__",
 } | NUMERIC_OPERATOR_METHODS
 
+NUMERIC_FOUNDATION_ARRAY_MEMBERS = {
+    "__getitem__", "__setitem__", "__len__", "shape", "ndim", "size",
+    "strides", "itemsize", "nbytes", "flags", "dtype", "item", "copy",
+    "reshape", "transpose", "T", "astype",
+}
+NUMERIC_FOUNDATION_DTYPE_MEMBERS = {
+    "name", "kind", "char", "itemsize", "alignment", "byteorder",
+    "isnative", "str", "type", "newbyteorder",
+}
+NUMERIC_FOUNDATION_SCALAR_MEMBERS = {
+    "dtype", "item", "__bool__", "__int__", "__float__", "__complex__",
+    "__index__",
+}
+ARRAY_INTEROP_MEMBERS = {
+    "__array__", "__array_interface__", "__array_struct__", "data", "base",
+    "ctypes", "from_dlpack", "register_dlpack_dtype",
+}
+NUMERIC_DTYPE_DESCRIPTORS = {
+    "kind", "name", "char", "itemsize", "alignment", "byteorder", "isnative",
+    "str", "type", "newbyteorder", "__eq__", "__ne__", "__repr__", "__str__",
+}
+SPECIALIZED_DTYPE_CLASSES = {
+    "StringDType", "DateTime64DType", "TimeDelta64DType", "ObjectDType",
+    "BytesDType", "StrDType", "VoidDType",
+}
+
 
 def api_kind(value):
     if inspect.ismodule(value):
@@ -71,21 +97,37 @@ def target_release(path, value, module_name):
         return "0.1"
     if name in {"__array_function__", "__array_ufunc__", "__array_namespace__", "__array_namespace_info__", "__array_priority__"}:
         return "0.8"
-    if name in {"data", "base", "ctypes", "__array_interface__", "__array_struct__", "from_dlpack"}:
+    if name in ARRAY_INTEROP_MEMBERS:
         return "0.6"
     path_parts = path.split(".")
     if len(path_parts) >= 3 and path_parts[0] == "numpy":
         ufunc = getattr(np, path_parts[1], None)
         if isinstance(ufunc, np.ufunc):
             return "0.3"
-    if parent in {"numpy.ndarray", "numpy.generic", "numpy.dtype", "numpy.ufunc"}:
+    if parent == "numpy.ndarray":
         if name in NUMERIC_OPERATOR_METHODS or name in REDUCTION_METHODS:
+            return "0.4" if name in REDUCTION_METHODS else "0.3"
+        if name in NUMERIC_FOUNDATION_ARRAY_MEMBERS:
+            return "0.2"
+        return "0.4"
+    if parent == "numpy.dtype":
+        if name in NUMERIC_FOUNDATION_DTYPE_MEMBERS:
+            return "0.2"
+        if name in {"fields", "names", "subdtype", "hasobject", "isalignedstruct"}:
+            return "0.7"
+        return "0.8"
+    if parent == "numpy.ufunc":
+        return "0.4" if name in REDUCTION_METHODS else "0.3"
+    if parent == "numpy.generic":
+        if name in NUMERIC_OPERATOR_METHODS:
             return "0.3"
-        return "0.2"
+        return "0.2" if name in NUMERIC_FOUNDATION_SCALAR_MEMBERS else "0.8"
     if parent.startswith("numpy.") and parent.rsplit(".", 1)[-1] in NUMERIC_TYPES:
         if name in NUMERIC_OPERATOR_METHODS:
             return "0.3"
-        return "0.2"
+        return "0.2" if name in NUMERIC_FOUNDATION_SCALAR_MEMBERS else "0.8"
+    if parent.startswith("numpy.") and parent.rsplit(".", 1)[-1] in SPECIALIZED_TYPES:
+        return "0.7"
     if path.startswith(("numpy.linalg", "numpy.fft", "numpy.polynomial", "numpy.random")):
         return "0.5"
     if path.startswith(("numpy.char", "numpy.strings", "numpy.ma", "numpy.rec")):
@@ -97,13 +139,22 @@ def target_release(path, value, module_name):
     if name in SPECIALIZED_TYPES or name in {"datetime_as_string", "datetime_data", "isnat"}:
         return "0.7"
     if module_name == "numpy.dtypes":
-        return "0.7" if any(word in name.lower() for word in ("string", "datetime", "timedelta", "void", "object")) else "0.2"
+        parent = path.rsplit(".", 1)[0] if "." in path else ""
+        if parent == "numpy.dtypes":
+            return "0.7" if name in SPECIALIZED_DTYPE_CLASSES else "0.2"
+        if parent.startswith("numpy.dtypes."):
+            dtype_class = parent.rsplit(".", 1)[-1]
+            if name in NUMERIC_DTYPE_DESCRIPTORS:
+                return "0.7" if dtype_class in SPECIALIZED_DTYPE_CLASSES else "0.2"
+            return "0.7" if dtype_class in SPECIALIZED_DTYPE_CLASSES else "0.8"
     if name in IO_FUNCTIONS:
         return "0.6"
     if isinstance(value, np.ufunc) or "umath" in (getattr(value, "__module__", "") or ""):
         return "0.3"
-    if name in NUMERIC_TYPES or path.startswith("numpy.dtypes."):
+    if path == f"numpy.{name}" and name in NUMERIC_TYPES:
         return "0.2"
+    if path.startswith("numpy.dtypes."):
+        return "0.7"
     return "0.4"
 
 

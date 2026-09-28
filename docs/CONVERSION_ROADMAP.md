@@ -39,7 +39,7 @@ Release 0.2's [execution plan](RELEASE_0_2.md) defines its numeric foundation bo
 
 ## Full scope
 
-The 0.x sequence covers NumPy's declared public Python surface at the pinned reference release: constructors and dtype/scalar behavior; ndarray and ufunc contracts; indexing, views, mutation, and numerical routines; scientific and random modules; files and protocols; specialized dtypes and arrays; submodules and public helpers. Release 0.1 creates the exact inventory, including APIs absent from this summary table.
+The 0.x sequence covers NumPy's declared public Python surface at the pinned reference release: constructors and dtype/scalar behavior; ndarray and ufunc contracts; indexing, views, mutation, and numerical routines; scientific and random modules; files and protocols; specialized dtypes and arrays; submodules and public helpers. The [dtype architecture plan](DTYPE_ARCHITECTURE.md) maps all eleven `dtype.kind` groups and NumPy 2.x `StringDType` to their shared descriptor design and release dependencies. Release 0.1 creates the exact inventory, including APIs absent from this summary table.
 
 The target is an import-level replacement for applications whose required behavior has reached a conformant release. An extension demanding the actual `numpy.ndarray` object uses an explicit adapter. Replacing NumPy's C/ABI for precompiled extensions, private internal APIs, and arbitrary out-of-bounds pointer tricks are not part of the public Python contract. Where a documented public API exposes foreign or raw memory, its safe ownership and bounds policy must be explicit and tested.
 

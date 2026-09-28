@@ -1,0 +1,94 @@
+{
+  "schema_version": 1,
+  "release": "0.2",
+  "status": "in_progress",
+  "reference": {
+    "distribution": "numpy",
+    "version": "2.5.3",
+    "source_tag": "v2.5.3",
+    "source_commit": "dd88c0c19b54ad9ed3533224221285bf0873249a",
+    "source_checkout": "../numpy-reference",
+    "python_lock": "../raptors-python/uv.lock"
+  },
+  "scope": {
+    "description": "Unreleased implementation snapshot for the numeric array and dtype foundation. No behavior is declared conformant.",
+    "dtype_kinds": ["b", "i", "u", "f", "c"],
+    "platform_dependent_dtypes": ["intp", "uintp", "longdouble", "clongdouble", "float128", "complex256"],
+    "later_dtype_kinds": ["m", "M", "O", "S", "U", "V", "T"]
+  },
+  "api": {
+    "module": "raptors",
+    "array_function": {
+      "status": "partial",
+      "signature": "array(data, dtype=None, copy=True, order='K')",
+      "implemented_behavior": [
+        "Numeric inference from Python bool, int, float, and complex values",
+        "Rectangular list and tuple inputs, including zero-dimensional and empty inputs",
+        "Explicit numeric dtype names, aliases, and built-in Python numeric type objects",
+        "C and F output order; K/A order selection for Raptors array inputs",
+        "copy=False may reuse a compatible Raptors array"
+      ],
+      "known_limits": [
+        "Ragged, object, string, structured, datetime, and foreign-buffer inputs are unsupported",
+        "copy=False cannot reuse non-Raptors inputs",
+        "K order for non-contiguous inputs has not been checked against NumPy"
+      ]
+    },
+    "zeros_function": {
+      "status": "partial",
+      "signature": "zeros(shape, dtype=None, order='C')",
+      "implemented_behavior": ["Numeric dtype allocation", "C and F memory order"],
+      "known_limits": ["Only C and F order are accepted", "Allocation results are unverified"]
+    },
+    "empty_function": {
+      "status": "partial",
+      "signature": "empty(shape, dtype=None, order='C')",
+      "implemented_behavior": ["Numeric dtype allocation", "C and F memory order"],
+      "known_limits": ["Storage is initialized for Rust safety; returned values are unspecified", "Allocation results are unverified"]
+    },
+    "promote_types_function": {
+      "status": "partial",
+      "signature": "promote_types(left, right)",
+      "known_limits": ["Promotion rules have not been checked against the pinned oracle"]
+    },
+    "numeric_dtypes": [
+      "bool",
+      "int8", "int16", "int32", "int64",
+      "uint8", "uint16", "uint32", "uint64",
+      "float16", "float32", "float64",
+      "complex64", "complex128",
+      "platform aliases including intp, uintp, int_, uint, long, and ulong; pointer codes n/N and p/P",
+      "longdouble and clongdouble where the target exposes an extended representation"
+    ],
+    "dtype_metadata": ["name", "kind", "char", "itemsize", "alignment", "byteorder", "isnative", "str", "type", "newbyteorder"],
+    "array_metadata": ["shape", "ndim", "size", "strides", "itemsize", "nbytes", "dtype", "c_contiguous", "f_contiguous", "writeable", "flags"],
+    "array_methods": ["reshape", "transpose", "astype", "copy"],
+    "indexing": ["integer", "slice", "tuple", "ellipsis", "new axis", "boolean scalar", "boolean mask", "integer fancy arrays", "mixed basic and advanced indices"],
+    "assignment": ["scalar casts", "broadcasted array assignment", "fancy-index assignment", "overlap snapshot"]
+  },
+  "unsupported": [
+    "Arithmetic operators, ufuncs, and reductions",
+    "datetime64 and timedelta64",
+    "object, bytes string, Unicode string, void, structured, and subarray dtypes",
+    "NumPy 2.x StringDType",
+    "Foreign memory, buffer protocol, DLPack, and NumPy interoperation",
+    "Full NumPy scalar identity and scalar protocol behavior",
+    "NumPy C ABI compatibility"
+  ],
+  "known_gaps": [
+    "Casting overflow, invalid casts, warnings, and all NumPy promotion edge cases need reference coverage",
+    "Extended precision accepts the numeric inputs currently exposed by the Python API but does not accept arbitrary high-precision Python values",
+    "Some advanced-index and non-contiguous reshape sharing cases are unverified",
+    "No differential, Rust behavioral, Miri, sanitizer, wheel-matrix, or release gate has passed for this snapshot"
+  ],
+  "evidence": {
+    "cargo_check": {"status": "passed", "command": "cargo check -p raptors-python"},
+    "storage_cross_compile": {"status": "passed", "target": "x86_64-apple-darwin", "command": "cargo check --target x86_64-apple-darwin -p raptors-storage"},
+    "python_differential_tests": "not_run",
+    "rust_behavioral_tests": "not_run",
+    "miri": "not_run",
+    "sanitizer": "not_run",
+    "wheel_matrix": "not_run",
+    "release_gates": "not_passed"
+  }
+}

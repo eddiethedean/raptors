@@ -1,27 +1,30 @@
 //! Bindings for the deliberately small, NumPy-independent 0.1 preview.
 use pyo3::basic::CompareOp;
 use pyo3::exceptions::{
-    PyIndexError, PyMemoryError, PyOverflowError, PyRuntimeError, PyTypeError, PyValueError,
+    PyIndexError, PyKeyError, PyMemoryError, PyOverflowError, PyRuntimeError, PyTypeError,
+    PyValueError,
 };
 use pyo3::prelude::*;
 use pyo3::types::{
-    PyBool, PyFloat, PyInt, PyList, PyModule, PySlice, PySliceMethods, PyTuple, PyTupleMethods,
+    PyBool, PyComplex, PyComplexMethods, PyEllipsis, PyFloat, PyInt, PyList, PyModule, PyNone,
+    PySlice, PySliceMethods, PyTuple, PyTupleMethods,
 };
-use raptors_storage::{DType, IndexItem, Scalar, StorageError, View};
+use raptors_storage::{ByteOrder, DType, IndexItem, Scalar, StorageError, View};
 
 #[pyclass(name = "DType", frozen, module = "raptors")]
 #[derive(Clone)]
 struct PyDType {
     inner: DType,
+    byte_order: ByteOrder,
 }
 
 #[pymethods]
 impl PyDType {
     #[new]
     fn new(name: &str) -> PyResult<Self> {
-        dtype_from_name(name)
-            .map(|inner| Self { inner })
-            .ok_or_else(|| PyValueError::new_err(format!("unsupported preview dtype {name:?}")))
+        let (inner, byte_order) = dtype_from_spec(name)
+            .ok_or_else(|| PyValueError::new_err(format!("unsupported preview dtype {name:?}")))?;
+        Ok(Self { inner, byte_order })
     }
     #[getter]
     fn name(&self) -> &'static str {
@@ -32,29 +35,148 @@ impl PyDType {
         self.inner.itemsize()
     }
     #[getter]
+    fn alignment(&self) -> usize {
+        self.inner.alignment()
+    }
+    #[getter]
+    fn byteorder(&self) -> &'static str {
+        self.byte_order.symbol(self.inner)
+    }
+    #[getter]
     fn kind(&self) -> &'static str {
         self.inner.kind()
     }
-    fn __repr__(&self) -> String {
-        format!("raptors.DType('{}')", self.inner.name())
+    #[getter]
+    fn char(&self) -> char {
+        self.inner.char()
     }
-    fn __str__(&self) -> &'static str {
-        self.inner.name()
+    #[getter]
+    fn isnative(&self) -> bool {
+        self.byte_order.is_native()
+    }
+    #[getter]
+    fn str(&self) -> String {
+        let prefix = if self.inner.itemsize() == 1 {
+            "|"
+        } else if self.byte_order.is_native() {
+            if cfg!(target_endian = "little") {
+                "<"
+            } else {
+                ">"
+            }
+        } else {
+            self.byte_order.symbol(self.inner)
+        };
+        let code = match self.inner.kind() {
+            "b" => "b",
+            "i" => "i",
+            "u" => "u",
+            "f" => "f",
+            "c" => "c",
+            _ => unreachable!("numeric dtype kind is known"),
+        };
+        let itemsize = if self.inner == DType::Bool {
+            1
+        } else {
+            self.inner.itemsize()
+        };
+        format!("{prefix}{code}{itemsize}")
+    }
+    #[getter]
+    fn r#type(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
+        let class_name = match self.inner {
+            DType::Bool => "BoolScalar",
+            DType::Int8 => "Int8Scalar",
+            DType::UInt8 => "UInt8Scalar",
+            DType::Int16 => "Int16Scalar",
+            DType::UInt16 => "UInt16Scalar",
+            DType::Int32 => "Int32Scalar",
+            DType::UInt32 => "UInt32Scalar",
+            DType::Int64 => "Int64Scalar",
+            DType::UInt64 => "UInt64Scalar",
+            DType::Float16 => "Float16Scalar",
+            DType::Float32 => "Float32Scalar",
+            DType::Float64 => "Float64Scalar",
+            DType::Complex64 => "Complex64Scalar",
+            DType::Complex128 => "Complex128Scalar",
+            DType::LongDouble => "LongDoubleScalar",
+            DType::ComplexLongDouble => "ComplexLongDoubleScalar",
+        };
+        Ok(PyModule::import(py, "raptors")?
+            .getattr(class_name)?
+            .unbind())
+    }
+    fn __repr__(&self) -> String {
+        let order = self.byte_order.symbol(self.inner);
+        let prefix = if order == "=" || order == "|" {
+            ""
+        } else {
+            order
+        };
+        format!("raptors.DType('{}{}')", prefix, self.inner.name())
+    }
+    fn __str__(&self) -> String {
+        let order = self.byte_order.symbol(self.inner);
+        let prefix = if order == "=" || order == "|" {
+            ""
+        } else {
+            order
+        };
+        format!("{prefix}{}", self.inner.name())
+    }
+    #[pyo3(signature = (new_order="S"))]
+    fn newbyteorder(&self, new_order: &str) -> PyResult<Self> {
+        let byte_order = match new_order {
+            "=" => ByteOrder::Native,
+            "<" => ByteOrder::Little,
+            ">" => ByteOrder::Big,
+            "|" if self.inner.itemsize() == 1 => ByteOrder::NotApplicable,
+            "S" => {
+                if self.inner.itemsize() == 1 {
+                    ByteOrder::NotApplicable
+                } else if self.byte_order.is_native() {
+                    if cfg!(target_endian = "little") {
+                        ByteOrder::Big
+                    } else {
+                        ByteOrder::Little
+                    }
+                } else if self.byte_order == ByteOrder::Little {
+                    ByteOrder::Big
+                } else {
+                    ByteOrder::Little
+                }
+            }
+            _ => {
+                return Err(PyValueError::new_err(
+                    "new byte order must be '=', '<', '>', or 'S'",
+                ));
+            }
+        };
+        if byte_order == ByteOrder::NotApplicable && self.inner.itemsize() > 1 {
+            return Err(PyValueError::new_err(
+                "byte order '|' is only valid for one-byte dtypes",
+            ));
+        }
+        let byte_order = byte_order.normalized();
+        Ok(Self {
+            inner: self.inner,
+            byte_order,
+        })
     }
     fn __richcmp__(&self, other: &Bound<'_, PyAny>, op: CompareOp) -> bool {
         let other = other
             .extract::<PyRef<'_, PyDType>>()
             .ok()
-            .map(|d| d.inner)
+            .map(|d| (d.inner, d.byte_order))
             .or_else(|| {
                 other
                     .extract::<String>()
                     .ok()
-                    .and_then(|s| dtype_from_name(&s))
+                    .and_then(|s| dtype_from_spec(&s))
             });
         match op {
-            CompareOp::Eq => other == Some(self.inner),
-            CompareOp::Ne => other != Some(self.inner),
+            CompareOp::Eq => other == Some((self.inner, self.byte_order)),
+            CompareOp::Ne => other != Some((self.inner, self.byte_order)),
             _ => false,
         }
     }
@@ -63,6 +185,43 @@ impl PyDType {
 #[pyclass(name = "Array", frozen, module = "raptors")]
 struct PyArray {
     inner: View,
+}
+
+#[pyclass(name = "ArrayFlags", frozen, module = "raptors")]
+struct PyArrayFlags {
+    c_contiguous: bool,
+    f_contiguous: bool,
+    writeable: bool,
+}
+
+#[pymethods]
+impl PyArrayFlags {
+    #[getter]
+    fn c_contiguous(&self) -> bool {
+        self.c_contiguous
+    }
+    #[getter]
+    fn f_contiguous(&self) -> bool {
+        self.f_contiguous
+    }
+    #[getter]
+    fn writeable(&self) -> bool {
+        self.writeable
+    }
+    fn __getitem__(&self, key: &str) -> PyResult<bool> {
+        match key.to_ascii_uppercase().as_str() {
+            "C" | "C_CONTIGUOUS" => Ok(self.c_contiguous),
+            "F" | "F_CONTIGUOUS" => Ok(self.f_contiguous),
+            "W" | "WRITEABLE" => Ok(self.writeable),
+            _ => Err(PyKeyError::new_err(key.to_owned())),
+        }
+    }
+    fn __repr__(&self) -> String {
+        format!(
+            "raptors.ArrayFlags(c_contiguous={}, f_contiguous={}, writeable={})",
+            self.c_contiguous, self.f_contiguous, self.writeable
+        )
+    }
 }
 
 #[pymethods]
@@ -82,6 +241,35 @@ impl PyArray {
         self.inner.size().map_err(map_storage_error)
     }
     #[getter]
+    fn itemsize(&self) -> usize {
+        self.inner.dtype().itemsize()
+    }
+    #[getter]
+    fn nbytes(&self) -> PyResult<usize> {
+        self.inner
+            .size()
+            .and_then(|size| {
+                size.checked_mul(self.inner.dtype().itemsize())
+                    .ok_or(StorageError::ShapeOverflow)
+            })
+            .map_err(map_storage_error)
+    }
+    #[getter]
+    fn writeable(&self) -> bool {
+        true
+    }
+    #[getter]
+    fn flags(&self, py: Python<'_>) -> PyResult<Py<PyArrayFlags>> {
+        Py::new(
+            py,
+            PyArrayFlags {
+                c_contiguous: self.inner.is_c_contiguous(),
+                f_contiguous: self.inner.is_f_contiguous(),
+                writeable: true,
+            },
+        )
+    }
+    #[getter]
     fn strides(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
         Ok(PyTuple::new(py, self.inner.strides().iter().copied())?
             .into_any()
@@ -93,8 +281,71 @@ impl PyArray {
             py,
             PyDType {
                 inner: self.inner.dtype(),
+                byte_order: self.inner.byte_order(),
             },
         )
+    }
+    #[getter]
+    fn c_contiguous(&self) -> bool {
+        self.inner.is_c_contiguous()
+    }
+    #[getter]
+    fn f_contiguous(&self) -> bool {
+        self.inner.is_f_contiguous()
+    }
+    #[getter]
+    #[allow(non_snake_case)]
+    fn T(&self) -> PyResult<Self> {
+        Ok(Self {
+            inner: self.inner.transpose(None).map_err(map_storage_error)?,
+        })
+    }
+    #[pyo3(signature = (shape, order="C", copy=None))]
+    fn reshape(&self, shape: &Bound<'_, PyAny>, order: &str, copy: Option<bool>) -> PyResult<Self> {
+        let fortran = match order {
+            "C" => false,
+            "F" => true,
+            "A" => self.inner.is_f_contiguous(),
+            _ => return Err(PyValueError::new_err("order must be 'C', 'F', or 'A'")),
+        };
+        Ok(Self {
+            inner: self
+                .inner
+                .reshape_order(parse_shape(shape)?, copy, fortran)
+                .map_err(map_storage_error)?,
+        })
+    }
+    #[pyo3(signature = (*axes))]
+    fn transpose(&self, axes: &Bound<'_, PyTuple>) -> PyResult<Self> {
+        let parsed_axes = match axes.len() {
+            0 => None,
+            1 => {
+                let value = axes.get_item(0)?;
+                if value.is_none() {
+                    None
+                } else if value.is_instance_of::<PyTuple>() || value.is_instance_of::<PyList>() {
+                    Some(parse_axes(&value)?)
+                } else {
+                    Some(vec![value.extract::<isize>()?])
+                }
+            }
+            _ => Some(parse_axes(axes.as_any())?),
+        };
+        Ok(Self {
+            inner: self
+                .inner
+                .transpose(parsed_axes.as_deref())
+                .map_err(map_storage_error)?,
+        })
+    }
+    fn astype(&self, dtype: &Bound<'_, PyAny>) -> PyResult<Self> {
+        let (dtype, byte_order) = parse_dtype_spec(dtype)?;
+        Ok(Self {
+            inner: self
+                .inner
+                .astype_with_order(dtype, byte_order)
+                .map_err(map_storage_error)?,
+        })
     }
     fn copy(&self) -> PyResult<Self> {
         Ok(Self {
@@ -119,11 +370,37 @@ impl PyArray {
     }
     fn __setitem__(&self, key: &Bound<'_, PyAny>, value: &Bound<'_, PyAny>) -> PyResult<()> {
         let (indices, _) = parse_indices(&self.inner, key)?;
+        let sequence = sequence_value_to_view(value)?;
+        if indices.iter().any(|item| {
+            matches!(
+                item,
+                IndexItem::Fancy { .. } | IndexItem::BoolScalar(_) | IndexItem::BoolMask { .. }
+            )
+        }) {
+            if let Ok(source) = value.extract::<PyRef<'_, PyArray>>() {
+                return self
+                    .inner
+                    .assign_fancy_view(&indices, &source.inner)
+                    .map_err(map_storage_error);
+            }
+            if let Some(source) = &sequence {
+                return self
+                    .inner
+                    .assign_fancy_view(&indices, source)
+                    .map_err(map_storage_error);
+            }
+            return self
+                .inner
+                .assign_fancy_scalar(&indices, value_to_scalar(value, self.inner.dtype())?)
+                .map_err(map_storage_error);
+        }
         let selected = self.inner.index(&indices).map_err(map_storage_error)?;
         if let Ok(source) = value.extract::<PyRef<'_, PyArray>>() {
             selected
                 .assign_view(&source.inner)
                 .map_err(map_storage_error)
+        } else if let Some(source) = sequence {
+            selected.assign_view(&source).map_err(map_storage_error)
         } else {
             selected
                 .assign_scalar(value_to_scalar(value, self.inner.dtype())?)
@@ -131,10 +408,18 @@ impl PyArray {
         }
     }
     fn __repr__(&self) -> String {
+        let dtype = self.inner.dtype();
+        let byte_order = self.inner.byte_order().symbol(dtype);
+        let prefix = if byte_order == "=" || byte_order == "|" {
+            "".to_owned()
+        } else {
+            byte_order.to_owned()
+        };
         format!(
-            "raptors.Array(shape={:?}, dtype=raptors.{})",
+            "raptors.Array(shape={:?}, dtype=raptors.DType('{}{}'))",
             self.inner.shape(),
-            self.inner.dtype().name()
+            prefix,
+            dtype.name()
         )
     }
 }
@@ -142,6 +427,19 @@ impl PyArray {
 fn native_bool<'py>(value: bool, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
     Ok(value.into_pyobject(py)?.to_owned().into_any())
 }
+macro_rules! native_integer {
+    ($name:ident, $ty:ty) => {
+        fn $name<'py>(value: $ty, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
+            Ok(value.into_pyobject(py)?.into_any())
+        }
+    };
+}
+native_integer!(native_i8, i8);
+native_integer!(native_u8, u8);
+native_integer!(native_i16, i16);
+native_integer!(native_u16, u16);
+native_integer!(native_i32, i32);
+native_integer!(native_u32, u32);
 fn native_i64<'py>(value: i64, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
     Ok(value.into_pyobject(py)?.into_any())
 }
@@ -164,7 +462,7 @@ macro_rules! scalar_wrapper {
             fn __repr__(&self) -> String { format!("raptors.{}({:?})", $name, self.0) }
             fn __bool__(&self) -> bool { ($truth)(self.0) }
             #[getter]
-            fn dtype(&self, py: Python<'_>) -> PyResult<Py<PyDType>> { Py::new(py, PyDType { inner: DType::$dtype }) }
+            fn dtype(&self, py: Python<'_>) -> PyResult<Py<PyDType>> { Py::new(py, PyDType { inner: DType::$dtype, byte_order: default_byte_order(DType::$dtype) }) }
             fn item(&self, py: Python<'_>) -> PyResult<Py<PyAny>> { Ok($native(self.0, py)?.unbind()) }
             fn __int__(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
                 let value = $native(self.0, py)?;
@@ -188,6 +486,72 @@ scalar_wrapper!(
     native_bool,
     Bool,
     |v: bool| v
+);
+scalar_wrapper!(
+    PyInt8Scalar,
+    "Int8Scalar",
+    i8,
+    native_i8,
+    Int8,
+    |v: i8| v != 0,
+    fn __index__(&self) -> i8 {
+        self.0
+    }
+);
+scalar_wrapper!(
+    PyUInt8Scalar,
+    "UInt8Scalar",
+    u8,
+    native_u8,
+    UInt8,
+    |v: u8| v != 0,
+    fn __index__(&self) -> u8 {
+        self.0
+    }
+);
+scalar_wrapper!(
+    PyInt16Scalar,
+    "Int16Scalar",
+    i16,
+    native_i16,
+    Int16,
+    |v: i16| v != 0,
+    fn __index__(&self) -> i16 {
+        self.0
+    }
+);
+scalar_wrapper!(
+    PyUInt16Scalar,
+    "UInt16Scalar",
+    u16,
+    native_u16,
+    UInt16,
+    |v: u16| v != 0,
+    fn __index__(&self) -> u16 {
+        self.0
+    }
+);
+scalar_wrapper!(
+    PyInt32Scalar,
+    "Int32Scalar",
+    i32,
+    native_i32,
+    Int32,
+    |v: i32| v != 0,
+    fn __index__(&self) -> i32 {
+        self.0
+    }
+);
+scalar_wrapper!(
+    PyUInt32Scalar,
+    "UInt32Scalar",
+    u32,
+    native_u32,
+    UInt32,
+    |v: u32| v != 0,
+    fn __index__(&self) -> u32 {
+        self.0
+    }
 );
 scalar_wrapper!(
     PyInt64Scalar,
@@ -220,6 +584,14 @@ scalar_wrapper!(
     |v: f32| v != 0.0
 );
 scalar_wrapper!(
+    PyFloat16Scalar,
+    "Float16Scalar",
+    f32,
+    native_f32,
+    Float16,
+    |v: f32| v != 0.0
+);
+scalar_wrapper!(
     PyFloat64Scalar,
     "Float64Scalar",
     f64,
@@ -228,41 +600,258 @@ scalar_wrapper!(
     |v: f64| v != 0.0
 );
 
+macro_rules! complex_scalar_wrapper {
+    ($class:ident, $name:literal, $ty:ty, $dtype:ident) => {
+        #[pyclass(name = $name, frozen, module = "raptors")]
+        #[derive(Clone)]
+        struct $class($ty, $ty);
+        #[pymethods]
+        impl $class {
+            fn __repr__(&self) -> String {
+                format!("raptors.{}({:?})", $name, (self.0, self.1))
+            }
+            fn __bool__(&self) -> bool {
+                self.0 != 0.0 || self.1 != 0.0
+            }
+            fn __complex__(&self, py: Python<'_>) -> Py<PyAny> {
+                PyComplex::from_doubles(py, self.0 as f64, self.1 as f64)
+                    .into_any()
+                    .unbind()
+            }
+            #[getter]
+            fn dtype(&self, py: Python<'_>) -> PyResult<Py<PyDType>> {
+                Py::new(
+                    py,
+                    PyDType {
+                        inner: DType::$dtype,
+                        byte_order: default_byte_order(DType::$dtype),
+                    },
+                )
+            }
+            fn item(&self, py: Python<'_>) -> Py<PyAny> {
+                self.__complex__(py)
+            }
+            fn __richcmp__(
+                &self,
+                py: Python<'_>,
+                other: &Bound<'_, PyAny>,
+                op: CompareOp,
+            ) -> PyResult<Py<PyAny>> {
+                Ok(self
+                    .__complex__(py)
+                    .bind(py)
+                    .rich_compare(other, op)?
+                    .unbind())
+            }
+        }
+    };
+}
+complex_scalar_wrapper!(PyComplex64Scalar, "Complex64Scalar", f32, Complex64);
+complex_scalar_wrapper!(PyComplex128Scalar, "Complex128Scalar", f64, Complex128);
+
+#[pyclass(name = "LongDoubleScalar", frozen, module = "raptors")]
+#[derive(Clone)]
+struct PyLongDoubleScalar(String);
+#[pymethods]
+impl PyLongDoubleScalar {
+    fn __repr__(&self) -> String {
+        format!("raptors.LongDoubleScalar('{}')", self.0)
+    }
+    fn __str__(&self) -> &str {
+        &self.0
+    }
+    fn __bool__(&self) -> bool {
+        self.0
+            .parse::<f64>()
+            .map(|value| value != 0.0)
+            .unwrap_or(false)
+    }
+    fn __float__(&self) -> PyResult<f64> {
+        self.0
+            .parse()
+            .map_err(|_| PyValueError::new_err("invalid long double scalar"))
+    }
+    #[getter]
+    fn dtype(&self, py: Python<'_>) -> PyResult<Py<PyDType>> {
+        Py::new(
+            py,
+            PyDType {
+                inner: DType::LongDouble,
+                byte_order: ByteOrder::Native,
+            },
+        )
+    }
+    fn item(&self, py: Python<'_>) -> PyResult<Py<Self>> {
+        Py::new(py, self.clone())
+    }
+}
+
+#[pyclass(name = "ComplexLongDoubleScalar", frozen, module = "raptors")]
+#[derive(Clone)]
+struct PyComplexLongDoubleScalar(String, String);
+#[pymethods]
+impl PyComplexLongDoubleScalar {
+    fn __repr__(&self) -> String {
+        format!("raptors.ComplexLongDoubleScalar(({}, {}))", self.0, self.1)
+    }
+    fn __bool__(&self) -> bool {
+        self.0
+            .parse::<f64>()
+            .map(|value| value != 0.0)
+            .unwrap_or(false)
+            || self
+                .1
+                .parse::<f64>()
+                .map(|value| value != 0.0)
+                .unwrap_or(false)
+    }
+    fn __complex__(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
+        let re = self
+            .0
+            .parse::<f64>()
+            .map_err(|_| PyValueError::new_err("invalid complex long double scalar"))?;
+        let im = self
+            .1
+            .parse::<f64>()
+            .map_err(|_| PyValueError::new_err("invalid complex long double scalar"))?;
+        Ok(PyComplex::from_doubles(py, re, im).into_any().unbind())
+    }
+    #[getter]
+    fn dtype(&self, py: Python<'_>) -> PyResult<Py<PyDType>> {
+        Py::new(
+            py,
+            PyDType {
+                inner: DType::ComplexLongDouble,
+                byte_order: ByteOrder::Native,
+            },
+        )
+    }
+    fn item(&self, py: Python<'_>) -> PyResult<Py<Self>> {
+        Py::new(py, self.clone())
+    }
+}
+
 #[pyfunction]
-#[pyo3(signature = (data, dtype))]
-fn array(data: &Bound<'_, PyAny>, dtype: &Bound<'_, PyAny>) -> PyResult<PyArray> {
-    let dtype = parse_dtype(dtype)?;
-    let (shape, values) = flatten(data, dtype, 0)?;
+#[pyo3(signature = (data, dtype=None, copy=true, order="K"))]
+fn array(
+    data: &Bound<'_, PyAny>,
+    dtype: Option<&Bound<'_, PyAny>>,
+    copy: bool,
+    order: &str,
+) -> PyResult<PyArray> {
+    let requested = dtype.map(parse_dtype_spec).transpose()?;
+    if let Ok(source) = data.extract::<PyRef<'_, PyArray>>() {
+        let fortran = parse_array_order(order, Some(&source.inner))?;
+        let (target_dtype, target_byte_order) =
+            requested.unwrap_or((source.inner.dtype(), source.inner.byte_order()));
+        if !copy {
+            let order_matches = match order {
+                "C" => source.inner.is_c_contiguous(),
+                "F" => source.inner.is_f_contiguous(),
+                "A" | "K" => true,
+                _ => unreachable!("array order has already been validated"),
+            };
+            if target_dtype == source.inner.dtype()
+                && target_byte_order == source.inner.byte_order()
+                && order_matches
+            {
+                return Ok(PyArray {
+                    inner: source.inner.clone(),
+                });
+            }
+            return Err(PyValueError::new_err(
+                "copy=False cannot satisfy the requested dtype or memory order",
+            ));
+        }
+        let inner = if target_dtype == source.inner.dtype()
+            && target_byte_order == source.inner.byte_order()
+        {
+            source.inner.copy_order(fortran)
+        } else {
+            source
+                .inner
+                .astype_with_layout(target_dtype, target_byte_order, fortran)
+        }
+        .map_err(map_storage_error)?;
+        return Ok(PyArray { inner });
+    }
+    if !copy {
+        return Err(PyValueError::new_err(
+            "copy=False cannot avoid allocating storage for this input",
+        ));
+    }
+    let fortran = parse_array_order(order, None)?;
+    let (shape, values) = flatten(data, requested.map(|(dtype, _)| dtype), 0)?;
+    let (dtype, byte_order) = match requested {
+        Some(descriptor) => descriptor,
+        None => (infer_dtype(&values)?, ByteOrder::Native),
+    };
+    let values = values
+        .iter()
+        .map(|value| value.cast(dtype).map_err(map_storage_error))
+        .collect::<PyResult<Vec<_>>>()?;
     Ok(PyArray {
-        inner: View::from_values(dtype, shape, &values).map_err(map_storage_error)?,
+        inner: View::from_values_with_layout(dtype, byte_order, shape, &values, fortran)
+            .map_err(map_storage_error)?,
     })
 }
+
+fn parse_array_order(order: &str, source: Option<&View>) -> PyResult<bool> {
+    match order {
+        "C" => Ok(false),
+        "F" => Ok(true),
+        "A" => Ok(source.is_some_and(View::is_f_contiguous)),
+        "K" => Ok(source.is_some_and(|view| view.is_f_contiguous() && !view.is_c_contiguous())),
+        _ => Err(PyValueError::new_err("order must be 'C', 'F', 'A', or 'K'")),
+    }
+}
+
 #[pyfunction]
-#[pyo3(signature = (shape, dtype=None))]
-fn zeros(shape: &Bound<'_, PyAny>, dtype: Option<&Bound<'_, PyAny>>) -> PyResult<PyArray> {
-    construct(shape, dtype, false)
+#[pyo3(signature = (shape, dtype=None, order="C"))]
+fn zeros(
+    shape: &Bound<'_, PyAny>,
+    dtype: Option<&Bound<'_, PyAny>>,
+    order: &str,
+) -> PyResult<PyArray> {
+    construct(shape, dtype, order)
 }
 #[pyfunction]
-#[pyo3(signature = (shape, dtype=None))]
-fn empty(shape: &Bound<'_, PyAny>, dtype: Option<&Bound<'_, PyAny>>) -> PyResult<PyArray> {
-    construct(shape, dtype, true)
+#[pyo3(signature = (shape, dtype=None, order="C"))]
+fn empty(
+    shape: &Bound<'_, PyAny>,
+    dtype: Option<&Bound<'_, PyAny>>,
+    order: &str,
+) -> PyResult<PyArray> {
+    construct(shape, dtype, order)
+}
+
+#[pyfunction]
+fn promote_types(left: &Bound<'_, PyAny>, right: &Bound<'_, PyAny>) -> PyResult<PyDType> {
+    let left = parse_dtype_spec(left)?.0;
+    let right = parse_dtype_spec(right)?.0;
+    let inner = left.promote(right);
+    Ok(PyDType {
+        inner,
+        byte_order: default_byte_order(inner),
+    })
 }
 
 fn construct(
     shape: &Bound<'_, PyAny>,
     dtype: Option<&Bound<'_, PyAny>>,
-    empty: bool,
+    order: &str,
 ) -> PyResult<PyArray> {
     let shape = parse_shape(shape)?;
-    let dtype = match dtype {
-        Some(value) if !value.is_none() => parse_dtype(value)?,
-        _ => DType::Float64,
+    let fortran = match order {
+        "C" => false,
+        "F" => true,
+        _ => return Err(PyValueError::new_err("order must be 'C' or 'F'")),
     };
-    let view = if empty {
-        View::empty(dtype, shape)
-    } else {
-        View::zeros(dtype, shape)
+    let (dtype, byte_order) = match dtype {
+        Some(value) if !value.is_none() => parse_dtype_spec(value)?,
+        _ => (DType::Float64, ByteOrder::Native),
     };
+    let view = View::zeros_with_layout(dtype, byte_order, shape, fortran);
     Ok(PyArray {
         inner: view.map_err(map_storage_error)?,
     })
@@ -296,13 +885,41 @@ fn parse_shape(value: &Bound<'_, PyAny>) -> PyResult<Vec<usize>> {
     Ok(shape)
 }
 
+fn parse_axes(value: &Bound<'_, PyAny>) -> PyResult<Vec<isize>> {
+    let values: Vec<Bound<'_, PyAny>> = if let Ok(tuple) = value.cast::<PyTuple>() {
+        tuple.iter().collect()
+    } else if let Ok(list) = value.cast::<PyList>() {
+        list.iter().collect()
+    } else {
+        return Err(PyTypeError::new_err(
+            "axes must be a tuple or list of integers",
+        ));
+    };
+    values
+        .into_iter()
+        .map(|axis| {
+            if axis.is_instance_of::<PyBool>() {
+                return Err(PyTypeError::new_err(
+                    "axes must contain integers, not booleans",
+                ));
+            }
+            axis.extract::<isize>()
+        })
+        .collect()
+}
+
 fn flatten(
     value: &Bound<'_, PyAny>,
-    dtype: DType,
+    dtype: Option<DType>,
     depth: usize,
 ) -> PyResult<(Vec<usize>, Vec<Scalar>)> {
     if depth > 64 {
         return Err(PyValueError::new_err("array nesting is too deep"));
+    }
+    if let Ok(array) = value.extract::<PyRef<'_, PyArray>>() {
+        let array_shape = array.inner.shape().to_vec();
+        let values = array.inner.snapshot().map_err(map_storage_error)?;
+        return Ok((array_shape, values));
     }
     if value.is_instance_of::<PyList>() || value.is_instance_of::<PyTuple>() {
         let mut children = Vec::new();
@@ -326,135 +943,218 @@ fn flatten(
         shape.extend(expected.unwrap_or_default());
         return Ok((shape, flat));
     }
-    Ok((Vec::new(), vec![value_to_scalar(value, dtype)?]))
+    let scalar = match dtype {
+        Some(dtype) => value_to_scalar(value, dtype)?,
+        None => value_to_untyped_scalar(value)?,
+    };
+    Ok((Vec::new(), vec![scalar]))
+}
+
+fn sequence_value_to_view(value: &Bound<'_, PyAny>) -> PyResult<Option<View>> {
+    if !value.is_instance_of::<PyList>() && !value.is_instance_of::<PyTuple>() {
+        return Ok(None);
+    }
+    let (shape, values) = flatten(value, None, 0)?;
+    let dtype = infer_dtype(&values)?;
+    let values = values
+        .iter()
+        .map(|value| value.cast(dtype).map_err(map_storage_error))
+        .collect::<PyResult<Vec<_>>>()?;
+    Ok(Some(
+        View::from_values(dtype, shape, &values).map_err(map_storage_error)?,
+    ))
 }
 
 fn value_to_scalar(value: &Bound<'_, PyAny>, dtype: DType) -> PyResult<Scalar> {
-    let py = value.py();
-    if let Ok(scalar) = value.extract::<PyRef<'_, PyBoolScalar>>() {
-        if dtype == DType::Bool {
-            return Ok(Scalar::Bool(scalar.0));
+    if value.is_instance_of::<PyInt>()
+        && matches!(
+            dtype,
+            DType::Float16
+                | DType::Float32
+                | DType::Float64
+                | DType::Complex64
+                | DType::Complex128
+                | DType::LongDouble
+                | DType::ComplexLongDouble
+        )
+    {
+        if let Ok(number) = value.extract::<f64>() {
+            return Scalar::Float64(number)
+                .cast(dtype)
+                .map_err(map_storage_error);
         }
-        let native = native_bool(scalar.0, py)?;
-        return value_to_scalar(&native, dtype);
     }
-    if let Ok(scalar) = value.extract::<PyRef<'_, PyInt64Scalar>>() {
-        if dtype == DType::Int64 {
-            return Ok(Scalar::Int64(scalar.0));
-        }
-        let native = native_i64(scalar.0, py)?;
-        return value_to_scalar(&native, dtype);
+    value_to_untyped_scalar(value)?
+        .cast(dtype)
+        .map_err(map_storage_error)
+}
+
+fn value_to_untyped_scalar(value: &Bound<'_, PyAny>) -> PyResult<Scalar> {
+    if let Ok(value) = value.extract::<PyRef<'_, PyLongDoubleScalar>>() {
+        return Ok(Scalar::LongDouble(value.0.clone()));
     }
-    if let Ok(scalar) = value.extract::<PyRef<'_, PyUInt64Scalar>>() {
-        if dtype == DType::UInt64 {
-            return Ok(Scalar::UInt64(scalar.0));
-        }
-        let native = native_u64(scalar.0, py)?;
-        return value_to_scalar(&native, dtype);
-    }
-    if let Ok(scalar) = value.extract::<PyRef<'_, PyFloat32Scalar>>() {
-        if dtype == DType::Float32 {
-            return Ok(Scalar::Float32(scalar.0));
-        }
-        let native = native_f32(scalar.0, py)?;
-        return value_to_scalar(&native, dtype);
-    }
-    if let Ok(scalar) = value.extract::<PyRef<'_, PyFloat64Scalar>>() {
-        if dtype == DType::Float64 {
-            return Ok(Scalar::Float64(scalar.0));
-        }
-        let native = native_f64(scalar.0, py)?;
-        return value_to_scalar(&native, dtype);
+    if let Ok(value) = value.extract::<PyRef<'_, PyComplexLongDoubleScalar>>() {
+        return Ok(Scalar::ComplexLongDouble(value.0.clone(), value.1.clone()));
     }
     if value.is_instance_of::<PyBool>() {
-        let x = value.extract::<bool>()?;
-        return Ok(match dtype {
-            DType::Bool => Scalar::Bool(x),
-            DType::Int64 => Scalar::Int64(i64::from(x)),
-            DType::UInt64 => Scalar::UInt64(u64::from(x)),
-            DType::Float32 => Scalar::Float32(u8::from(x) as f32),
-            DType::Float64 => Scalar::Float64(u8::from(x) as f64),
-        });
+        return Ok(Scalar::Bool(value.extract::<bool>()?));
     }
     if value.is_instance_of::<PyInt>() {
-        return match dtype {
-            DType::Bool => Ok(Scalar::Bool(
-                value.call_method0("__bool__")?.extract::<bool>()?,
-            )),
-            DType::Int64 => Ok(Scalar::Int64(value.extract::<i64>()?)),
-            DType::UInt64 => Ok(Scalar::UInt64(value.extract::<u64>()?)),
-            DType::Float32 => Ok(Scalar::Float32(cast_f32(
-                value.py(),
-                value.extract::<f64>()?,
-            )?)),
-            DType::Float64 => Ok(Scalar::Float64(value.extract::<f64>()?)),
-        };
+        if let Ok(value) = value.extract::<i64>() {
+            return Ok(Scalar::Int64(value));
+        }
+        if let Ok(value) = value.extract::<u64>() {
+            return Ok(Scalar::UInt64(value));
+        }
+        return Err(PyOverflowError::new_err(
+            "Python int is outside the supported 64-bit numeric range",
+        ));
     }
     if value.is_instance_of::<PyFloat>() {
-        let x = value.extract::<f64>()?;
-        return match dtype {
-            DType::Bool => Ok(Scalar::Bool(x != 0.0)),
-            DType::Int64 => float_to_i64(x).map(Scalar::Int64),
-            DType::UInt64 => float_to_u64(x).map(Scalar::UInt64),
-            DType::Float32 => Ok(Scalar::Float32(cast_f32(value.py(), x)?)),
-            DType::Float64 => Ok(Scalar::Float64(x)),
-        };
+        return Ok(Scalar::Float64(value.extract::<f64>()?));
+    }
+    if let Ok(value) = value.cast::<PyComplex>() {
+        return Ok(Scalar::Complex128(value.real(), value.imag()));
+    }
+
+    // Raptors scalar wrappers deliberately expose item() as their built-in
+    // Python value. Do not invoke arbitrary external scalar protocols here.
+    if value
+        .get_type()
+        .getattr("__module__")
+        .and_then(|module| module.extract::<String>())
+        .is_ok_and(|module| module == "raptors")
+    {
+        if let Ok(dtype_attr) = value.getattr("dtype") {
+            if let Ok(dtype) = dtype_attr.extract::<PyRef<'_, PyDType>>() {
+                if let Ok(item) = value.call_method0("item") {
+                    return value_to_untyped_scalar(&item)?
+                        .cast(dtype.inner)
+                        .map_err(map_storage_error);
+                }
+            }
+        }
+        if let Ok(item) = value.call_method0("item") {
+            if !item.is(value) {
+                return value_to_untyped_scalar(&item);
+            }
+        }
     }
     Err(PyTypeError::new_err(
-        "preview arrays accept Python bool, int, and float scalar values",
+        "numeric arrays accept Python bool, int, float, and complex scalar values",
     ))
 }
-fn cast_f32(py: Python<'_>, value: f64) -> PyResult<f32> {
-    let rounded = value as f32;
-    if value.is_finite() && rounded.is_infinite() {
-        let warning = PyModule::import(py, "builtins")?.getattr("RuntimeWarning")?;
-        PyModule::import(py, "warnings")?
-            .getattr("warn")?
-            .call1(("overflow encountered in cast", warning))?;
+
+fn infer_dtype(values: &[Scalar]) -> PyResult<DType> {
+    if values.is_empty() {
+        return Ok(DType::Float64);
     }
-    Ok(rounded)
+    Ok(values
+        .iter()
+        .skip(1)
+        .fold(values[0].dtype(), |promoted, value| {
+            promoted.promote(value.dtype())
+        }))
 }
-fn float_to_i64(x: f64) -> PyResult<i64> {
-    if x.is_nan() {
-        return Err(PyValueError::new_err("cannot convert float NaN to integer"));
-    }
-    if !x.is_finite() || x < i64::MIN as f64 || x >= 9_223_372_036_854_775_808.0 {
-        return Err(PyOverflowError::new_err(
-            "Python int too large to convert to C long",
-        ));
-    }
-    Ok(x.trunc() as i64)
-}
-fn float_to_u64(x: f64) -> PyResult<u64> {
-    if x.is_nan() {
-        return Err(PyValueError::new_err("cannot convert float NaN to integer"));
-    }
-    if !x.is_finite() || !(0.0..18_446_744_073_709_551_616.0).contains(&x) {
-        return Err(PyOverflowError::new_err(
-            "Python int too large to convert to C unsigned long",
-        ));
-    }
-    Ok(x.trunc() as u64)
-}
-fn parse_dtype(value: &Bound<'_, PyAny>) -> PyResult<DType> {
+fn parse_dtype_spec(value: &Bound<'_, PyAny>) -> PyResult<(DType, ByteOrder)> {
     if let Ok(dtype) = value.extract::<PyRef<'_, PyDType>>() {
-        return Ok(dtype.inner);
+        return Ok((dtype.inner, dtype.byte_order));
     }
     if let Ok(name) = value.extract::<String>() {
-        return dtype_from_name(&name)
+        return dtype_from_spec(&name)
             .ok_or_else(|| PyValueError::new_err(format!("unsupported preview dtype {name:?}")));
     }
+    let builtins = PyModule::import(value.py(), "builtins")?;
+    for (name, dtype) in [
+        ("bool", DType::Bool),
+        (
+            "int",
+            if cfg!(target_pointer_width = "64") {
+                DType::Int64
+            } else {
+                DType::Int32
+            },
+        ),
+        ("float", DType::Float64),
+        ("complex", DType::Complex128),
+    ] {
+        if value.is(&builtins.getattr(name)?) {
+            return Ok((dtype, default_byte_order(dtype)));
+        }
+    }
     Err(PyTypeError::new_err(
-        "dtype must be a raptors DType or one of its supported names",
+        "dtype must be a raptors DType, a built-in numeric type, or a supported dtype name",
     ))
+}
+fn default_byte_order(dtype: DType) -> ByteOrder {
+    if matches!(dtype, DType::Bool | DType::Int8 | DType::UInt8) {
+        ByteOrder::NotApplicable
+    } else {
+        ByteOrder::Native
+    }
+}
+fn dtype_from_spec(name: &str) -> Option<(DType, ByteOrder)> {
+    let (order, base) = match name.as_bytes().first().copied() {
+        Some(b'<') => (Some(ByteOrder::Little), &name[1..]),
+        Some(b'>') => (Some(ByteOrder::Big), &name[1..]),
+        Some(b'=') => (Some(ByteOrder::Native), &name[1..]),
+        Some(b'|') => (Some(ByteOrder::NotApplicable), &name[1..]),
+        _ => (None, name),
+    };
+    let dtype = dtype_from_name(base)?;
+    let byte_order = if dtype.itemsize() == 1 {
+        ByteOrder::NotApplicable
+    } else {
+        order.unwrap_or_else(|| default_byte_order(dtype))
+    };
+    if byte_order == ByteOrder::NotApplicable
+        && !matches!(dtype, DType::Bool | DType::Int8 | DType::UInt8)
+    {
+        return None;
+    }
+    Some((dtype, byte_order.normalized()))
 }
 fn dtype_from_name(name: &str) -> Option<DType> {
     match name {
-        "bool" | "bool_" => Some(DType::Bool),
-        "int64" => Some(DType::Int64),
-        "uint64" => Some(DType::UInt64),
-        "float32" => Some(DType::Float32),
-        "float64" => Some(DType::Float64),
+        "bool" | "bool_" | "?" => Some(DType::Bool),
+        "int8" | "i1" | "b" | "byte" => Some(DType::Int8),
+        "b1" => Some(DType::Bool),
+        "uint8" | "u1" | "B" | "ubyte" => Some(DType::UInt8),
+        "int16" | "i2" | "h" | "short" => Some(DType::Int16),
+        "uint16" | "u2" | "H" | "ushort" => Some(DType::UInt16),
+        "int32" | "i4" | "i" | "intc" => Some(DType::Int32),
+        "uint32" | "u4" | "I" | "uintc" => Some(DType::UInt32),
+        "int64" | "i8" | "q" | "int" | "int_" | "longlong" => Some(DType::Int64),
+        "l" | "long" => Some(if cfg!(target_os = "windows") {
+            DType::Int32
+        } else {
+            DType::Int64
+        }),
+        "intp" | "p" | "n" => Some(if cfg!(target_pointer_width = "64") {
+            DType::Int64
+        } else {
+            DType::Int32
+        }),
+        "uint64" | "u8" | "Q" | "uint" | "uint_" | "ulonglong" => Some(DType::UInt64),
+        "L" | "ulong" => Some(if cfg!(target_os = "windows") {
+            DType::UInt32
+        } else {
+            DType::UInt64
+        }),
+        "uintp" | "P" | "N" => Some(if cfg!(target_pointer_width = "64") {
+            DType::UInt64
+        } else {
+            DType::UInt32
+        }),
+        "float16" | "f2" | "e" => Some(DType::Float16),
+        "float32" | "f4" | "f" | "single" => Some(DType::Float32),
+        "float64" | "f8" | "d" | "double" | "float" => Some(DType::Float64),
+        "complex64" | "c8" | "F" => Some(DType::Complex64),
+        "complex128" | "c16" | "D" | "complex" | "csingle" | "cdouble" => Some(DType::Complex128),
+        "longdouble" | "long_double" | "g" => Some(DType::LongDouble),
+        "float128" if DType::LongDouble.itemsize() > 8 => Some(DType::LongDouble),
+        "clongdouble" | "G" => Some(DType::ComplexLongDouble),
+        "complex256" | "c32" if DType::LongDouble.itemsize() > 8 => Some(DType::ComplexLongDouble),
         _ => None,
     }
 }
@@ -465,16 +1165,81 @@ fn parse_indices(array: &View, key: &Bound<'_, PyAny>) -> PyResult<(Vec<IndexIte
     } else {
         vec![key.clone()]
     };
-    if keys.len() > array.ndim() {
+    let ellipses = keys
+        .iter()
+        .filter(|key| key.is_instance_of::<PyEllipsis>())
+        .count();
+    if ellipses > 1 {
+        return Err(PyIndexError::new_err(
+            "an index can only have a single ellipsis",
+        ));
+    }
+    let consuming = keys
+        .iter()
+        .map(|key| {
+            if key.is_instance_of::<PyEllipsis>() || key.is_none() || key.is_instance_of::<PyBool>()
+            {
+                0
+            } else if let Ok(index_array) = key.extract::<PyRef<'_, PyArray>>() {
+                if index_array.inner.dtype() == DType::Bool {
+                    index_array.inner.ndim()
+                } else {
+                    1
+                }
+            } else {
+                1
+            }
+        })
+        .sum::<usize>();
+    if consuming > array.ndim() {
         return Err(map_storage_error(StorageError::TooManyIndices {
-            provided: keys.len(),
+            provided: consuming,
             dimensions: array.ndim(),
         }));
     }
-    let mut indices = Vec::with_capacity(keys.len());
-    let mut integers = true;
-    for (axis, key) in keys.iter().enumerate() {
+    let mut expanded = Vec::new();
+    for key in &keys {
+        if key.is_instance_of::<PyEllipsis>() {
+            for _ in 0..array.ndim() - consuming {
+                expanded.push(None);
+            }
+        } else {
+            expanded.push(Some(key.clone()));
+        }
+    }
+    let mut indices = Vec::with_capacity(expanded.len());
+    let mut axis = 0usize;
+    let mut only_basic_integers = true;
+    let mut advanced = false;
+    for key in expanded {
+        let Some(key) = key else {
+            if axis >= array.ndim() {
+                return Err(map_storage_error(StorageError::TooManyIndices {
+                    provided: consuming,
+                    dimensions: array.ndim(),
+                }));
+            }
+            indices.push(IndexItem::Slice {
+                start: 0,
+                step: 1,
+                len: array.shape()[axis],
+            });
+            axis += 1;
+            only_basic_integers = false;
+            continue;
+        };
+        if key.is_none() || key.is_instance_of::<PyNone>() {
+            indices.push(IndexItem::NewAxis);
+            only_basic_integers = false;
+            continue;
+        }
         if let Ok(slice) = key.cast::<PySlice>() {
+            if axis >= array.ndim() {
+                return Err(map_storage_error(StorageError::TooManyIndices {
+                    provided: consuming,
+                    dimensions: array.ndim(),
+                }));
+            }
             let length = isize::try_from(array.shape()[axis])
                 .map_err(|_| PyOverflowError::new_err("axis is too large to slice"))?;
             let parts = slice.indices(length)?;
@@ -483,33 +1248,233 @@ fn parse_indices(array: &View, key: &Bound<'_, PyAny>) -> PyResult<(Vec<IndexIte
                 step: parts.step,
                 len: parts.slicelength,
             });
-            integers = false;
-        } else {
-            if key.is_instance_of::<PyBool>() {
+            axis += 1;
+            only_basic_integers = false;
+            continue;
+        }
+        if key.is_instance_of::<PyBool>() {
+            indices.push(IndexItem::BoolScalar(key.extract::<bool>()?));
+            advanced = true;
+            only_basic_integers = false;
+            continue;
+        }
+        if let Ok(index_array) = key.extract::<PyRef<'_, PyArray>>() {
+            let dtype = index_array.inner.dtype();
+            if dtype != DType::Bool && axis >= array.ndim() {
+                return Err(map_storage_error(StorageError::TooManyIndices {
+                    provided: consuming,
+                    dimensions: array.ndim(),
+                }));
+            }
+            let snapshot = index_array.inner.snapshot().map_err(map_storage_error)?;
+            let (shape, selected) = if dtype == DType::Bool {
+                let rank = index_array.inner.ndim();
+                if rank == 0 {
+                    indices.push(IndexItem::BoolScalar(snapshot[0].truthy()));
+                    advanced = true;
+                    only_basic_integers = false;
+                    continue;
+                }
+                if rank > array.ndim().saturating_sub(axis)
+                    || index_array.inner.shape() != &array.shape()[axis..axis + rank]
+                {
+                    return Err(PyIndexError::new_err(
+                        "boolean index shape did not match the indexed array dimensions",
+                    ));
+                }
+                let selected = snapshot
+                    .iter()
+                    .enumerate()
+                    .filter_map(|(i, value)| value.truthy().then_some(i))
+                    .collect::<Vec<_>>();
+                let shape = index_array.inner.shape().to_vec();
+                axis += rank;
+                indices.push(IndexItem::BoolMask {
+                    shape,
+                    indices: selected,
+                });
+                advanced = true;
+                only_basic_integers = false;
+                continue;
+            } else {
+                if !matches!(dtype.kind(), "i" | "u") {
+                    return Err(PyIndexError::new_err(
+                        "index arrays must have an integer or boolean dtype",
+                    ));
+                }
+                let selected = snapshot
+                    .iter()
+                    .map(scalar_to_isize)
+                    .collect::<PyResult<Vec<_>>>()?;
+                (index_array.inner.shape().to_vec(), selected)
+            };
+            indices.push(IndexItem::Fancy {
+                shape,
+                indices: selected,
+            });
+            axis += 1;
+            advanced = true;
+            only_basic_integers = false;
+            continue;
+        }
+        if key.is_instance_of::<PyList>() || key.is_instance_of::<PyTuple>() {
+            if axis >= array.ndim() {
+                return Err(map_storage_error(StorageError::TooManyIndices {
+                    provided: consuming,
+                    dimensions: array.ndim(),
+                }));
+            }
+            let (shape, values) = flatten_index_array(&key, 0)?;
+            let dtype = if values.is_empty() {
+                DType::Int64
+            } else {
+                infer_dtype(&values).map_err(|_| {
+                    PyIndexError::new_err("index arrays must contain only integers or booleans")
+                })?
+            };
+            if dtype == DType::Bool {
+                let rank = shape.len();
+                if rank == 0
+                    || rank > array.ndim().saturating_sub(axis)
+                    || shape.as_slice() != &array.shape()[axis..axis + rank]
+                {
+                    return Err(PyIndexError::new_err(
+                        "boolean index shape did not match the indexed array dimensions",
+                    ));
+                }
+                let selected = values
+                    .iter()
+                    .enumerate()
+                    .filter_map(|(i, value)| value.truthy().then_some(i))
+                    .collect::<Vec<_>>();
+                indices.push(IndexItem::BoolMask {
+                    shape,
+                    indices: selected,
+                });
+                axis += rank;
+                advanced = true;
+                only_basic_integers = false;
+                continue;
+            } else if matches!(dtype.kind(), "i" | "u") {
+                let selected = values
+                    .iter()
+                    .map(|value| {
+                        value
+                            .cast(dtype)
+                            .map_err(map_storage_error)
+                            .and_then(|value| scalar_to_isize(&value))
+                    })
+                    .collect::<PyResult<Vec<_>>>()?;
+                indices.push(IndexItem::Fancy {
+                    shape,
+                    indices: selected,
+                });
+                axis += 1;
+            } else {
                 return Err(PyIndexError::new_err(
-                    "boolean advanced indexing is not in the 0.1 preview",
+                    "index arrays must contain only integers or booleans",
                 ));
             }
-            let index = key
-                .extract::<isize>()
-                .map_err(|_| PyIndexError::new_err("indices must be integers or slices"))?;
-            indices.push(IndexItem::Integer(index));
+            advanced = true;
+            only_basic_integers = false;
+            continue;
         }
+        let index = key.extract::<isize>().map_err(|_| {
+            PyIndexError::new_err(
+                "indices must be integers, slices, ellipsis, None, or integer arrays",
+            )
+        })?;
+        indices.push(IndexItem::Integer(index));
+        axis += 1;
     }
     let scalar = if array.ndim() == 0 {
         keys.is_empty()
     } else {
-        keys.len() == array.ndim() && integers
+        !advanced
+            && only_basic_integers
+            && indices
+                .iter()
+                .filter(|item| !matches!(item, IndexItem::NewAxis))
+                .count()
+                == array.ndim()
+            && indices
+                .iter()
+                .all(|item| matches!(item, IndexItem::Integer(_)))
     };
     Ok((indices, scalar))
+}
+
+fn scalar_to_isize(value: &Scalar) -> PyResult<isize> {
+    match value {
+        Scalar::Int8(v) => Ok(*v as isize),
+        Scalar::UInt8(v) => Ok(*v as isize),
+        Scalar::Int16(v) => Ok(*v as isize),
+        Scalar::UInt16(v) => Ok(*v as isize),
+        Scalar::Int32(v) => Ok(*v as isize),
+        Scalar::UInt32(v) => Ok(*v as isize),
+        Scalar::Int64(v) => {
+            isize::try_from(*v).map_err(|_| PyIndexError::new_err("index is too large"))
+        }
+        Scalar::UInt64(v) => {
+            isize::try_from(*v).map_err(|_| PyIndexError::new_err("index is too large"))
+        }
+        _ => Err(PyIndexError::new_err("index arrays must contain integers")),
+    }
+}
+
+fn flatten_index_array(
+    value: &Bound<'_, PyAny>,
+    depth: usize,
+) -> PyResult<(Vec<usize>, Vec<Scalar>)> {
+    if depth > 64 {
+        return Err(PyIndexError::new_err(
+            "index arrays may be nested at most 64 levels",
+        ));
+    }
+    if value.is_instance_of::<PyList>() || value.is_instance_of::<PyTuple>() {
+        let items: Vec<Bound<'_, PyAny>> = value.try_iter()?.collect::<PyResult<_>>()?;
+        if items.is_empty() {
+            return Ok((vec![0], Vec::new()));
+        }
+        let mut inner_shape: Option<Vec<usize>> = None;
+        let mut output = Vec::new();
+        for item in &items {
+            let (shape, mut values) = flatten_index_array(item, depth + 1)?;
+            if inner_shape
+                .as_ref()
+                .is_some_and(|previous| previous != &shape)
+            {
+                return Err(PyIndexError::new_err("index arrays must be rectangular"));
+            }
+            inner_shape.get_or_insert(shape);
+            output.append(&mut values);
+        }
+        let mut shape = vec![items.len()];
+        shape.extend(inner_shape.unwrap_or_default());
+        return Ok((shape, output));
+    }
+    Ok((Vec::new(), vec![value_to_untyped_scalar(value)?]))
 }
 fn scalar_to_python(py: Python<'_>, value: Scalar) -> PyResult<Py<PyAny>> {
     match value {
         Scalar::Bool(x) => Ok(Py::new(py, PyBoolScalar(x))?.into_any()),
+        Scalar::Int8(x) => Ok(Py::new(py, PyInt8Scalar(x))?.into_any()),
+        Scalar::UInt8(x) => Ok(Py::new(py, PyUInt8Scalar(x))?.into_any()),
+        Scalar::Int16(x) => Ok(Py::new(py, PyInt16Scalar(x))?.into_any()),
+        Scalar::UInt16(x) => Ok(Py::new(py, PyUInt16Scalar(x))?.into_any()),
+        Scalar::Int32(x) => Ok(Py::new(py, PyInt32Scalar(x))?.into_any()),
+        Scalar::UInt32(x) => Ok(Py::new(py, PyUInt32Scalar(x))?.into_any()),
         Scalar::Int64(x) => Ok(Py::new(py, PyInt64Scalar(x))?.into_any()),
         Scalar::UInt64(x) => Ok(Py::new(py, PyUInt64Scalar(x))?.into_any()),
+        Scalar::Float16(x) => Ok(Py::new(py, PyFloat16Scalar(x))?.into_any()),
         Scalar::Float32(x) => Ok(Py::new(py, PyFloat32Scalar(x))?.into_any()),
         Scalar::Float64(x) => Ok(Py::new(py, PyFloat64Scalar(x))?.into_any()),
+        Scalar::Complex64(re, im) => Ok(Py::new(py, PyComplex64Scalar(re, im))?.into_any()),
+        Scalar::Complex128(re, im) => Ok(Py::new(py, PyComplex128Scalar(re, im))?.into_any()),
+        Scalar::LongDouble(value) => Ok(Py::new(py, PyLongDoubleScalar(value))?.into_any()),
+        Scalar::ComplexLongDouble(re, im) => {
+            Ok(Py::new(py, PyComplexLongDoubleScalar(re, im))?.into_any())
+        }
     }
 }
 fn map_storage_error(error: StorageError) -> PyErr {
@@ -524,6 +1489,13 @@ fn map_storage_error(error: StorageError) -> PyErr {
         | StorageError::WrongIndexRank { .. } => PyIndexError::new_err(error.to_string()),
         StorageError::DTypeMismatch => PyTypeError::new_err(error.to_string()),
         StorageError::ShapeMismatch => PyValueError::new_err(error.to_string()),
+        StorageError::CannotBroadcast { .. } => PyValueError::new_err(error.to_string()),
+        StorageError::InvalidScalar | StorageError::CastOverflow => {
+            PyValueError::new_err(error.to_string())
+        }
+        StorageError::InvalidAxes
+        | StorageError::InvalidOrder
+        | StorageError::InvalidFancyIndex => PyIndexError::new_err(error.to_string()),
         StorageError::LockPoisoned => PyRuntimeError::new_err(error.to_string()),
     }
 }
@@ -531,22 +1503,149 @@ fn map_storage_error(error: StorageError) -> PyErr {
 pub(super) fn register(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_class::<PyDType>()?;
     module.add_class::<PyArray>()?;
+    module.add_class::<PyArrayFlags>()?;
     module.add_class::<PyBoolScalar>()?;
+    module.add_class::<PyInt8Scalar>()?;
+    module.add_class::<PyUInt8Scalar>()?;
+    module.add_class::<PyInt16Scalar>()?;
+    module.add_class::<PyUInt16Scalar>()?;
+    module.add_class::<PyInt32Scalar>()?;
+    module.add_class::<PyUInt32Scalar>()?;
     module.add_class::<PyInt64Scalar>()?;
     module.add_class::<PyUInt64Scalar>()?;
+    module.add_class::<PyFloat16Scalar>()?;
     module.add_class::<PyFloat32Scalar>()?;
     module.add_class::<PyFloat64Scalar>()?;
+    module.add_class::<PyComplex64Scalar>()?;
+    module.add_class::<PyComplex128Scalar>()?;
+    module.add_class::<PyLongDoubleScalar>()?;
+    module.add_class::<PyComplexLongDoubleScalar>()?;
     for (name, dtype) in [
+        ("bool", DType::Bool),
         ("bool_", DType::Bool),
+        ("int8", DType::Int8),
+        ("uint8", DType::UInt8),
+        ("int16", DType::Int16),
+        ("uint16", DType::UInt16),
+        ("int32", DType::Int32),
+        ("uint32", DType::UInt32),
         ("int64", DType::Int64),
         ("uint64", DType::UInt64),
+        ("float16", DType::Float16),
         ("float32", DType::Float32),
         ("float64", DType::Float64),
+        ("complex64", DType::Complex64),
+        ("complex128", DType::Complex128),
+        ("byte", DType::Int8),
+        ("ubyte", DType::UInt8),
+        ("short", DType::Int16),
+        ("ushort", DType::UInt16),
+        (
+            "int_",
+            if cfg!(target_pointer_width = "64") {
+                DType::Int64
+            } else {
+                DType::Int32
+            },
+        ),
+        (
+            "uint",
+            if cfg!(target_pointer_width = "64") {
+                DType::UInt64
+            } else {
+                DType::UInt32
+            },
+        ),
+        (
+            "uint_",
+            if cfg!(target_pointer_width = "64") {
+                DType::UInt64
+            } else {
+                DType::UInt32
+            },
+        ),
+        (
+            "intp",
+            if cfg!(target_pointer_width = "64") {
+                DType::Int64
+            } else {
+                DType::Int32
+            },
+        ),
+        (
+            "uintp",
+            if cfg!(target_pointer_width = "64") {
+                DType::UInt64
+            } else {
+                DType::UInt32
+            },
+        ),
+        ("intc", DType::Int32),
+        ("uintc", DType::UInt32),
+        (
+            "long",
+            if cfg!(target_os = "windows") {
+                DType::Int32
+            } else {
+                DType::Int64
+            },
+        ),
+        (
+            "ulong",
+            if cfg!(target_os = "windows") {
+                DType::UInt32
+            } else {
+                DType::UInt64
+            },
+        ),
+        ("longlong", DType::Int64),
+        ("ulonglong", DType::UInt64),
+        ("float", DType::Float64),
+        ("double", DType::Float64),
+        ("single", DType::Float32),
+        ("half", DType::Float16),
+        ("csingle", DType::Complex64),
+        ("cdouble", DType::Complex128),
+        ("complex_", DType::Complex128),
+        ("longdouble", dtype_from_name("longdouble").unwrap()),
+        ("clongdouble", dtype_from_name("clongdouble").unwrap()),
     ] {
-        module.add(name, Py::new(module.py(), PyDType { inner: dtype })?)?;
+        module.add(
+            name,
+            Py::new(
+                module.py(),
+                PyDType {
+                    inner: dtype,
+                    byte_order: default_byte_order(dtype),
+                },
+            )?,
+        )?;
+    }
+    if DType::LongDouble.itemsize() > 8 {
+        module.add(
+            "float128",
+            Py::new(
+                module.py(),
+                PyDType {
+                    inner: DType::LongDouble,
+                    byte_order: default_byte_order(DType::LongDouble),
+                },
+            )?,
+        )?;
+        module.add(
+            "complex256",
+            Py::new(
+                module.py(),
+                PyDType {
+                    inner: DType::ComplexLongDouble,
+                    byte_order: default_byte_order(DType::ComplexLongDouble),
+                },
+            )?,
+        )?;
     }
     module.add_function(wrap_pyfunction!(array, module)?)?;
     module.add_function(wrap_pyfunction!(zeros, module)?)?;
     module.add_function(wrap_pyfunction!(empty, module)?)?;
+    module.add_function(wrap_pyfunction!(promote_types, module)?)?;
     Ok(())
 }

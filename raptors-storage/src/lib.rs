@@ -1,4 +1,4 @@
-//! Safe, checked storage for the Raptors 0.1 preview.
+//! Safe, checked numeric storage for the Raptors 0.2 array foundation.
 //!
 //! Allocations are initialized Rust vectors. Views retain shared ownership
 //! and use checked signed byte strides. This crate is independent of the
@@ -10,61 +10,626 @@ use std::sync::{Arc, RwLock};
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum DType {
     Bool,
+    Int8,
+    UInt8,
+    Int16,
+    UInt16,
+    Int32,
+    UInt32,
     Int64,
     UInt64,
+    Float16,
     Float32,
     Float64,
+    Complex64,
+    Complex128,
+    LongDouble,
+    ComplexLongDouble,
 }
 
 impl DType {
     pub const fn name(self) -> &'static str {
         match self {
             Self::Bool => "bool",
+            Self::Int8 => "int8",
+            Self::UInt8 => "uint8",
+            Self::Int16 => "int16",
+            Self::UInt16 => "uint16",
+            Self::Int32 => "int32",
+            Self::UInt32 => "uint32",
             Self::Int64 => "int64",
             Self::UInt64 => "uint64",
+            Self::Float16 => "float16",
             Self::Float32 => "float32",
             Self::Float64 => "float64",
+            Self::Complex64 => "complex64",
+            Self::Complex128 => "complex128",
+            Self::LongDouble if long_double_size() == 8 => "float64",
+            Self::LongDouble => "float128",
+            Self::ComplexLongDouble if long_double_size() == 8 => "complex128",
+            Self::ComplexLongDouble => "complex256",
         }
     }
     pub const fn itemsize(self) -> usize {
         match self {
-            Self::Bool => 1,
-            Self::Float32 => 4,
-            Self::Int64 | Self::UInt64 | Self::Float64 => 8,
+            Self::Bool | Self::Int8 | Self::UInt8 => 1,
+            Self::Int16 | Self::UInt16 | Self::Float16 => 2,
+            Self::Int32 | Self::UInt32 | Self::Float32 => 4,
+            Self::Int64 | Self::UInt64 | Self::Float64 | Self::Complex64 => 8,
+            Self::Complex128 => 16,
+            Self::LongDouble => long_double_size(),
+            Self::ComplexLongDouble => 2 * long_double_size(),
         }
     }
     pub const fn kind(self) -> &'static str {
         match self {
             Self::Bool => "b",
-            Self::Int64 => "i",
-            Self::UInt64 => "u",
-            Self::Float32 | Self::Float64 => "f",
+            Self::Int8 | Self::Int16 | Self::Int32 | Self::Int64 => "i",
+            Self::UInt8 | Self::UInt16 | Self::UInt32 | Self::UInt64 => "u",
+            Self::Float16 | Self::Float32 | Self::Float64 | Self::LongDouble => "f",
+            Self::Complex64 | Self::Complex128 | Self::ComplexLongDouble => "c",
+        }
+    }
+    /// NumPy's concrete scalar type code (`dtype.char`), which is distinct
+    /// from the family code returned by [`DType::kind`].
+    pub const fn char(self) -> char {
+        match self {
+            Self::Bool => '?',
+            Self::Int8 => 'b',
+            Self::UInt8 => 'B',
+            Self::Int16 => 'h',
+            Self::UInt16 => 'H',
+            Self::Int32 => 'i',
+            Self::UInt32 => 'I',
+            Self::Int64 if cfg!(target_os = "windows") => 'q',
+            Self::Int64 => 'l',
+            Self::UInt64 if cfg!(target_os = "windows") => 'Q',
+            Self::UInt64 => 'L',
+            Self::Float16 => 'e',
+            Self::Float32 => 'f',
+            Self::Float64 => 'd',
+            Self::LongDouble => 'g',
+            Self::Complex64 => 'F',
+            Self::Complex128 => 'D',
+            Self::ComplexLongDouble => 'G',
+        }
+    }
+    pub const fn alignment(self) -> usize {
+        match self {
+            Self::Bool | Self::Int8 | Self::UInt8 => 1,
+            Self::Int16 | Self::UInt16 | Self::Float16 => 2,
+            Self::Int32 | Self::UInt32 | Self::Float32 | Self::Complex64 => 4,
+            Self::Int64 | Self::UInt64 | Self::Float64 | Self::Complex128 => 8,
+            Self::LongDouble => long_double_alignment(),
+            Self::ComplexLongDouble => long_double_alignment(),
+        }
+    }
+
+    /// NumPy-style result dtype promotion for fixed-width numeric descriptors.
+    /// Python scalar weak-promotion rules are applied by the binding layer.
+    pub const fn promote(self, other: Self) -> Self {
+        use DType::*;
+        if matches!(self, ComplexLongDouble) || matches!(other, ComplexLongDouble) {
+            return ComplexLongDouble;
+        }
+        if matches!(self, LongDouble) || matches!(other, LongDouble) {
+            return if matches!(self, Complex64 | Complex128)
+                || matches!(other, Complex64 | Complex128)
+            {
+                ComplexLongDouble
+            } else {
+                LongDouble
+            };
+        }
+        let complex =
+            matches!(self, Complex64 | Complex128) || matches!(other, Complex64 | Complex128);
+        if complex {
+            let needs_64 = matches!(self, Complex128 | Float64 | Int32 | UInt32 | Int64 | UInt64)
+                || matches!(
+                    other,
+                    Complex128 | Float64 | Int32 | UInt32 | Int64 | UInt64
+                );
+            return if needs_64 { Complex128 } else { Complex64 };
+        }
+        if matches!(self, Float16 | Float32 | Float64)
+            || matches!(other, Float16 | Float32 | Float64)
+        {
+            let float = if matches!(self, Float64) || matches!(other, Float64) {
+                Float64
+            } else if matches!(self, Float32) || matches!(other, Float32) {
+                Float32
+            } else {
+                Float16
+            };
+            let integer_bits = max_integer_bits(self, other);
+            return match (float, integer_bits) {
+                (Float16, 0..=8) => Float16,
+                (Float16, 9..=16) | (Float32, 0..=16) => Float32,
+                (_, _) => Float64,
+            };
+        }
+        match (self, other) {
+            (Bool, Bool) => Bool,
+            (Bool, dtype) | (dtype, Bool) => dtype,
+            _ => promote_integer(self, other),
         }
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq)]
+const fn integer_bits(dtype: DType) -> u32 {
+    match dtype {
+        DType::Int8 | DType::UInt8 => 8,
+        DType::Int16 | DType::UInt16 => 16,
+        DType::Int32 | DType::UInt32 => 32,
+        DType::Int64 | DType::UInt64 => 64,
+        _ => 0,
+    }
+}
+
+const fn max_integer_bits(left: DType, right: DType) -> u32 {
+    let a = integer_bits(left);
+    let b = integer_bits(right);
+    if a > b {
+        a
+    } else {
+        b
+    }
+}
+
+const fn is_signed(dtype: DType) -> bool {
+    matches!(
+        dtype,
+        DType::Int8 | DType::Int16 | DType::Int32 | DType::Int64
+    )
+}
+
+const fn is_unsigned(dtype: DType) -> bool {
+    matches!(
+        dtype,
+        DType::UInt8 | DType::UInt16 | DType::UInt32 | DType::UInt64
+    )
+}
+
+const fn promote_integer(left: DType, right: DType) -> DType {
+    use DType::*;
+    let bits = max_integer_bits(left, right);
+    if is_signed(left) && is_signed(right) {
+        return match bits {
+            0..=8 => Int8,
+            9..=16 => Int16,
+            17..=32 => Int32,
+            _ => Int64,
+        };
+    }
+    if is_unsigned(left) && is_unsigned(right) {
+        return match bits {
+            0..=8 => UInt8,
+            9..=16 => UInt16,
+            17..=32 => UInt32,
+            _ => UInt64,
+        };
+    }
+    if is_signed(left) || is_signed(right) {
+        let signed_bits = if is_signed(left) {
+            integer_bits(left)
+        } else {
+            integer_bits(right)
+        };
+        let unsigned_bits = if is_unsigned(left) {
+            integer_bits(left)
+        } else {
+            integer_bits(right)
+        };
+        if signed_bits > unsigned_bits {
+            return match signed_bits {
+                0..=8 => Int8,
+                9..=16 => Int16,
+                17..=32 => Int32,
+                _ => Int64,
+            };
+        }
+        let required = if signed_bits > unsigned_bits {
+            signed_bits
+        } else {
+            unsigned_bits.saturating_add(1)
+        };
+        return match required {
+            0..=8 => Int8,
+            9..=16 => Int16,
+            17..=32 => Int32,
+            33..=64 => Int64,
+            _ => Float64,
+        };
+    }
+    Bool
+}
+
+// These are the long-double layouts used by Raptors' configured wheel targets.
+// On Windows and Apple ARM64 NumPy exposes longdouble as a float64 alias.
+#[cfg(any(
+    target_os = "windows",
+    all(target_vendor = "apple", target_arch = "aarch64")
+))]
+const fn long_double_size() -> usize {
+    8
+}
+#[cfg(not(any(
+    target_os = "windows",
+    all(target_vendor = "apple", target_arch = "aarch64")
+)))]
+const fn long_double_size() -> usize {
+    16
+}
+#[cfg(any(
+    target_os = "windows",
+    all(target_vendor = "apple", target_arch = "aarch64")
+))]
+const fn long_double_alignment() -> usize {
+    8
+}
+#[cfg(not(any(
+    target_os = "windows",
+    all(target_vendor = "apple", target_arch = "aarch64")
+)))]
+const fn long_double_alignment() -> usize {
+    16
+}
+
+#[derive(Clone, Debug, PartialEq)]
 pub enum Scalar {
     Bool(bool),
+    Int8(i8),
+    UInt8(u8),
+    Int16(i16),
+    UInt16(u16),
+    Int32(i32),
+    UInt32(u32),
     Int64(i64),
     UInt64(u64),
+    Float16(f32),
     Float32(f32),
     Float64(f64),
+    Complex64(f32, f32),
+    Complex128(f64, f64),
+    LongDouble(String),
+    ComplexLongDouble(String, String),
 }
 
 impl Scalar {
-    pub const fn dtype(self) -> DType {
+    pub const fn dtype(&self) -> DType {
         match self {
             Self::Bool(_) => DType::Bool,
+            Self::Int8(_) => DType::Int8,
+            Self::UInt8(_) => DType::UInt8,
+            Self::Int16(_) => DType::Int16,
+            Self::UInt16(_) => DType::UInt16,
+            Self::Int32(_) => DType::Int32,
+            Self::UInt32(_) => DType::UInt32,
             Self::Int64(_) => DType::Int64,
             Self::UInt64(_) => DType::UInt64,
+            Self::Float16(_) => DType::Float16,
             Self::Float32(_) => DType::Float32,
             Self::Float64(_) => DType::Float64,
+            Self::Complex64(_, _) => DType::Complex64,
+            Self::Complex128(_, _) => DType::Complex128,
+            Self::LongDouble(_) => DType::LongDouble,
+            Self::ComplexLongDouble(_, _) => DType::ComplexLongDouble,
+        }
+    }
+
+    pub fn zero(dtype: DType) -> Self {
+        match dtype {
+            DType::Bool => Self::Bool(false),
+            DType::Int8 => Self::Int8(0),
+            DType::UInt8 => Self::UInt8(0),
+            DType::Int16 => Self::Int16(0),
+            DType::UInt16 => Self::UInt16(0),
+            DType::Int32 => Self::Int32(0),
+            DType::UInt32 => Self::UInt32(0),
+            DType::Int64 => Self::Int64(0),
+            DType::UInt64 => Self::UInt64(0),
+            DType::Float16 => Self::Float16(0.0),
+            DType::Float32 => Self::Float32(0.0),
+            DType::Float64 => Self::Float64(0.0),
+            DType::Complex64 => Self::Complex64(0.0, 0.0),
+            DType::Complex128 => Self::Complex128(0.0, 0.0),
+            DType::LongDouble => Self::LongDouble("0".into()),
+            DType::ComplexLongDouble => Self::ComplexLongDouble("0".into(), "0".into()),
+        }
+    }
+
+    pub fn truthy(&self) -> bool {
+        match self {
+            Self::Bool(v) => *v,
+            Self::Int8(v) => *v != 0,
+            Self::UInt8(v) => *v != 0,
+            Self::Int16(v) => *v != 0,
+            Self::UInt16(v) => *v != 0,
+            Self::Int32(v) => *v != 0,
+            Self::UInt32(v) => *v != 0,
+            Self::Int64(v) => *v != 0,
+            Self::UInt64(v) => *v != 0,
+            Self::Float16(v) | Self::Float32(v) => *v != 0.0,
+            Self::Float64(v) => *v != 0.0,
+            Self::Complex64(re, im) => *re != 0.0 || *im != 0.0,
+            Self::Complex128(re, im) => *re != 0.0 || *im != 0.0,
+            Self::LongDouble(v) => v.parse::<f64>().map(|x| x != 0.0).unwrap_or(false),
+            Self::ComplexLongDouble(re, im) => {
+                re.parse::<f64>().map(|x| x != 0.0).unwrap_or(false)
+                    || im.parse::<f64>().map(|x| x != 0.0).unwrap_or(false)
+            }
+        }
+    }
+
+    pub fn as_f64(&self) -> Result<f64, StorageError> {
+        Ok(match self {
+            Self::Bool(v) => u8::from(*v) as f64,
+            Self::Int8(v) => *v as f64,
+            Self::UInt8(v) => *v as f64,
+            Self::Int16(v) => *v as f64,
+            Self::UInt16(v) => *v as f64,
+            Self::Int32(v) => *v as f64,
+            Self::UInt32(v) => *v as f64,
+            Self::Int64(v) => *v as f64,
+            Self::UInt64(v) => *v as f64,
+            Self::Float16(v) | Self::Float32(v) => *v as f64,
+            Self::Float64(v) => *v,
+            Self::Complex64(re, _) => *re as f64,
+            Self::Complex128(re, _) => *re,
+            Self::LongDouble(v) | Self::ComplexLongDouble(v, _) => {
+                v.parse().map_err(|_| StorageError::InvalidScalar)?
+            }
+        })
+    }
+
+    pub fn cast(&self, dtype: DType) -> Result<Self, StorageError> {
+        if self.dtype() == dtype {
+            return Ok(self.clone());
+        }
+        let value = match dtype {
+            DType::Bool => Self::Bool(self.truthy()),
+            DType::Int8 => Self::Int8(to_i128(self)? as i8),
+            DType::UInt8 => Self::UInt8(to_i128(self)? as u8),
+            DType::Int16 => Self::Int16(to_i128(self)? as i16),
+            DType::UInt16 => Self::UInt16(to_i128(self)? as u16),
+            DType::Int32 => Self::Int32(to_i128(self)? as i32),
+            DType::UInt32 => Self::UInt32(to_i128(self)? as u32),
+            DType::Int64 => Self::Int64(to_i128(self)? as i64),
+            DType::UInt64 => Self::UInt64(to_i128(self)? as u64),
+            DType::Float16 => Self::Float16(half::f16::from_f64(self.as_f64()?).to_f32()),
+            DType::Float32 => Self::Float32(self.as_f64()? as f32),
+            DType::Float64 => Self::Float64(self.as_f64()?),
+            DType::Complex64 => {
+                let (re, im) = self.as_complex()?;
+                Self::Complex64(re as f32, im as f32)
+            }
+            DType::Complex128 => {
+                let (re, im) = self.as_complex()?;
+                Self::Complex128(re, im)
+            }
+            DType::LongDouble => Self::LongDouble(scalar_decimal(self)?),
+            DType::ComplexLongDouble => match self {
+                Self::ComplexLongDouble(re, im) => Self::ComplexLongDouble(re.clone(), im.clone()),
+                Self::Complex64(re, im) => Self::ComplexLongDouble(
+                    exact_decimal_from_f64(*re as f64),
+                    exact_decimal_from_f64(*im as f64),
+                ),
+                Self::Complex128(re, im) => Self::ComplexLongDouble(
+                    exact_decimal_from_f64(*re),
+                    exact_decimal_from_f64(*im),
+                ),
+                value => Self::ComplexLongDouble(scalar_decimal(value)?, "0".into()),
+            },
+        };
+        Ok(value)
+    }
+
+    pub fn as_complex(&self) -> Result<(f64, f64), StorageError> {
+        match self {
+            Self::Complex64(re, im) => Ok((*re as f64, *im as f64)),
+            Self::Complex128(re, im) => Ok((*re, *im)),
+            Self::ComplexLongDouble(re, im) => Ok((
+                re.parse().map_err(|_| StorageError::InvalidScalar)?,
+                im.parse().map_err(|_| StorageError::InvalidScalar)?,
+            )),
+            _ => Ok((self.as_f64()?, 0.0)),
         }
     }
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+fn scalar_decimal(value: &Scalar) -> Result<String, StorageError> {
+    Ok(match value {
+        Scalar::LongDouble(v) => v.clone(),
+        Scalar::ComplexLongDouble(re, _) => re.clone(),
+        Scalar::Complex64(re, _) => exact_decimal_from_f64(*re as f64),
+        Scalar::Complex128(re, _) => exact_decimal_from_f64(*re),
+        Scalar::Float16(v) | Scalar::Float32(v) => exact_decimal_from_f64(*v as f64),
+        Scalar::Float64(v) => exact_decimal_from_f64(*v),
+        Scalar::Bool(v) => u8::from(*v).to_string(),
+        Scalar::Int8(v) => v.to_string(),
+        Scalar::UInt8(v) => v.to_string(),
+        Scalar::Int16(v) => v.to_string(),
+        Scalar::UInt16(v) => v.to_string(),
+        Scalar::Int32(v) => v.to_string(),
+        Scalar::UInt32(v) => v.to_string(),
+        Scalar::Int64(v) => v.to_string(),
+        Scalar::UInt64(v) => v.to_string(),
+    })
+}
+
+fn exact_decimal_from_f64(value: f64) -> String {
+    if value.is_nan() {
+        return "NaN".into();
+    }
+    if value.is_infinite() {
+        return if value.is_sign_negative() {
+            "-inf".into()
+        } else {
+            "inf".into()
+        };
+    }
+
+    let bits = value.to_bits();
+    let negative = bits >> 63 != 0;
+    let exponent_bits = ((bits >> 52) & 0x7ff) as i32;
+    let fraction = bits & ((1_u64 << 52) - 1);
+    let (significand, exponent) = if exponent_bits == 0 {
+        (fraction, -1074)
+    } else {
+        ((1_u64 << 52) | fraction, exponent_bits - 1023 - 52)
+    };
+    exact_decimal_from_binary(significand as u128, exponent, negative)
+}
+
+/// Formats an exact finite binary value as a decimal integer/fraction.
+fn exact_decimal_from_binary(significand: u128, exponent: i32, negative: bool) -> String {
+    if significand == 0 {
+        return if negative { "-0".into() } else { "0".into() };
+    }
+    let mut digits = significand
+        .to_string()
+        .bytes()
+        .rev()
+        .map(|digit| digit - b'0')
+        .collect::<Vec<_>>();
+    let decimal_places = if exponent >= 0 {
+        for _ in 0..exponent {
+            multiply_decimal_digits(&mut digits, 2);
+        }
+        0
+    } else {
+        let places = (-exponent) as usize;
+        for _ in 0..places {
+            multiply_decimal_digits(&mut digits, 5);
+        }
+        places
+    };
+
+    while digits.len() > 1 && digits.last() == Some(&0) && decimal_places == 0 {
+        digits.pop();
+    }
+    let mut text = digits
+        .iter()
+        .rev()
+        .map(|digit| char::from(b'0' + *digit))
+        .collect::<String>();
+    if decimal_places > 0 {
+        if text.len() <= decimal_places {
+            text = format!("0.{}{}", "0".repeat(decimal_places - text.len()), text);
+        } else {
+            text.insert(text.len() - decimal_places, '.');
+        }
+        while text.ends_with('0') {
+            text.pop();
+        }
+        if text.ends_with('.') {
+            text.pop();
+        }
+    }
+    if negative {
+        text.insert(0, '-');
+    }
+    text
+}
+
+fn multiply_decimal_digits(digits: &mut Vec<u8>, multiplier: u8) {
+    let mut carry = 0_u16;
+    for digit in digits.iter_mut() {
+        let value = u16::from(*digit) * u16::from(multiplier) + carry;
+        *digit = (value % 10) as u8;
+        carry = value / 10;
+    }
+    while carry != 0 {
+        digits.push((carry % 10) as u8);
+        carry /= 10;
+    }
+}
+
+fn to_i128(value: &Scalar) -> Result<i128, StorageError> {
+    match value {
+        Scalar::Bool(v) => Ok(i128::from(*v)),
+        Scalar::Int8(v) => Ok(*v as i128),
+        Scalar::UInt8(v) => Ok(*v as i128),
+        Scalar::Int16(v) => Ok(*v as i128),
+        Scalar::UInt16(v) => Ok(*v as i128),
+        Scalar::Int32(v) => Ok(*v as i128),
+        Scalar::UInt32(v) => Ok(*v as i128),
+        Scalar::Int64(v) => Ok(*v as i128),
+        Scalar::UInt64(v) => Ok(*v as i128),
+        Scalar::Float16(v) | Scalar::Float32(v) => float_to_i128(*v as f64),
+        Scalar::Float64(v) => float_to_i128(*v),
+        Scalar::LongDouble(v) => decimal_to_i128(v),
+        Scalar::Complex64(real, _) => float_to_i128(*real as f64),
+        Scalar::Complex128(real, _) => float_to_i128(*real),
+        Scalar::ComplexLongDouble(real, _) => decimal_to_i128(real),
+    }
+}
+
+fn decimal_to_i128(value: &str) -> Result<i128, StorageError> {
+    let (negative, unsigned) = match value.as_bytes().first() {
+        Some(b'-') => (true, &value[1..]),
+        Some(b'+') => (false, &value[1..]),
+        _ => (false, value),
+    };
+    let (mantissa, exponent) = match unsigned.find(['e', 'E']) {
+        Some(position) => (
+            &unsigned[..position],
+            unsigned[position + 1..]
+                .parse::<i32>()
+                .map_err(|_| StorageError::CastOverflow)?,
+        ),
+        None => (unsigned, 0),
+    };
+    let mut digits = String::new();
+    let mut integer_digits = 0_i64;
+    let mut after_decimal = false;
+    for byte in mantissa.bytes() {
+        if byte == b'.' && !after_decimal {
+            after_decimal = true;
+        } else if byte.is_ascii_digit() {
+            digits.push(char::from(byte));
+            if !after_decimal {
+                integer_digits += 1;
+            }
+        } else {
+            return Err(StorageError::CastOverflow);
+        }
+    }
+    if digits.is_empty() {
+        return Err(StorageError::CastOverflow);
+    }
+    let integer_digits = integer_digits + i64::from(exponent);
+    if integer_digits <= 0 {
+        return Ok(0);
+    }
+    let integer_len = usize::try_from(integer_digits).map_err(|_| StorageError::CastOverflow)?;
+    if integer_len > 39 {
+        return Err(StorageError::CastOverflow);
+    }
+    digits.truncate(integer_len.min(digits.len()));
+    digits.extend(std::iter::repeat('0').take(integer_len.saturating_sub(digits.len())));
+    let magnitude = digits
+        .parse::<u128>()
+        .map_err(|_| StorageError::CastOverflow)?;
+    if negative {
+        if magnitude == (i128::MAX as u128) + 1 {
+            Ok(i128::MIN)
+        } else {
+            i128::try_from(magnitude)
+                .map(|number| -number)
+                .map_err(|_| StorageError::CastOverflow)
+        }
+    } else {
+        i128::try_from(magnitude).map_err(|_| StorageError::CastOverflow)
+    }
+}
+fn float_to_i128(value: f64) -> Result<i128, StorageError> {
+    if !value.is_finite() || value < i128::MIN as f64 || value >= -(i128::MIN as f64) {
+        return Err(StorageError::CastOverflow);
+    }
+    Ok(value.trunc() as i128)
+}
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub enum IndexItem {
     Integer(isize),
     Slice {
@@ -72,6 +637,54 @@ pub enum IndexItem {
         step: isize,
         len: usize,
     },
+    NewAxis,
+    Fancy {
+        shape: Vec<usize>,
+        indices: Vec<isize>,
+    },
+    BoolScalar(bool),
+    BoolMask {
+        shape: Vec<usize>,
+        indices: Vec<usize>,
+    },
+}
+
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+pub enum ByteOrder {
+    NotApplicable,
+    Native,
+    Little,
+    Big,
+}
+
+impl ByteOrder {
+    pub const fn normalized(self) -> Self {
+        match self {
+            Self::Little if cfg!(target_endian = "little") => Self::Native,
+            Self::Big if cfg!(target_endian = "big") => Self::Native,
+            other => other,
+        }
+    }
+    pub const fn is_native(self) -> bool {
+        match self {
+            Self::NotApplicable | Self::Native => true,
+            Self::Little => cfg!(target_endian = "little"),
+            Self::Big => cfg!(target_endian = "big"),
+        }
+    }
+    pub const fn symbol(self, dtype: DType) -> &'static str {
+        if matches!(dtype, DType::Bool | DType::Int8 | DType::UInt8) {
+            return "|";
+        }
+        match self {
+            Self::NotApplicable => "|",
+            Self::Native => "=",
+            Self::Little if cfg!(target_endian = "little") => "=",
+            Self::Little => "<",
+            Self::Big if cfg!(target_endian = "big") => "=",
+            Self::Big => ">",
+        }
+    }
 }
 
 #[derive(Debug, Clone, Eq, PartialEq)]
@@ -79,6 +692,11 @@ pub enum StorageError {
     ShapeOverflow,
     AllocationFailed,
     InvalidLayout,
+    InvalidScalar,
+    CastOverflow,
+    InvalidAxes,
+    InvalidOrder,
+    InvalidFancyIndex,
     IndexOutOfBounds {
         axis: usize,
         index: isize,
@@ -94,6 +712,10 @@ pub enum StorageError {
     },
     DTypeMismatch,
     ShapeMismatch,
+    CannotBroadcast {
+        from: Vec<usize>,
+        to: Vec<usize>,
+    },
     LockPoisoned,
 }
 
@@ -103,96 +725,475 @@ impl fmt::Display for StorageError {
             Self::ShapeOverflow => write!(f, "array shape or byte strides exceed supported limits"),
             Self::AllocationFailed => write!(f, "array allocation failed"),
             Self::InvalidLayout => write!(f, "array view has an invalid or out-of-bounds layout"),
+            Self::InvalidScalar => write!(f, "scalar cannot be converted to the requested dtype"),
+            Self::CastOverflow => write!(f, "scalar value is outside the requested dtype range"),
+            Self::InvalidAxes => write!(f, "invalid axis permutation"),
+            Self::InvalidOrder => write!(f, "order must be one of C, F, A, or K"),
+            Self::InvalidFancyIndex => write!(f, "invalid advanced index array"),
             Self::IndexOutOfBounds { axis, index, length } => write!(f, "index {index} is out of bounds for axis {axis} with size {length}"),
             Self::TooManyIndices { provided, dimensions } => write!(f, "too many indices for array: array is {dimensions}-dimensional, but {provided} were indexed"),
             Self::WrongIndexRank { provided, dimensions } => write!(f, "incorrect number of indices: got {provided}, expected {dimensions}"),
             Self::DTypeMismatch => write!(f, "source and destination dtypes must match"),
             Self::ShapeMismatch => write!(f, "source and destination shapes must match exactly"),
+            Self::CannotBroadcast { from, to } => write!(f, "could not broadcast input array from shape {from:?} into shape {to:?}"),
             Self::LockPoisoned => write!(f, "array storage lock was poisoned"),
         }
     }
 }
 impl std::error::Error for StorageError {}
 
+/// A single byte-addressed owner. All typed reads copy into local byte arrays
+/// before decoding, so non-native byte order and unaligned offsets never form
+/// a typed reference into caller-controlled memory.
 #[derive(Debug)]
-enum Buffer {
-    Bool(Vec<u8>),
-    Int64(Vec<i64>),
-    UInt64(Vec<u64>),
-    Float32(Vec<f32>),
-    Float64(Vec<f64>),
+struct Buffer {
+    dtype: DType,
+    byte_order: ByteOrder,
+    bytes: Vec<u8>,
 }
 
 impl Buffer {
-    fn zeroed(dtype: DType, len: usize) -> Result<Self, StorageError> {
-        macro_rules! allocated {
-            ($ty:ty, $zero:expr) => {{
-                let mut values = Vec::<$ty>::new();
-                values
-                    .try_reserve_exact(len)
-                    .map_err(|_| StorageError::AllocationFailed)?;
-                values.resize(len, $zero);
-                values
-            }};
-        }
-        Ok(match dtype {
-            DType::Bool => Self::Bool(allocated!(u8, 0)),
-            DType::Int64 => Self::Int64(allocated!(i64, 0)),
-            DType::UInt64 => Self::UInt64(allocated!(u64, 0)),
-            DType::Float32 => Self::Float32(allocated!(f32, 0.0)),
-            DType::Float64 => Self::Float64(allocated!(f64, 0.0)),
+    fn zeroed(dtype: DType, byte_order: ByteOrder, len: usize) -> Result<Self, StorageError> {
+        let byte_len = len
+            .checked_mul(dtype.itemsize())
+            .ok_or(StorageError::ShapeOverflow)?;
+        let mut bytes = Vec::new();
+        bytes
+            .try_reserve_exact(byte_len)
+            .map_err(|_| StorageError::AllocationFailed)?;
+        bytes.resize(byte_len, 0);
+        Ok(Self {
+            dtype,
+            byte_order,
+            bytes,
         })
     }
-    fn from_values(dtype: DType, values: &[Scalar]) -> Result<Self, StorageError> {
-        let mut buffer = Self::zeroed(dtype, values.len())?;
-        for (index, value) in values.iter().copied().enumerate() {
-            buffer.write(index, value)?;
+
+    fn from_values(
+        dtype: DType,
+        byte_order: ByteOrder,
+        values: &[Scalar],
+    ) -> Result<Self, StorageError> {
+        let mut buffer = Self::zeroed(dtype, byte_order, values.len())?;
+        for (index, value) in values.iter().enumerate() {
+            buffer.write(index, value.clone())?;
         }
         Ok(buffer)
     }
-    fn dtype(&self) -> DType {
-        match self {
-            Self::Bool(_) => DType::Bool,
-            Self::Int64(_) => DType::Int64,
-            Self::UInt64(_) => DType::UInt64,
-            Self::Float32(_) => DType::Float32,
-            Self::Float64(_) => DType::Float64,
-        }
+
+    fn element_bytes(&self, index: usize) -> Result<&[u8], StorageError> {
+        let start = index
+            .checked_mul(self.dtype.itemsize())
+            .ok_or(StorageError::ShapeOverflow)?;
+        let end = start
+            .checked_add(self.dtype.itemsize())
+            .ok_or(StorageError::ShapeOverflow)?;
+        self.bytes
+            .get(start..end)
+            .ok_or(StorageError::InvalidLayout)
     }
+
+    fn element_bytes_mut(&mut self, index: usize) -> Result<&mut [u8], StorageError> {
+        let start = index
+            .checked_mul(self.dtype.itemsize())
+            .ok_or(StorageError::ShapeOverflow)?;
+        let end = start
+            .checked_add(self.dtype.itemsize())
+            .ok_or(StorageError::ShapeOverflow)?;
+        self.bytes
+            .get_mut(start..end)
+            .ok_or(StorageError::InvalidLayout)
+    }
+
     fn read(&self, index: usize) -> Result<Scalar, StorageError> {
-        match self {
-            Self::Bool(v) => v.get(index).map(|x| Scalar::Bool(*x != 0)),
-            Self::Int64(v) => v.get(index).copied().map(Scalar::Int64),
-            Self::UInt64(v) => v.get(index).copied().map(Scalar::UInt64),
-            Self::Float32(v) => v.get(index).copied().map(Scalar::Float32),
-            Self::Float64(v) => v.get(index).copied().map(Scalar::Float64),
-        }
-        .ok_or(StorageError::InvalidLayout)
+        let bytes = self.element_bytes(index)?;
+        let order = self.byte_order;
+        Ok(match self.dtype {
+            DType::Bool => Scalar::Bool(bytes[0] != 0),
+            DType::Int8 => Scalar::Int8(bytes[0] as i8),
+            DType::UInt8 => Scalar::UInt8(bytes[0]),
+            DType::Int16 => Scalar::Int16(read_unsigned(bytes, order)? as u16 as i16),
+            DType::UInt16 => Scalar::UInt16(read_unsigned(bytes, order)? as u16),
+            DType::Int32 => Scalar::Int32(read_unsigned(bytes, order)? as u32 as i32),
+            DType::UInt32 => Scalar::UInt32(read_unsigned(bytes, order)? as u32),
+            DType::Int64 => Scalar::Int64(read_unsigned(bytes, order)? as u64 as i64),
+            DType::UInt64 => Scalar::UInt64(read_unsigned(bytes, order)? as u64),
+            DType::Float16 => {
+                Scalar::Float16(half::f16::from_bits(read_unsigned(bytes, order)? as u16).to_f32())
+            }
+            DType::Float32 => Scalar::Float32(f32::from_bits(read_unsigned(bytes, order)? as u32)),
+            DType::Float64 => Scalar::Float64(f64::from_bits(read_unsigned(bytes, order)? as u64)),
+            DType::Complex64 => {
+                let (real, imag) = bytes.split_at(4);
+                Scalar::Complex64(
+                    f32::from_bits(read_unsigned(real, order)? as u32),
+                    f32::from_bits(read_unsigned(imag, order)? as u32),
+                )
+            }
+            DType::Complex128 => {
+                let (real, imag) = bytes.split_at(8);
+                Scalar::Complex128(
+                    f64::from_bits(read_unsigned(real, order)? as u64),
+                    f64::from_bits(read_unsigned(imag, order)? as u64),
+                )
+            }
+            DType::LongDouble => Scalar::LongDouble(decode_long_double(bytes, order)?),
+            DType::ComplexLongDouble => {
+                let component_size = long_double_size();
+                let (real, imag) = bytes.split_at(component_size);
+                Scalar::ComplexLongDouble(
+                    decode_long_double(real, order)?,
+                    decode_long_double(imag, order)?,
+                )
+            }
+        })
     }
+
     fn write(&mut self, index: usize, value: Scalar) -> Result<(), StorageError> {
-        if self.dtype() != value.dtype() {
+        if self.dtype != value.dtype() {
             return Err(StorageError::DTypeMismatch);
         }
-        match (self, value) {
-            (Self::Bool(v), Scalar::Bool(x)) => {
-                *v.get_mut(index).ok_or(StorageError::InvalidLayout)? = u8::from(x)
+        let order = self.byte_order;
+        let bytes = self.element_bytes_mut(index)?;
+        match value {
+            Scalar::Bool(value) => bytes[0] = u8::from(value),
+            Scalar::Int8(value) => bytes[0] = value as u8,
+            Scalar::UInt8(value) => bytes[0] = value,
+            Scalar::Int16(value) => write_unsigned(bytes, value as u16 as u128, order)?,
+            Scalar::UInt16(value) => write_unsigned(bytes, value as u128, order)?,
+            Scalar::Int32(value) => write_unsigned(bytes, value as u32 as u128, order)?,
+            Scalar::UInt32(value) => write_unsigned(bytes, value as u128, order)?,
+            Scalar::Int64(value) => write_unsigned(bytes, value as u64 as u128, order)?,
+            Scalar::UInt64(value) => write_unsigned(bytes, value as u128, order)?,
+            Scalar::Float16(value) => {
+                write_unsigned(bytes, half::f16::from_f32(value).to_bits() as u128, order)?
             }
-            (Self::Int64(v), Scalar::Int64(x)) => {
-                *v.get_mut(index).ok_or(StorageError::InvalidLayout)? = x
+            Scalar::Float32(value) => write_unsigned(bytes, value.to_bits() as u128, order)?,
+            Scalar::Float64(value) => write_unsigned(bytes, value.to_bits() as u128, order)?,
+            Scalar::Complex64(real, imag) => {
+                let (real_bytes, imag_bytes) = bytes.split_at_mut(4);
+                write_unsigned(real_bytes, real.to_bits() as u128, order)?;
+                write_unsigned(imag_bytes, imag.to_bits() as u128, order)?;
             }
-            (Self::UInt64(v), Scalar::UInt64(x)) => {
-                *v.get_mut(index).ok_or(StorageError::InvalidLayout)? = x
+            Scalar::Complex128(real, imag) => {
+                let (real_bytes, imag_bytes) = bytes.split_at_mut(8);
+                write_unsigned(real_bytes, real.to_bits() as u128, order)?;
+                write_unsigned(imag_bytes, imag.to_bits() as u128, order)?;
             }
-            (Self::Float32(v), Scalar::Float32(x)) => {
-                *v.get_mut(index).ok_or(StorageError::InvalidLayout)? = x
+            Scalar::LongDouble(value) => encode_long_double(&value, bytes, order)?,
+            Scalar::ComplexLongDouble(real, imag) => {
+                let component_size = long_double_size();
+                let (real_bytes, imag_bytes) = bytes.split_at_mut(component_size);
+                encode_long_double(&real, real_bytes, order)?;
+                encode_long_double(&imag, imag_bytes, order)?;
             }
-            (Self::Float64(v), Scalar::Float64(x)) => {
-                *v.get_mut(index).ok_or(StorageError::InvalidLayout)? = x
-            }
-            _ => return Err(StorageError::DTypeMismatch),
         }
         Ok(())
     }
+}
+
+fn is_big_endian(order: ByteOrder) -> bool {
+    match order {
+        ByteOrder::Big => true,
+        ByteOrder::Little => false,
+        ByteOrder::Native | ByteOrder::NotApplicable => cfg!(target_endian = "big"),
+    }
+}
+
+fn read_unsigned(bytes: &[u8], order: ByteOrder) -> Result<u128, StorageError> {
+    if bytes.len() > 16 {
+        return Err(StorageError::InvalidLayout);
+    }
+    let mut value = 0_u128;
+    if is_big_endian(order) {
+        for byte in bytes {
+            value = (value << 8) | u128::from(*byte);
+        }
+    } else {
+        for (index, byte) in bytes.iter().enumerate() {
+            value |= u128::from(*byte) << (index * 8);
+        }
+    }
+    Ok(value)
+}
+
+fn write_unsigned(bytes: &mut [u8], mut value: u128, order: ByteOrder) -> Result<(), StorageError> {
+    if bytes.len() > 16 {
+        return Err(StorageError::InvalidLayout);
+    }
+    if is_big_endian(order) {
+        for byte in bytes.iter_mut().rev() {
+            *byte = value as u8;
+            value >>= 8;
+        }
+    } else {
+        for byte in bytes {
+            *byte = value as u8;
+            value >>= 8;
+        }
+    }
+    Ok(())
+}
+
+fn encode_long_double(value: &str, bytes: &mut [u8], order: ByteOrder) -> Result<(), StorageError> {
+    if bytes.len() == 8 {
+        let value = value
+            .parse::<f64>()
+            .map_err(|_| StorageError::InvalidScalar)?;
+        return write_unsigned(bytes, value.to_bits() as u128, order);
+    }
+    if bytes.len() != 16 {
+        return Err(StorageError::InvalidLayout);
+    }
+    if let Ok(value) = value.parse::<i128>() {
+        return encode_long_double_integer(value.is_negative(), value.unsigned_abs(), bytes, order);
+    }
+    if let Ok(value) = value.parse::<u128>() {
+        return encode_long_double_integer(false, value, bytes, order);
+    }
+    let value = value
+        .parse::<f64>()
+        .map_err(|_| StorageError::InvalidScalar)?;
+    encode_long_double_f64(value, bytes, order)
+}
+
+fn encode_long_double_integer(
+    negative: bool,
+    magnitude: u128,
+    bytes: &mut [u8],
+    order: ByteOrder,
+) -> Result<(), StorageError> {
+    #[cfg(target_arch = "aarch64")]
+    {
+        write_unsigned(bytes, binary128_from_integer(negative, magnitude), order)
+    }
+    #[cfg(not(target_arch = "aarch64"))]
+    {
+        let (sign_exponent, significand) = x87_from_integer(negative, magnitude);
+        write_unsigned(&mut bytes[..8], significand as u128, order)?;
+        write_unsigned(&mut bytes[8..10], sign_exponent as u128, order)?;
+        bytes[10..].fill(0);
+        Ok(())
+    }
+}
+
+fn encode_long_double_f64(
+    value: f64,
+    bytes: &mut [u8],
+    order: ByteOrder,
+) -> Result<(), StorageError> {
+    #[cfg(target_arch = "aarch64")]
+    {
+        write_unsigned(bytes, binary128_from_f64(value), order)
+    }
+    #[cfg(not(target_arch = "aarch64"))]
+    {
+        let (sign_exponent, significand) = x87_from_f64(value);
+        write_unsigned(&mut bytes[..8], significand as u128, order)?;
+        write_unsigned(&mut bytes[8..10], sign_exponent as u128, order)?;
+        bytes[10..].fill(0);
+        Ok(())
+    }
+}
+
+fn decode_long_double(bytes: &[u8], order: ByteOrder) -> Result<String, StorageError> {
+    if bytes.len() == 8 {
+        let value = f64::from_bits(read_unsigned(bytes, order)? as u64);
+        return Ok(exact_decimal_from_f64(value));
+    }
+    if bytes.len() != 16 {
+        return Err(StorageError::InvalidLayout);
+    }
+    #[cfg(target_arch = "aarch64")]
+    {
+        let bits = read_unsigned(bytes, order)?;
+        decode_binary128(bits)
+    }
+    #[cfg(not(target_arch = "aarch64"))]
+    {
+        let significand = read_unsigned(&bytes[..8], order)? as u64;
+        let sign_exponent = read_unsigned(&bytes[8..10], order)? as u16;
+        decode_x87(sign_exponent, significand)
+    }
+}
+
+#[cfg(not(target_arch = "aarch64"))]
+fn decode_x87(sign_exponent: u16, significand: u64) -> Result<String, StorageError> {
+    let negative = sign_exponent & 0x8000 != 0;
+    let exponent = sign_exponent & 0x7fff;
+    if exponent == 0x7fff {
+        return Ok(if significand == 0x8000_0000_0000_0000 {
+            if negative {
+                "-inf"
+            } else {
+                "inf"
+            }
+        } else {
+            "NaN"
+        }
+        .into());
+    }
+    if significand == 0 {
+        return Ok(if negative { "-0" } else { "0" }.into());
+    }
+    let unbiased = if exponent == 0 {
+        1 - 16383
+    } else {
+        i32::from(exponent) - 16383
+    };
+    Ok(exact_decimal_from_binary(
+        significand as u128,
+        unbiased - 63,
+        negative,
+    ))
+}
+
+#[cfg(target_arch = "aarch64")]
+fn decode_binary128(bits: u128) -> Result<String, StorageError> {
+    let negative = bits >> 127 != 0;
+    let exponent = ((bits >> 112) & 0x7fff) as u16;
+    let fraction = bits & ((1_u128 << 112) - 1);
+    if exponent == 0x7fff {
+        return Ok(if fraction == 0 {
+            if negative {
+                "-inf"
+            } else {
+                "inf"
+            }
+        } else {
+            "NaN"
+        }
+        .into());
+    }
+    let significand = if exponent == 0 {
+        fraction
+    } else {
+        (1_u128 << 112) | fraction
+    };
+    if significand == 0 {
+        return Ok(if negative { "-0" } else { "0" }.into());
+    }
+    let unbiased = if exponent == 0 {
+        1 - 16383
+    } else {
+        i32::from(exponent) - 16383
+    };
+    Ok(exact_decimal_from_binary(
+        significand,
+        unbiased - 112,
+        negative,
+    ))
+}
+
+#[cfg(not(target_arch = "aarch64"))]
+fn x87_from_f64(value: f64) -> (u16, u64) {
+    let bits = value.to_bits();
+    let negative = bits >> 63 != 0;
+    let exponent = ((bits >> 52) & 0x7ff) as i32;
+    let fraction = bits & ((1_u64 << 52) - 1);
+    let sign = if negative { 0x8000 } else { 0 };
+    if exponent == 0x7ff {
+        return (
+            sign | 0x7fff,
+            if fraction == 0 {
+                0x8000_0000_0000_0000
+            } else {
+                0xc000_0000_0000_0000 | (fraction << 11)
+            },
+        );
+    }
+    if exponent == 0 && fraction == 0 {
+        return (sign, 0);
+    }
+    let (unbiased, significand) = if exponent == 0 {
+        let top_bit = 63 - fraction.leading_zeros() as i32;
+        (-1074 + top_bit, fraction << (63 - top_bit as u32))
+    } else {
+        (exponent - 1023, ((1_u64 << 52) | fraction) << 11)
+    };
+    (sign | (unbiased + 16383) as u16, significand)
+}
+
+#[cfg(not(target_arch = "aarch64"))]
+fn x87_from_integer(negative: bool, magnitude: u128) -> (u16, u64) {
+    let sign = if negative { 0x8000 } else { 0 };
+    if magnitude == 0 {
+        return (sign, 0);
+    }
+    let mut exponent = 127 - magnitude.leading_zeros() as i32;
+    let significand = if exponent <= 63 {
+        (magnitude << (63 - exponent as u32)) as u64
+    } else {
+        let shift = (exponent - 63) as u32;
+        let mut rounded = magnitude >> shift;
+        let remainder = magnitude & ((1_u128 << shift) - 1);
+        let halfway = 1_u128 << (shift - 1);
+        if remainder > halfway || (remainder == halfway && rounded & 1 != 0) {
+            rounded += 1;
+        }
+        if rounded == (1_u128 << 64) {
+            exponent += 1;
+            rounded >>= 1;
+        }
+        rounded as u64
+    };
+    (sign | (exponent + 16383) as u16, significand)
+}
+
+#[cfg(target_arch = "aarch64")]
+fn binary128_from_f64(value: f64) -> u128 {
+    let bits = value.to_bits();
+    let negative = bits >> 63 != 0;
+    let exponent = ((bits >> 52) & 0x7ff) as i32;
+    let fraction = bits & ((1_u64 << 52) - 1);
+    let sign = if negative { 1_u128 << 127 } else { 0 };
+    if exponent == 0x7ff {
+        let payload = if fraction == 0 {
+            0
+        } else {
+            (fraction as u128) << 60
+        };
+        return sign | (0x7fff_u128 << 112) | payload;
+    }
+    if exponent == 0 && fraction == 0 {
+        return sign;
+    }
+    let (unbiased, significand) = if exponent == 0 {
+        let top_bit = 63 - fraction.leading_zeros() as i32;
+        (
+            -1074 + top_bit,
+            (fraction as u128) << (112 - top_bit as u32),
+        )
+    } else {
+        (exponent - 1023, (((1_u64 << 52) | fraction) as u128) << 60)
+    };
+    sign | (((unbiased + 16383) as u128) << 112) | (significand & ((1_u128 << 112) - 1))
+}
+
+#[cfg(target_arch = "aarch64")]
+fn binary128_from_integer(negative: bool, magnitude: u128) -> u128 {
+    let sign = if negative { 1_u128 << 127 } else { 0 };
+    if magnitude == 0 {
+        return sign;
+    }
+    let mut exponent = 127 - magnitude.leading_zeros() as i32;
+    let significand = if exponent <= 112 {
+        magnitude << (112 - exponent as u32)
+    } else {
+        let shift = (exponent - 112) as u32;
+        let mut rounded = magnitude >> shift;
+        let remainder = magnitude & ((1_u128 << shift) - 1);
+        let halfway = 1_u128 << (shift - 1);
+        if remainder > halfway || (remainder == halfway && rounded & 1 != 0) {
+            rounded += 1;
+        }
+        if rounded == (1_u128 << 113) {
+            exponent += 1;
+            rounded >>= 1;
+        }
+        rounded
+    };
+    sign | (((exponent + 16383) as u128) << 112) | (significand & ((1_u128 << 112) - 1))
 }
 
 /// An owning array or view which keeps its allocation alive.
@@ -200,6 +1201,7 @@ impl Buffer {
 pub struct View {
     storage: Arc<RwLock<Buffer>>,
     dtype: DType,
+    byte_order: ByteOrder,
     shape: Vec<usize>,
     strides: Vec<isize>,
     offset: isize,
@@ -210,11 +1212,54 @@ impl View {
     pub fn zeros(dtype: DType, shape: Vec<usize>) -> Result<Self, StorageError> {
         Self::allocated(dtype, shape)
     }
+    pub fn zeros_with_order(
+        dtype: DType,
+        byte_order: ByteOrder,
+        shape: Vec<usize>,
+    ) -> Result<Self, StorageError> {
+        Self::zeros_with_layout(dtype, byte_order, shape, false)
+    }
+    pub fn zeros_with_layout(
+        dtype: DType,
+        byte_order: ByteOrder,
+        shape: Vec<usize>,
+        fortran: bool,
+    ) -> Result<Self, StorageError> {
+        if byte_order == ByteOrder::NotApplicable && dtype.itemsize() > 1 {
+            return Err(StorageError::InvalidLayout);
+        }
+        let byte_order = if dtype.itemsize() == 1 {
+            ByteOrder::NotApplicable
+        } else {
+            byte_order.normalized()
+        };
+        Self::allocated_order(dtype, byte_order, shape, fortran)
+    }
     /// The initial implementation zero-initializes storage; public `empty` values are unspecified.
     pub fn empty(dtype: DType, shape: Vec<usize>) -> Result<Self, StorageError> {
         Self::allocated(dtype, shape)
     }
+    pub fn empty_with_order(
+        dtype: DType,
+        byte_order: ByteOrder,
+        shape: Vec<usize>,
+    ) -> Result<Self, StorageError> {
+        Self::zeros_with_order(dtype, byte_order, shape)
+    }
     fn allocated(dtype: DType, shape: Vec<usize>) -> Result<Self, StorageError> {
+        let byte_order = if dtype.itemsize() == 1 {
+            ByteOrder::NotApplicable
+        } else {
+            ByteOrder::Native
+        };
+        Self::allocated_order(dtype, byte_order, shape, false)
+    }
+    fn allocated_order(
+        dtype: DType,
+        byte_order: ByteOrder,
+        shape: Vec<usize>,
+        fortran: bool,
+    ) -> Result<Self, StorageError> {
         let len = element_count(&shape)?;
         if len
             .checked_mul(dtype.itemsize())
@@ -223,10 +1268,15 @@ impl View {
         {
             return Err(StorageError::ShapeOverflow);
         }
-        let strides = c_strides(dtype, &shape)?;
+        let strides = if fortran {
+            f_strides(dtype, &shape)?
+        } else {
+            c_strides(dtype, &shape)?
+        };
         Ok(Self {
-            storage: Arc::new(RwLock::new(Buffer::zeroed(dtype, len)?)),
+            storage: Arc::new(RwLock::new(Buffer::zeroed(dtype, byte_order, len)?)),
             dtype,
+            byte_order,
             shape,
             strides,
             offset: 0,
@@ -237,6 +1287,27 @@ impl View {
         dtype: DType,
         shape: Vec<usize>,
         values: &[Scalar],
+    ) -> Result<Self, StorageError> {
+        Self::from_values_with_order(dtype, ByteOrder::Native, shape, values)
+    }
+
+    pub fn from_values_with_order(
+        dtype: DType,
+        byte_order: ByteOrder,
+        shape: Vec<usize>,
+        values: &[Scalar],
+    ) -> Result<Self, StorageError> {
+        Self::from_values_with_layout(dtype, byte_order, shape, values, false)
+    }
+
+    /// Builds an array from values in logical C iteration order while storing
+    /// them in the requested physical memory order.
+    pub fn from_values_with_layout(
+        dtype: DType,
+        byte_order: ByteOrder,
+        shape: Vec<usize>,
+        values: &[Scalar],
+        fortran: bool,
     ) -> Result<Self, StorageError> {
         let len = element_count(&shape)?;
         if len
@@ -252,10 +1323,37 @@ impl View {
         if values.iter().any(|v| v.dtype() != dtype) {
             return Err(StorageError::DTypeMismatch);
         }
-        let strides = c_strides(dtype, &shape)?;
+        if byte_order == ByteOrder::NotApplicable && dtype.itemsize() > 1 {
+            return Err(StorageError::InvalidLayout);
+        }
+        let byte_order = if dtype.itemsize() == 1 {
+            ByteOrder::NotApplicable
+        } else {
+            byte_order.normalized()
+        };
+        let buffer = if fortran {
+            let mut physical = Vec::new();
+            physical
+                .try_reserve_exact(len)
+                .map_err(|_| StorageError::AllocationFailed)?;
+            for physical_linear in 0..len {
+                let coordinates = coordinates_for_order(&shape, physical_linear, true)?;
+                let logical_linear = linear_for_shape(&shape, &coordinates)?;
+                physical.push(values[logical_linear].clone());
+            }
+            Buffer::from_values(dtype, byte_order, &physical)?
+        } else {
+            Buffer::from_values(dtype, byte_order, values)?
+        };
+        let strides = if fortran {
+            f_strides(dtype, &shape)?
+        } else {
+            c_strides(dtype, &shape)?
+        };
         Ok(Self {
-            storage: Arc::new(RwLock::new(Buffer::from_values(dtype, values)?)),
+            storage: Arc::new(RwLock::new(buffer)),
             dtype,
+            byte_order,
             shape,
             strides,
             offset: 0,
@@ -264,6 +1362,9 @@ impl View {
     }
     pub fn dtype(&self) -> DType {
         self.dtype
+    }
+    pub fn byte_order(&self) -> ByteOrder {
+        self.byte_order
     }
     pub fn shape(&self) -> &[usize] {
         &self.shape
@@ -281,33 +1382,255 @@ impl View {
         Arc::ptr_eq(&self.storage, &other.storage)
     }
 
+    pub fn is_c_contiguous(&self) -> bool {
+        if self.size().unwrap_or(0) == 0 {
+            return true;
+        }
+        let mut expected = self.dtype.itemsize() as isize;
+        for axis in (0..self.ndim()).rev() {
+            let dim = self.shape[axis];
+            if dim > 1 && self.strides[axis] != expected {
+                return false;
+            }
+            let Ok(dim) = isize::try_from(dim.max(1)) else {
+                return false;
+            };
+            let Some(next) = expected.checked_mul(dim) else {
+                return false;
+            };
+            expected = next;
+        }
+        true
+    }
+
+    pub fn is_f_contiguous(&self) -> bool {
+        if self.size().unwrap_or(0) == 0 {
+            return true;
+        }
+        let mut expected = self.dtype.itemsize() as isize;
+        for axis in 0..self.ndim() {
+            let dim = self.shape[axis];
+            if dim > 1 && self.strides[axis] != expected {
+                return false;
+            }
+            let Ok(dim) = isize::try_from(dim.max(1)) else {
+                return false;
+            };
+            let Some(next) = expected.checked_mul(dim) else {
+                return false;
+            };
+            expected = next;
+        }
+        true
+    }
+
+    pub fn transpose(&self, axes: Option<&[isize]>) -> Result<Self, StorageError> {
+        let ndim = self.ndim();
+        let permutation: Vec<usize> = match axes {
+            None => (0..ndim).rev().collect(),
+            Some(axes) => {
+                if axes.len() != ndim {
+                    return Err(StorageError::InvalidAxes);
+                }
+                let mut seen = vec![false; ndim];
+                let mut normalized = Vec::with_capacity(ndim);
+                for &axis in axes {
+                    let axis = if axis < 0 {
+                        axis.checked_add(ndim as isize)
+                            .ok_or(StorageError::InvalidAxes)?
+                    } else {
+                        axis
+                    };
+                    if axis < 0 || axis >= ndim as isize || seen[axis as usize] {
+                        return Err(StorageError::InvalidAxes);
+                    }
+                    seen[axis as usize] = true;
+                    normalized.push(axis as usize);
+                }
+                normalized
+            }
+        };
+        let view = Self {
+            storage: Arc::clone(&self.storage),
+            dtype: self.dtype,
+            byte_order: self.byte_order,
+            shape: permutation.iter().map(|&axis| self.shape[axis]).collect(),
+            strides: permutation.iter().map(|&axis| self.strides[axis]).collect(),
+            offset: self.offset,
+            allocation_len: self.allocation_len,
+        };
+        view.validate_layout()?;
+        Ok(view)
+    }
+
+    /// Reshapes in C order. A non-contiguous source is copied unless `copy` is
+    /// explicitly false, in which case the operation fails.
+    pub fn reshape(&self, shape: Vec<usize>, copy: Option<bool>) -> Result<Self, StorageError> {
+        self.reshape_order(shape, copy, false)
+    }
+
+    pub fn reshape_order(
+        &self,
+        shape: Vec<usize>,
+        copy: Option<bool>,
+        fortran: bool,
+    ) -> Result<Self, StorageError> {
+        if element_count(&shape)? != self.size()? {
+            return Err(StorageError::ShapeMismatch);
+        }
+        let can_view = if fortran {
+            self.is_f_contiguous()
+        } else {
+            self.is_c_contiguous()
+        };
+        let should_copy = copy == Some(true) || !can_view;
+        if should_copy && copy == Some(false) {
+            return Err(StorageError::InvalidLayout);
+        }
+        if should_copy {
+            let values = self.snapshot_order(fortran)?;
+            let strides = if fortran {
+                f_strides(self.dtype, &shape)?
+            } else {
+                c_strides(self.dtype, &shape)?
+            };
+            let len = element_count(&shape)?;
+            let view = Self {
+                storage: Arc::new(RwLock::new(Buffer::from_values(
+                    self.dtype,
+                    self.byte_order,
+                    &values,
+                )?)),
+                dtype: self.dtype,
+                byte_order: self.byte_order,
+                shape,
+                strides,
+                offset: 0,
+                allocation_len: len,
+            };
+            view.validate_layout()?;
+            return Ok(view);
+        }
+        let view = Self {
+            storage: Arc::clone(&self.storage),
+            dtype: self.dtype,
+            byte_order: self.byte_order,
+            strides: if fortran {
+                f_strides(self.dtype, &shape)?
+            } else {
+                c_strides(self.dtype, &shape)?
+            },
+            shape,
+            offset: self.offset,
+            allocation_len: self.allocation_len,
+        };
+        view.validate_layout()?;
+        Ok(view)
+    }
+
+    fn snapshot_order(&self, fortran: bool) -> Result<Vec<Scalar>, StorageError> {
+        let size = self.size()?;
+        let mut values = Vec::with_capacity(size);
+        for linear in 0..size {
+            let coordinates = coordinates_for_order(&self.shape, linear, fortran)?;
+            values.push(self.read_at(&coordinates)?);
+        }
+        Ok(values)
+    }
+
+    pub fn astype(&self, dtype: DType) -> Result<Self, StorageError> {
+        self.astype_with_order(dtype, ByteOrder::Native)
+    }
+
+    pub fn astype_with_order(
+        &self,
+        dtype: DType,
+        byte_order: ByteOrder,
+    ) -> Result<Self, StorageError> {
+        self.astype_with_layout(dtype, byte_order, false)
+    }
+
+    pub fn astype_with_layout(
+        &self,
+        dtype: DType,
+        byte_order: ByteOrder,
+        fortran: bool,
+    ) -> Result<Self, StorageError> {
+        let values = self
+            .snapshot()?
+            .iter()
+            .map(|value| value.cast(dtype))
+            .collect::<Result<Vec<_>, _>>()?;
+        Self::from_values_with_layout(dtype, byte_order, self.shape.clone(), &values, fortran)
+    }
+
     pub fn index(&self, indices: &[IndexItem]) -> Result<Self, StorageError> {
-        if indices.len() > self.ndim() {
+        if indices.iter().any(|item| {
+            matches!(
+                item,
+                IndexItem::Fancy { .. } | IndexItem::BoolScalar(_) | IndexItem::BoolMask { .. }
+            )
+        }) {
+            let (shape, offsets) = self.advanced_offsets(indices)?;
+            let storage = self
+                .storage
+                .read()
+                .map_err(|_| StorageError::LockPoisoned)?;
+            let values = offsets
+                .into_iter()
+                .map(|offset| storage.read(offset))
+                .collect::<Result<Vec<_>, _>>()?;
+            return Self::from_values_with_order(self.dtype, self.byte_order, shape, &values);
+        }
+        let consuming = indices
+            .iter()
+            .map(|item| match item {
+                IndexItem::NewAxis | IndexItem::BoolScalar(_) => 0,
+                IndexItem::BoolMask { shape, .. } => shape.len(),
+                _ => 1,
+            })
+            .sum::<usize>();
+        if consuming > self.ndim() {
             return Err(StorageError::TooManyIndices {
-                provided: indices.len(),
+                provided: consuming,
                 dimensions: self.ndim(),
             });
         }
         let mut offset = self.offset;
-        let mut shape = Vec::with_capacity(self.ndim());
-        let mut strides = Vec::with_capacity(self.ndim());
-        for axis in 0..self.ndim() {
+        let mut shape = Vec::with_capacity(self.ndim() + indices.len());
+        let mut strides = Vec::with_capacity(self.ndim() + indices.len());
+        let mut axis = 0;
+        for item in indices {
+            if matches!(item, IndexItem::NewAxis) {
+                shape.push(1);
+                strides.push(0);
+                continue;
+            }
+            if matches!(item, IndexItem::BoolScalar(_)) {
+                return Err(StorageError::InvalidFancyIndex);
+            }
+            if axis >= self.ndim() {
+                return Err(StorageError::TooManyIndices {
+                    provided: consuming,
+                    dimensions: self.ndim(),
+                });
+            }
             let dim = self.shape[axis];
             let stride = self.strides[axis];
-            match indices.get(axis).copied() {
-                Some(IndexItem::Integer(original)) => {
+            match item {
+                IndexItem::Integer(original) => {
                     let len = isize::try_from(dim).map_err(|_| StorageError::ShapeOverflow)?;
-                    let index = if original < 0 {
+                    let index = if *original < 0 {
                         original
                             .checked_add(len)
                             .ok_or(StorageError::ShapeOverflow)?
                     } else {
-                        original
+                        *original
                     };
                     if index < 0 || index >= len {
                         return Err(StorageError::IndexOutOfBounds {
                             axis,
-                            index: original,
+                            index: *original,
                             length: dim,
                         });
                     }
@@ -319,23 +1642,23 @@ impl View {
                         )
                         .ok_or(StorageError::ShapeOverflow)?;
                 }
-                Some(IndexItem::Slice { start, step, len }) => {
-                    if step == 0 {
+                IndexItem::Slice { start, step, len } => {
+                    if *step == 0 {
                         return Err(StorageError::InvalidLayout);
                     }
                     let dim_signed =
                         isize::try_from(dim).map_err(|_| StorageError::ShapeOverflow)?;
-                    if len == 0 {
-                        if start < -1 || start > dim_signed {
+                    if *len == 0 {
+                        if *start < -1 || *start > dim_signed {
                             return Err(StorageError::InvalidLayout);
                         }
                     } else {
-                        if start < 0 || start >= dim_signed {
+                        if *start < 0 || *start >= dim_signed {
                             return Err(StorageError::InvalidLayout);
                         }
-                        let delta = isize::try_from(len - 1)
+                        let delta = isize::try_from(*len - 1)
                             .map_err(|_| StorageError::ShapeOverflow)?
-                            .checked_mul(step)
+                            .checked_mul(*step)
                             .ok_or(StorageError::ShapeOverflow)?;
                         let last = start
                             .checked_add(delta)
@@ -351,24 +1674,31 @@ impl View {
                                 .ok_or(StorageError::ShapeOverflow)?,
                         )
                         .ok_or(StorageError::ShapeOverflow)?;
-                    shape.push(len);
-                    strides.push(if len == 0 {
+                    shape.push(*len);
+                    strides.push(if *len == 0 {
                         stride
                     } else {
                         stride
-                            .checked_mul(step)
+                            .checked_mul(*step)
                             .ok_or(StorageError::ShapeOverflow)?
                     });
                 }
-                None => {
-                    shape.push(dim);
-                    strides.push(stride);
+                IndexItem::Fancy { .. } | IndexItem::BoolMask { .. } => {
+                    return Err(StorageError::InvalidFancyIndex)
                 }
+                IndexItem::NewAxis | IndexItem::BoolScalar(_) => unreachable!(),
             }
+            axis += 1;
+        }
+        while axis < self.ndim() {
+            shape.push(self.shape[axis]);
+            strides.push(self.strides[axis]);
+            axis += 1;
         }
         let view = Self {
             storage: Arc::clone(&self.storage),
             dtype: self.dtype,
+            byte_order: self.byte_order,
             shape,
             strides,
             offset,
@@ -414,29 +1744,49 @@ impl View {
         self.write_at(&self.coordinates(index)?, value)
     }
     pub fn assign_scalar(&self, value: Scalar) -> Result<(), StorageError> {
-        if value.dtype() != self.dtype {
-            return Err(StorageError::DTypeMismatch);
-        }
+        let value = value.cast(self.dtype)?;
         let offsets = self.all_element_offsets()?;
         let mut storage = self
             .storage
             .write()
             .map_err(|_| StorageError::LockPoisoned)?;
         for offset in offsets {
-            storage.write(offset, value)?;
+            storage.write(offset, value.clone())?;
         }
         Ok(())
     }
     /// Snapshots the source before taking the destination write lock, making overlapping assignments safe.
     pub fn assign_view(&self, source: &Self) -> Result<(), StorageError> {
-        if self.dtype != source.dtype {
-            return Err(StorageError::DTypeMismatch);
+        if source.ndim() > self.ndim()
+            || source
+                .shape
+                .iter()
+                .rev()
+                .zip(self.shape.iter().rev())
+                .any(|(&from, &to)| from != 1 && from != to)
+        {
+            return Err(StorageError::CannotBroadcast {
+                from: source.shape.clone(),
+                to: self.shape.clone(),
+            });
         }
-        if self.shape != source.shape {
-            return Err(StorageError::ShapeMismatch);
-        }
-        let values = source.snapshot()?;
+        let source_values = source.snapshot()?;
         let offsets = self.all_element_offsets()?;
+        let mut values = Vec::with_capacity(offsets.len());
+        for linear in 0..offsets.len() {
+            let destination_coords = self.coordinates(linear)?;
+            let mut source_coords = vec![0; source.ndim()];
+            let leading = self.ndim() - source.ndim();
+            for axis in 0..source.ndim() {
+                source_coords[axis] = if source.shape[axis] == 1 {
+                    0
+                } else {
+                    destination_coords[leading + axis]
+                };
+            }
+            let source_linear = source.coordinates_to_linear(&source_coords)?;
+            values.push(source_values[source_linear].cast(self.dtype)?);
+        }
         let mut storage = self
             .storage
             .write()
@@ -446,8 +1796,271 @@ impl View {
         }
         Ok(())
     }
+    pub fn assign_fancy_scalar(
+        &self,
+        indices: &[IndexItem],
+        value: Scalar,
+    ) -> Result<(), StorageError> {
+        let value = value.cast(self.dtype)?;
+        let (_, offsets) = self.advanced_offsets(indices)?;
+        let mut storage = self
+            .storage
+            .write()
+            .map_err(|_| StorageError::LockPoisoned)?;
+        for offset in offsets {
+            storage.write(offset, value.clone())?;
+        }
+        Ok(())
+    }
+
+    pub fn assign_fancy_view(
+        &self,
+        indices: &[IndexItem],
+        source: &Self,
+    ) -> Result<(), StorageError> {
+        let (target_shape, offsets) = self.advanced_offsets(indices)?;
+        if source.ndim() > target_shape.len()
+            || source
+                .shape
+                .iter()
+                .rev()
+                .zip(target_shape.iter().rev())
+                .any(|(&from, &to)| from != 1 && from != to)
+        {
+            return Err(StorageError::CannotBroadcast {
+                from: source.shape.clone(),
+                to: target_shape.clone(),
+            });
+        }
+        let source_values = source.snapshot()?;
+        let mut values = Vec::with_capacity(offsets.len());
+        for linear in 0..offsets.len() {
+            let destination_coords = coordinates_for_shape(&target_shape, linear)?;
+            let leading = target_shape.len() - source.ndim();
+            let mut source_coords = vec![0; source.ndim()];
+            for axis in 0..source.ndim() {
+                source_coords[axis] = if source.shape[axis] == 1 {
+                    0
+                } else {
+                    destination_coords[leading + axis]
+                };
+            }
+            let source_linear = linear_for_shape(&source.shape, &source_coords)?;
+            values.push(source_values[source_linear].cast(self.dtype)?);
+        }
+        let mut storage = self
+            .storage
+            .write()
+            .map_err(|_| StorageError::LockPoisoned)?;
+        for (offset, value) in offsets.into_iter().zip(values) {
+            storage.write(offset, value)?;
+        }
+        Ok(())
+    }
+
+    fn advanced_offsets(
+        &self,
+        indices: &[IndexItem],
+    ) -> Result<(Vec<usize>, Vec<usize>), StorageError> {
+        let advanced_positions = indices
+            .iter()
+            .enumerate()
+            .filter_map(|(position, item)| {
+                matches!(
+                    item,
+                    IndexItem::Fancy { .. } | IndexItem::BoolScalar(_) | IndexItem::BoolMask { .. }
+                )
+                .then_some(position)
+            })
+            .collect::<Vec<_>>();
+        if advanced_positions.is_empty() {
+            return Err(StorageError::InvalidFancyIndex);
+        }
+        let advanced_shapes = advanced_positions
+            .iter()
+            .map(|&position| match &indices[position] {
+                IndexItem::Fancy { shape, .. } => Ok(shape.clone()),
+                IndexItem::BoolScalar(value) => Ok(vec![usize::from(*value)]),
+                IndexItem::BoolMask { indices, .. } => Ok(vec![indices.len()]),
+                _ => Err(StorageError::InvalidFancyIndex),
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+        let advanced_shape = broadcast_index_shapes(&advanced_shapes)?;
+        let first_advanced = *advanced_positions.first().unwrap();
+        let last_advanced = *advanced_positions.last().unwrap();
+        let separated = indices[first_advanced..=last_advanced]
+            .iter()
+            .any(|item| matches!(item, IndexItem::NewAxis | IndexItem::Slice { .. }));
+        let mut output_shape = if separated {
+            advanced_shape.clone()
+        } else {
+            Vec::new()
+        };
+        let mut advanced_axis_start = if separated { Some(0) } else { None };
+        let mut output_axis_for_term = vec![None; indices.len()];
+        let mut input_axis = 0usize;
+        for (position, item) in indices.iter().enumerate() {
+            let consumed = match item {
+                IndexItem::NewAxis | IndexItem::BoolScalar(_) => 0,
+                IndexItem::BoolMask { shape, .. } => shape.len(),
+                _ => 1,
+            };
+            if consumed > self.ndim().saturating_sub(input_axis) {
+                return Err(StorageError::TooManyIndices {
+                    provided: input_axis + consumed,
+                    dimensions: self.ndim(),
+                });
+            }
+            match item {
+                IndexItem::NewAxis => {
+                    output_axis_for_term[position] = Some(output_shape.len());
+                    output_shape.push(1);
+                }
+                IndexItem::BoolScalar(_) => {
+                    if !separated && position == first_advanced {
+                        advanced_axis_start = Some(output_shape.len());
+                        output_shape.extend_from_slice(&advanced_shape);
+                    }
+                }
+                IndexItem::Integer(index) => {
+                    validate_integer_index(input_axis, self.shape[input_axis], *index)?;
+                    input_axis += 1;
+                }
+                IndexItem::Slice { start, step, len } => {
+                    validate_slice(input_axis, self.shape[input_axis], *start, *step, *len)?;
+                    output_axis_for_term[position] = Some(output_shape.len());
+                    output_shape.push(*len);
+                    input_axis += 1;
+                }
+                IndexItem::Fancy { shape, indices } => {
+                    if element_count(shape)? != indices.len() {
+                        return Err(StorageError::InvalidFancyIndex);
+                    }
+                    for &index in indices {
+                        validate_integer_index(input_axis, self.shape[input_axis], index)?;
+                    }
+                    if !separated && position == first_advanced {
+                        advanced_axis_start = Some(output_shape.len());
+                        output_shape.extend_from_slice(&advanced_shape);
+                    }
+                    input_axis += 1;
+                }
+                IndexItem::BoolMask { shape, indices } => {
+                    let end = input_axis + shape.len();
+                    let mask_size = element_count(shape)?;
+                    if shape.is_empty()
+                        || shape.as_slice() != &self.shape[input_axis..end]
+                        || indices.iter().any(|&index| index >= mask_size)
+                    {
+                        return Err(StorageError::InvalidFancyIndex);
+                    }
+                    if !separated && position == first_advanced {
+                        advanced_axis_start = Some(output_shape.len());
+                        output_shape.extend_from_slice(&advanced_shape);
+                    }
+                    input_axis = end;
+                }
+            }
+            if input_axis > self.ndim() {
+                return Err(StorageError::TooManyIndices {
+                    provided: input_axis,
+                    dimensions: self.ndim(),
+                });
+            }
+        }
+        let tail_input_axis_start = input_axis;
+        let mut tail_output_axes = Vec::new();
+        while input_axis < self.ndim() {
+            tail_output_axes.push(output_shape.len());
+            output_shape.push(self.shape[input_axis]);
+            input_axis += 1;
+        }
+        if output_shape.len() > 64 {
+            return Err(StorageError::ShapeOverflow);
+        }
+        let output_size = element_count(&output_shape)?;
+        let mut offsets = Vec::with_capacity(output_size);
+        let advanced_axis_start = advanced_axis_start.ok_or(StorageError::InvalidFancyIndex)?;
+        for linear in 0..output_size {
+            let output_coords = coordinates_for_shape(&output_shape, linear)?;
+            let advanced_end = advanced_axis_start + advanced_shape.len();
+            let broadcast_coords = &output_coords[advanced_axis_start..advanced_end];
+            let mut input_coords = Vec::with_capacity(self.ndim());
+            let mut input_axis = 0usize;
+            for (position, item) in indices.iter().enumerate() {
+                match item {
+                    IndexItem::NewAxis | IndexItem::BoolScalar(_) => {}
+                    IndexItem::BoolMask {
+                        shape,
+                        indices: selected,
+                    } => {
+                        let selected_position =
+                            broadcast_index(&[selected.len()], broadcast_coords)?;
+                        let selected_linear = selected[selected_position];
+                        input_coords.extend(coordinates_for_shape(shape, selected_linear)?);
+                        input_axis += shape.len();
+                    }
+                    IndexItem::Integer(index) => {
+                        input_coords.push(normalize_integer_index(
+                            input_axis,
+                            self.shape[input_axis],
+                            *index,
+                        )?);
+                        input_axis += 1;
+                    }
+                    IndexItem::Slice { start, step, .. } => {
+                        let output_axis = output_axis_for_term[position]
+                            .ok_or(StorageError::InvalidFancyIndex)?;
+                        let selected = isize::try_from(output_coords[output_axis])
+                            .map_err(|_| StorageError::ShapeOverflow)?;
+                        let coordinate = start
+                            .checked_add(
+                                selected
+                                    .checked_mul(*step)
+                                    .ok_or(StorageError::ShapeOverflow)?,
+                            )
+                            .ok_or(StorageError::ShapeOverflow)?;
+                        input_coords.push(
+                            usize::try_from(coordinate).map_err(|_| StorageError::InvalidLayout)?,
+                        );
+                        input_axis += 1;
+                    }
+                    IndexItem::Fancy {
+                        shape,
+                        indices: selected,
+                    } => {
+                        let selected_linear = broadcast_index(shape, broadcast_coords)?;
+                        input_coords.push(normalize_integer_index(
+                            input_axis,
+                            self.shape[input_axis],
+                            selected[selected_linear],
+                        )?);
+                        input_axis += 1;
+                    }
+                }
+            }
+            while input_axis < self.ndim() {
+                let output_axis = *tail_output_axes
+                    .get(input_axis - tail_input_axis_start)
+                    .ok_or(StorageError::InvalidFancyIndex)?;
+                input_coords.push(output_coords[output_axis]);
+                input_axis += 1;
+            }
+            offsets.push(self.element_offset(&input_coords)?);
+        }
+        Ok((output_shape, offsets))
+    }
     pub fn copy(&self) -> Result<Self, StorageError> {
-        Self::from_values(self.dtype, self.shape.clone(), &self.snapshot()?)
+        self.copy_order(false)
+    }
+    pub fn copy_order(&self, fortran: bool) -> Result<Self, StorageError> {
+        Self::from_values_with_layout(
+            self.dtype,
+            self.byte_order,
+            self.shape.clone(),
+            &self.snapshot()?,
+            fortran,
+        )
     }
     pub fn snapshot(&self) -> Result<Vec<Scalar>, StorageError> {
         let offsets = self.all_element_offsets()?;
@@ -481,6 +2094,29 @@ impl View {
             rest /= dim;
         }
         Ok(coordinates)
+    }
+    fn coordinates_to_linear(&self, coordinates: &[usize]) -> Result<usize, StorageError> {
+        if coordinates.len() != self.ndim() {
+            return Err(StorageError::WrongIndexRank {
+                provided: coordinates.len(),
+                dimensions: self.ndim(),
+            });
+        }
+        let mut linear = 0usize;
+        for (axis, (&coordinate, &dim)) in coordinates.iter().zip(&self.shape).enumerate() {
+            if coordinate >= dim {
+                return Err(StorageError::IndexOutOfBounds {
+                    axis,
+                    index: isize::try_from(coordinate).unwrap_or(isize::MAX),
+                    length: dim,
+                });
+            }
+            linear = linear
+                .checked_mul(dim)
+                .and_then(|value| value.checked_add(coordinate))
+                .ok_or(StorageError::ShapeOverflow)?;
+        }
+        Ok(linear)
     }
     fn element_offset(&self, coordinates: &[usize]) -> Result<usize, StorageError> {
         let mut byte_offset = self.offset;
@@ -557,6 +2193,166 @@ impl View {
     }
 }
 
+fn coordinates_for_shape(shape: &[usize], linear: usize) -> Result<Vec<usize>, StorageError> {
+    if linear >= element_count(shape)? {
+        return Err(StorageError::InvalidLayout);
+    }
+    let mut rest = linear;
+    let mut coordinates = vec![0; shape.len()];
+    for axis in (0..shape.len()).rev() {
+        let dim = shape[axis];
+        if dim == 0 {
+            return Err(StorageError::InvalidLayout);
+        }
+        coordinates[axis] = rest % dim;
+        rest /= dim;
+    }
+    Ok(coordinates)
+}
+
+fn coordinates_for_order(
+    shape: &[usize],
+    linear: usize,
+    fortran: bool,
+) -> Result<Vec<usize>, StorageError> {
+    if linear >= element_count(shape)? {
+        return Err(StorageError::InvalidLayout);
+    }
+    let mut rest = linear;
+    let mut coordinates = vec![0; shape.len()];
+    let axes: Box<dyn Iterator<Item = usize>> = if fortran {
+        Box::new(0..shape.len())
+    } else {
+        Box::new((0..shape.len()).rev())
+    };
+    for axis in axes {
+        let dim = shape[axis];
+        if dim == 0 {
+            return Err(StorageError::InvalidLayout);
+        }
+        coordinates[axis] = rest % dim;
+        rest /= dim;
+    }
+    Ok(coordinates)
+}
+
+fn validate_integer_index(axis: usize, dim: usize, index: isize) -> Result<(), StorageError> {
+    normalize_integer_index(axis, dim, index).map(|_| ())
+}
+
+fn normalize_integer_index(
+    axis: usize,
+    dim: usize,
+    original: isize,
+) -> Result<usize, StorageError> {
+    let length = isize::try_from(dim).map_err(|_| StorageError::ShapeOverflow)?;
+    let index = if original < 0 {
+        original
+            .checked_add(length)
+            .ok_or(StorageError::ShapeOverflow)?
+    } else {
+        original
+    };
+    if index < 0 || index >= length {
+        return Err(StorageError::IndexOutOfBounds {
+            axis,
+            index: original,
+            length: dim,
+        });
+    }
+    usize::try_from(index).map_err(|_| StorageError::ShapeOverflow)
+}
+
+fn validate_slice(
+    axis: usize,
+    dim: usize,
+    start: isize,
+    step: isize,
+    len: usize,
+) -> Result<(), StorageError> {
+    if step == 0 {
+        return Err(StorageError::InvalidLayout);
+    }
+    let dim_signed = isize::try_from(dim).map_err(|_| StorageError::ShapeOverflow)?;
+    if len == 0 {
+        if start < -1 || start > dim_signed {
+            return Err(StorageError::InvalidLayout);
+        }
+        return Ok(());
+    }
+    if start < 0 || start >= dim_signed {
+        return Err(StorageError::InvalidLayout);
+    }
+    let delta = isize::try_from(len - 1)
+        .map_err(|_| StorageError::ShapeOverflow)?
+        .checked_mul(step)
+        .ok_or(StorageError::ShapeOverflow)?;
+    let last = start
+        .checked_add(delta)
+        .ok_or(StorageError::ShapeOverflow)?;
+    if last < 0 || last >= dim_signed {
+        return Err(StorageError::InvalidLayout);
+    }
+    let _ = axis;
+    Ok(())
+}
+
+fn linear_for_shape(shape: &[usize], coordinates: &[usize]) -> Result<usize, StorageError> {
+    if coordinates.len() != shape.len() {
+        return Err(StorageError::WrongIndexRank {
+            provided: coordinates.len(),
+            dimensions: shape.len(),
+        });
+    }
+    let mut linear = 0usize;
+    for (axis, (&coordinate, &dim)) in coordinates.iter().zip(shape).enumerate() {
+        if coordinate >= dim {
+            return Err(StorageError::IndexOutOfBounds {
+                axis,
+                index: isize::try_from(coordinate).unwrap_or(isize::MAX),
+                length: dim,
+            });
+        }
+        linear = linear
+            .checked_mul(dim)
+            .and_then(|value| value.checked_add(coordinate))
+            .ok_or(StorageError::ShapeOverflow)?;
+    }
+    Ok(linear)
+}
+
+fn broadcast_index_shapes(shapes: &[Vec<usize>]) -> Result<Vec<usize>, StorageError> {
+    let ndim = shapes.iter().map(Vec::len).max().unwrap_or(0);
+    let mut result = vec![1; ndim];
+    for shape in shapes {
+        for (offset, &dimension) in shape.iter().rev().enumerate() {
+            let axis = ndim - 1 - offset;
+            if result[axis] == 1 {
+                result[axis] = dimension;
+            } else if dimension != 1 && result[axis] != dimension {
+                return Err(StorageError::InvalidFancyIndex);
+            }
+        }
+    }
+    Ok(result)
+}
+
+fn broadcast_index(shape: &[usize], coordinates: &[usize]) -> Result<usize, StorageError> {
+    if shape.len() > coordinates.len() {
+        return Err(StorageError::InvalidFancyIndex);
+    }
+    let leading = coordinates.len() - shape.len();
+    let mut index_coordinates = Vec::with_capacity(shape.len());
+    for (axis, &dimension) in shape.iter().enumerate() {
+        index_coordinates.push(if dimension == 1 {
+            0
+        } else {
+            coordinates[leading + axis]
+        });
+    }
+    linear_for_shape(shape, &index_coordinates)
+}
+
 fn element_count(shape: &[usize]) -> Result<usize, StorageError> {
     let mut count = 1usize;
     for &dim in shape {
@@ -574,6 +2370,23 @@ fn c_strides(dtype: DType, shape: &[usize]) -> Result<Vec<isize>, StorageError> 
     }
     let mut stride = isize::try_from(dtype.itemsize()).map_err(|_| StorageError::ShapeOverflow)?;
     for axis in (0..shape.len()).rev() {
+        strides[axis] = stride;
+        stride = stride
+            .checked_mul(
+                isize::try_from(shape[axis].max(1)).map_err(|_| StorageError::ShapeOverflow)?,
+            )
+            .ok_or(StorageError::ShapeOverflow)?;
+    }
+    Ok(strides)
+}
+
+fn f_strides(dtype: DType, shape: &[usize]) -> Result<Vec<isize>, StorageError> {
+    let mut strides = vec![0; shape.len()];
+    if shape.contains(&0) {
+        return Ok(strides);
+    }
+    let mut stride = isize::try_from(dtype.itemsize()).map_err(|_| StorageError::ShapeOverflow)?;
+    for axis in 0..shape.len() {
         strides[axis] = stride;
         stride = stride
             .checked_mul(
