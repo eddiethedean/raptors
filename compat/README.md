@@ -1,6 +1,6 @@
 # Compatibility inventory and 0.1 manifest
 
-[`raptors-0.1.json`](raptors-0.1.json) is the executable description of the supported preview. [`numpy-api-2.5.3.json`](numpy-api-2.5.3.json) records the NumPy 2.5.3 public names and members discovered by the pinned inventory generator.
+[`raptors-0.1.json`](raptors-0.1.json) is the executable description of the supported preview. It records the exact `package_version` and whether that contract has been published; the README stats use those fields to select the newest released version. [`numpy-api-2.5.3.json`](numpy-api-2.5.3.json) records the NumPy 2.5.3 public names and members discovered by the pinned inventory generator.
 
 ## Inventory scope
 

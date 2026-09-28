@@ -77,6 +77,19 @@ jobs:
       - name: Run isolated storage tests under AddressSanitizer
         run: cargo +nightly test -Zbuild-std --target x86_64-unknown-linux-gnu --locked -p raptors-storage
 
+  readme-release-stats:
+    name: Verify README release stats
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.14'
+
+      - name: Check generated stats against the latest published contract
+        run: python scripts/update_readme_release_stats.py --check
+
   api-inventory:
     name: Verify pinned NumPy API inventory
     runs-on: macos-15

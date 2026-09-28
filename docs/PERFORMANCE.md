@@ -2,6 +2,8 @@
 
 **Status: no reproducible NumPy speed advantage has been established.** The existing [Criterion benchmarks](../raptors-core/benches/) measure selected Rust operations. They are useful local probes, but do not demonstrate end-to-end Python performance against NumPy.
 
+The README shows the measurements for the newest published Raptors release. Its generated section links to the exact compatibility contract and raw benchmark JSON. See [release stats maintenance](RELEASE_STATS.md) for the source and required post-release update.
+
 The [rebuild plan](REBUILD_PLAN.md) makes performance a separate acceptance gate after the foundation is correct.
 
 ## Baseline before optimization
@@ -19,10 +21,10 @@ The [0.1 JSON report](benchmarks/raptors-0.1-baseline.json) contains eight obser
 
 This single-host measurement shows lower median latency for NumPy on all four operations, although the slice difference is under one microsecond. It is an informational baseline, not a performance claim or a release-quality comparison. Python `tracemalloc` omits native buffer allocations; the process high-water RSS delta is coarse and allocator-dependent.
 
-Reproduce it after installing the locked development environment and building the extension:
+Reproduce it after installing the locked development environment and building the extension. Write to a temporary path so the committed historical baseline remains unchanged:
 
 ```bash
-uv run --project raptors-python --extra dev --no-sync python scripts/bench_0_1.py --count 250000 --repeats 5
+uv run --project raptors-python --extra dev --no-sync python scripts/bench_0_1.py --count 250000 --repeats 5 --output /tmp/raptors-0.1-reproduced.json
 ```
 
 The command uses a warmup and launches separate processes for each backend/operation. The script and report record interpreter, NumPy/Raptors versions, platform, CPU architecture, and thread environment.

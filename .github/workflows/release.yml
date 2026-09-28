@@ -78,6 +78,9 @@ jobs:
           print(f"Validated {tag or 'build-only candidate'} at {version}; NumPy source {source_commit}.")
           PY
 
+      - name: Verify README release stats
+        run: python scripts/update_readme_release_stats.py --check
+
       - name: Verify Python test lock
         run: uv lock --project raptors-python --check
 

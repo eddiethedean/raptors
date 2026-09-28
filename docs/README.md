@@ -16,6 +16,7 @@ The [rebuild plan](REBUILD_PLAN.md) is the authoritative statement of direction.
 | [Test porting](TEST_PORTING.md) | Differential testing and upstream test provenance |
 | [Verification record](NUMPY_TEST_VERIFICATION.md) | What has actually been checked |
 | [Performance](PERFORMANCE.md) | Benchmark design and performance acceptance criteria |
+| [Release stats](RELEASE_STATS.md) | README stats source, refresh process, and release update gate |
 | [Compatibility inventory](../compat/README.md) | NumPy API inventory scope and regeneration method |
 
 ## Python development
