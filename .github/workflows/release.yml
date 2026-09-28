@@ -81,15 +81,32 @@ jobs:
       - name: Verify Python test lock
         run: uv lock --project raptors-python --check
 
-      - name: Verify generated API inventory against the pinned oracle
+      - name: Verify Cargo lock and workspace metadata
+        run: cargo metadata --locked --format-version 1 --no-deps > /dev/null
+
+  api-inventory:
+    name: Verify pinned NumPy API inventory
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.14.3'
+
+      - uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
+        with:
+          version: '0.12.19'
+          enable-cache: true
+
+      - name: Install the canonical locked oracle environment
+        run: uv sync --project raptors-python --extra dev --locked --no-install-project --python 3.14.3
+
+      - name: Validate and regenerate the inventory
         run: |
-          uv sync --project raptors-python --extra dev --locked --no-install-project --python 3.14
           python scripts/check_api_inventory.py
           uv run --project raptors-python --extra dev --locked --no-sync python scripts/generate_numpy_api_inventory.py --output "$RUNNER_TEMP/numpy-api-2.5.3.json"
           cmp compat/numpy-api-2.5.3.json "$RUNNER_TEMP/numpy-api-2.5.3.json"
-
-      - name: Verify Cargo lock and workspace metadata
-        run: cargo metadata --locked --format-version 1 --no-deps > /dev/null
 
   rust-checks:
     name: Safe storage and binding Rust checks
@@ -159,7 +176,7 @@ jobs:
 
   build-test-wheels:
     name: ${{ matrix.platform }} / CPython ${{ matrix.python-version }}
-    needs: [validate-tag, rust-checks, miri, address-sanitizer]
+    needs: [validate-tag, api-inventory, rust-checks, miri, address-sanitizer]
     runs-on: ${{ matrix.runner }}
     strategy:
       fail-fast: false
@@ -282,7 +299,7 @@ jobs:
   publish:
     name: Publish validated wheels to PyPI
     if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
-    needs: [validate-tag, rust-checks, miri, address-sanitizer, build-test-wheels]
+    needs: [validate-tag, api-inventory, rust-checks, miri, address-sanitizer, build-test-wheels]
     runs-on: ubuntu-latest
     environment:
       name: pypi

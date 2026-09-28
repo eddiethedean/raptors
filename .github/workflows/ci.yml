@@ -77,6 +77,30 @@ jobs:
       - name: Run isolated storage tests under AddressSanitizer
         run: cargo +nightly test -Zbuild-std --target x86_64-unknown-linux-gnu --locked -p raptors-storage
 
+  api-inventory:
+    name: Verify pinned NumPy API inventory
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.14.3'
+
+      - uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
+        with:
+          version: '0.12.19'
+          enable-cache: true
+
+      - name: Install the canonical locked oracle environment
+        run: uv sync --project raptors-python --extra dev --locked --no-install-project --python 3.14.3
+
+      - name: Validate and regenerate the inventory
+        run: |
+          python scripts/check_api_inventory.py
+          uv run --project raptors-python --extra dev --locked --no-sync python scripts/generate_numpy_api_inventory.py --output "$RUNNER_TEMP/numpy-api-2.5.3.json"
+          cmp compat/numpy-api-2.5.3.json "$RUNNER_TEMP/numpy-api-2.5.3.json"
+
   python-tests:
     name: CPython ${{ matrix.python-version }} preview tests
     runs-on: ubuntu-latest
@@ -100,13 +124,6 @@ jobs:
 
       - name: Install locked oracle and test dependencies
         run: uv sync --project raptors-python --extra dev --locked --no-install-project --python "${{ matrix.python-version }}"
-
-      - name: Check inventory against the pinned oracle
-        if: matrix.python-version == '3.14'
-        run: |
-          python scripts/check_api_inventory.py
-          uv run --project raptors-python --extra dev --locked --no-sync python scripts/generate_numpy_api_inventory.py --output "$RUNNER_TEMP/numpy-api-2.5.3.json"
-          cmp compat/numpy-api-2.5.3.json "$RUNNER_TEMP/numpy-api-2.5.3.json"
 
       - name: Build extension into the test environment
         run: uv run --project raptors-python --extra dev --locked maturin develop --manifest-path raptors-python/Cargo.toml --release

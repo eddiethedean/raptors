@@ -20,11 +20,11 @@ The later-release assignments and generic case plans are intentionally prelimina
 
 ## Regeneration
 
-Use the exact NumPy wheel in the lock file from the repository root:
+Use the exact NumPy wheel in the lock file in the canonical generation environment: macOS ARM64, CPython 3.14.3. NumPy exposes a small number of inventory members differently across operating systems, so the checked-in inventory and its byte-for-byte release check use this platform and interpreter patch:
 
 ```bash
-uv sync --project raptors-python --extra dev --locked --python 3.14 --no-install-project
-uv run --project raptors-python --extra dev --no-sync python scripts/generate_numpy_api_inventory.py
+uv sync --project raptors-python --extra dev --locked --python 3.14.3 --no-install-project
+uv run --project raptors-python --extra dev --locked --no-sync python scripts/generate_numpy_api_inventory.py
 ```
 
-The generator rejects any NumPy version other than 2.5.3 and normalizes address-bearing default representations so output is reproducible. CI regenerates the inventory and compares it byte-for-byte with this file. `scripts/check_api_inventory.py` also checks the reference, entry count, unique sorted names, release assignments, case plans, and preview entries. Review entry-count and target changes in the same change as an intentional reference-version update; do not overwrite the pin silently.
+The generator rejects any NumPy version other than 2.5.3 and normalizes address-bearing default representations. CI and release validation run it on the same macOS ARM64/CPython 3.14.3 environment and compare the output byte-for-byte. `scripts/check_api_inventory.py` also checks the reference, entry count, unique sorted names, release assignments, case plans, and preview entries. Review entry-count and target changes in the same change as an intentional reference-version update; do not overwrite the pin silently.
