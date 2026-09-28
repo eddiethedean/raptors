@@ -8,7 +8,8 @@ The [rebuild plan](REBUILD_PLAN.md) is the authoritative statement of direction.
 | --- | --- |
 | [Rebuild plan](REBUILD_PLAN.md) | Scope, architecture proposal, phases, and acceptance gates |
 | [0.x release roadmap](CONVERSION_ROADMAP.md) | Versioned deliverables, exit gates, and current release status |
-| [Release 0.1 execution plan](RELEASE_0_1.md) | Preview API, local evidence, remaining hosted checks, and tag gate |
+| [Release 0.1 execution plan](RELEASE_0_1.md) | Published preview API, validation evidence, and release gate |
+| [Release 0.2 execution plan](RELEASE_0_2.md) | Numeric dtype and array foundation scope, work order, risks, and release gate |
 | [Architecture](ARCHITECTURE.md) | Implemented 0.1 storage path, retained legacy code, and proposed later layers |
 | [API guide](API_GUIDE.md) | Existing entry points and target compatibility behavior |
 | [Migration guide](CONVERSION_GUIDE.md) | Evaluating Python applications with an import change |

@@ -77,4 +77,4 @@ The published 0.1.0 wheel set predates this eight-target strategy. The updated b
 
 ## Documentation
 
-Start with the [documentation index](docs/README.md), [rebuild plan](docs/REBUILD_PLAN.md), and [release 0.1 evidence](docs/RELEASE_0_1.md). The project is MIT licensed; see [LICENSE](LICENSE).
+Start with the [documentation index](docs/README.md), [rebuild plan](docs/REBUILD_PLAN.md), [release 0.1 evidence](docs/RELEASE_0_1.md), and [0.2 execution plan](docs/RELEASE_0_2.md). The project is MIT licensed; see [LICENSE](LICENSE).
