@@ -38,7 +38,7 @@ See [Python build](raptors-python/BUILD.md), [Python testing](raptors-python/TES
 
 `.github/workflows/release.yml` validates the tag and package versions, runs Rust safety checks, builds and tests eight target wheels, then publishes those wheels to PyPI through the configured trusted publisher. Each `cp312-abi3` wheel is tested on CPython 3.12, 3.13, and 3.14. It triggers on exact `vX.Y.Z` tags. A manual run performs the validation/build path without publishing.
 
-The published 0.1.0 wheel set predates this eight-target strategy. Run the workflow manually and confirm it passes before creating a later release tag. Source distributions remain disabled until a clean source build is verified.
+The published 0.1.0 wheel set predates this eight-target strategy. The updated build-only workflow passed on commit `ab0b4d8` ([run](https://github.com/eddiethedean/raptors/actions/runs/36468681074)); rerun it after release changes and before creating a later tag. Source distributions remain disabled until a clean source build is verified.
 
 ## Documentation
 

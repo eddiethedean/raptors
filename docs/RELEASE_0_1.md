@@ -12,7 +12,7 @@
 
 The package metadata, CI and release matrices use the same Python range. The release workflow checks all package versions against an exact `vX.Y.Z` tag before publishing.
 
-The current workflow applies to releases after 0.1.0 and builds eight `cp312-abi3` wheels: manylinux x86-64 and ARM64, macOS x86-64 and ARM64, musllinux x86-64 and ARM64, and Windows x86-64 and ARM64. It tests each wheel on CPython 3.12, 3.13, and 3.14 before publishing.
+The current workflow applies to releases after 0.1.0 and builds eight `cp312-abi3` wheels: manylinux x86-64 and ARM64, macOS x86-64 and ARM64, musllinux x86-64 and ARM64, and Windows x86-64 and ARM64. Its build-only [`workflow_dispatch` run](https://github.com/eddiethedean/raptors/actions/runs/36468681074) passed on commit `ab0b4d8`; each wheel passed its CPython 3.12, 3.13, and 3.14 checks. The run skipped publication, and the 0.1.0 wheel set is unchanged.
 
 ## Public preview boundary
 

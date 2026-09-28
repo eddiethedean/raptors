@@ -4,7 +4,7 @@ Date: 2026-09-28
 
 Status: accepted project direction; the 0.1 preview is published, with its hosted release gates passed. Releases 0.2–0.9 remain planned. See the [0.x release roadmap](CONVERSION_ROADMAP.md) for versioned deliverables and the [documentation index](README.md) for aligned development and validation guides. This plan supersedes the legacy completion roadmap and async-service positioning.
 
-The 0.1 result includes the pinned NumPy oracle, generated API inventory, compatibility manifest, legacy baseline record, differential/property harness, new safe storage crate, PyO3 preview, wheel checks, benchmark, Miri job, and tag-triggered trusted-publisher workflow. CPython 3.12–3.14 suites pass locally on macOS ARM64; the tagged release passed hosted platform and AddressSanitizer jobs. The current workflow configures eight `cp312-abi3` target wheels for later releases. See [release 0.1](RELEASE_0_1.md) for exact scope and evidence.
+The 0.1 result includes the pinned NumPy oracle, generated API inventory, compatibility manifest, legacy baseline record, differential/property harness, new safe storage crate, PyO3 preview, wheel checks, benchmark, Miri job, and tag-triggered trusted-publisher workflow. CPython 3.12–3.14 suites pass locally on macOS ARM64; the tagged release passed hosted platform and AddressSanitizer jobs. The current workflow builds eight `cp312-abi3` target wheels for later releases, and its build-only matrix passed in [run 36468681074](https://github.com/eddiethedean/raptors/actions/runs/36468681074). See [release 0.1](RELEASE_0_1.md) for exact scope and evidence.
 
 ## Goal and recommendation
 

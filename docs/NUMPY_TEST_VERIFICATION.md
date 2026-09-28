@@ -52,8 +52,11 @@ also passed.
 
 The release workflow has since changed for versions after 0.1.0: it builds
 eight `cp312-abi3` target wheels and tests each on CPython 3.12, 3.13, and 3.14.
-That updated matrix requires its own build-only `workflow_dispatch` run before
-the next release tag. It does not alter the already-published 0.1.0 wheel set.
+The updated matrix passed its build-only
+[`workflow_dispatch` run](https://github.com/eddiethedean/raptors/actions/runs/36468681074)
+on commit `ab0b4d8`; publishing was skipped as expected. Repeat this preflight
+after release changes and before the next release tag. The new strategy does
+not alter the already-published 0.1.0 wheel set.
 
 ## Reproducibility and interpretation
 

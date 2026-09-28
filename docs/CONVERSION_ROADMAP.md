@@ -4,7 +4,7 @@ This roadmap turns the [rebuild plan](REBUILD_PLAN.md) into versioned releases. 
 
 Full public functionality remains the destination. Each 0.x release is an explicitly limited development release, and its compatibility manifest must say what works and what does not. A release number is a gate, not a date estimate or evidence that work has passed.
 
-**Current status:** v0.1's declared preview is published, and its hosted release gates passed. The current release workflow defines the eight-target stable-ABI build for later versions. The old engine remains a legacy prototype. No full compatibility, general memory-safety, or performance-advantage claim is supported.
+**Current status:** v0.1's declared preview is published, and its hosted release gates passed. The eight-target stable-ABI workflow for later versions passed a build-only hosted run; see the [verification record](NUMPY_TEST_VERIFICATION.md). The old engine remains a legacy prototype. No full compatibility, general memory-safety, or performance-advantage claim is supported.
 
 ## Releases
 
