@@ -312,6 +312,41 @@ def test_array_casts_warn_when_finite_values_overflow_float32():
     assert_array_matches(expected, copied)
 
 
+@pytest.mark.parametrize(
+    "dtype",
+    [
+        raptors.int8,
+        raptors.uint8,
+        raptors.int16,
+        raptors.uint16,
+        raptors.int32,
+        raptors.uint32,
+        raptors.int64,
+        raptors.uint64,
+    ],
+)
+def test_float_array_to_integer_cast_matches_numpy(dtype):
+    values = [1e20, -1e20, float("inf"), float("-inf"), float("nan")]
+    reference_source = np.array(values, dtype=np.float64)
+    candidate_source = raptors.array(values, dtype=raptors.float64)
+
+    with pytest.warns(RuntimeWarning, match="invalid value encountered in cast") as expected_warnings:
+        expected = reference_source.astype(dtype.name)
+    with pytest.warns(RuntimeWarning, match="invalid value encountered in cast") as actual_warnings:
+        actual = candidate_source.astype(dtype)
+    assert len(actual_warnings) == len(expected_warnings) == 1
+    assert_array_matches(expected, actual)
+
+    expected_assignment = np.zeros(len(values), dtype=dtype.name)
+    actual_assignment = raptors.zeros(len(values), dtype=dtype)
+    with pytest.warns(RuntimeWarning, match="invalid value encountered in cast") as expected_warnings:
+        expected_assignment[:] = reference_source
+    with pytest.warns(RuntimeWarning, match="invalid value encountered in cast") as actual_warnings:
+        actual_assignment[:] = candidate_source
+    assert len(actual_warnings) == len(expected_warnings) == 1
+    assert_array_matches(expected_assignment, actual_assignment)
+
+
 def test_complex_to_real_scalar_conversion_raises_type_error():
     with pytest.raises(TypeError):
         np.array([1 + 2j], dtype=np.float32)
@@ -386,6 +421,24 @@ def test_tuple_integer_and_slice_indexing():
     assert type(scalar).__name__ == "Float32Scalar"
     assert scalar == expected
     assert scalar.dtype.name == "float32"
+
+
+def test_scalar_integer_indices_participate_in_advanced_axis_placement():
+    values = np.arange(3 * 4 * 5, dtype=np.int64).reshape(3, 4, 5)
+    reference = values
+    candidate = raptors.array(values.tolist(), dtype=raptors.int64)
+    fancy = np.array([0, 2], dtype=np.int64)
+    fancy_candidate = raptors.array([0, 2], dtype=raptors.int64)
+
+    for reference_key, candidate_key in [
+        ((0, slice(None), fancy), (0, slice(None), fancy_candidate)),
+        ((0, None, fancy), (0, None, fancy_candidate)),
+    ]:
+        expected = reference[reference_key]
+        actual = candidate[candidate_key]
+        assert tuple(actual.shape) == expected.shape
+        for coordinates in np.ndindex(expected.shape):
+            assert int(actual[tuple(map(int, coordinates))]) == int(expected[coordinates])
 
 
 def test_zero_dimensional_integer_array_index_returns_scalar():

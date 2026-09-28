@@ -392,14 +392,14 @@ impl Scalar {
         }
         let value = match dtype {
             DType::Bool => Self::Bool(self.truthy()),
-            DType::Int8 => Self::Int8(to_i128(self)? as i8),
-            DType::UInt8 => Self::UInt8(to_i128(self)? as u8),
-            DType::Int16 => Self::Int16(to_i128(self)? as i16),
-            DType::UInt16 => Self::UInt16(to_i128(self)? as u16),
-            DType::Int32 => Self::Int32(to_i128(self)? as i32),
-            DType::UInt32 => Self::UInt32(to_i128(self)? as u32),
-            DType::Int64 => Self::Int64(to_i128(self)? as i64),
-            DType::UInt64 => Self::UInt64(to_i128(self)? as u64),
+            DType::Int8
+            | DType::UInt8
+            | DType::Int16
+            | DType::UInt16
+            | DType::Int32
+            | DType::UInt32
+            | DType::Int64
+            | DType::UInt64 => cast_to_integer(self, dtype)?,
             DType::Float16 => Self::Float16(half::f16::from_f64(self.as_f64()?).to_f32()),
             DType::Float32 => Self::Float32(self.as_f64()? as f32),
             DType::Float64 => Self::Float64(self.as_f64()?),
@@ -437,6 +437,29 @@ impl Scalar {
                 im.parse().map_err(|_| StorageError::InvalidScalar)?,
             )),
             _ => Ok((self.as_f64()?, 0.0)),
+        }
+    }
+
+    /// Whether casting this floating scalar to an integer dtype uses NumPy's
+    /// invalid-value path (which emits a RuntimeWarning in the Python API).
+    pub fn integer_cast_is_invalid(&self, dtype: DType) -> bool {
+        let Some((lower, upper)) = float_integer_cast_bounds(dtype) else {
+            return false;
+        };
+        match self {
+            Self::Float16(value) | Self::Float32(value) => {
+                !float_integer_cast_in_range(*value as f64, lower, upper)
+            }
+            Self::Float64(value) => !float_integer_cast_in_range(*value, lower, upper),
+            Self::Complex64(real, _) => !float_integer_cast_in_range(*real as f64, lower, upper),
+            Self::Complex128(real, _) => !float_integer_cast_in_range(*real, lower, upper),
+            Self::LongDouble(value) | Self::ComplexLongDouble(value, _) => {
+                match decimal_to_i128(value) {
+                    Ok(integer) => integer < lower || integer >= upper,
+                    Err(_) => true,
+                }
+            }
+            _ => false,
         }
     }
 }
@@ -567,6 +590,92 @@ fn to_i128(value: &Scalar) -> Result<i128, StorageError> {
         Scalar::Complex128(real, _) => float_to_i128(*real),
         Scalar::ComplexLongDouble(real, _) => decimal_to_i128(real),
     }
+}
+
+fn cast_to_integer(value: &Scalar, dtype: DType) -> Result<Scalar, StorageError> {
+    match value {
+        Scalar::Float16(number) | Scalar::Float32(number) => {
+            Ok(cast_f64_to_integer(*number as f64, dtype))
+        }
+        Scalar::Float64(number) => Ok(cast_f64_to_integer(*number, dtype)),
+        Scalar::Complex64(real, _) => Ok(cast_f64_to_integer(*real as f64, dtype)),
+        Scalar::Complex128(real, _) => Ok(cast_f64_to_integer(*real, dtype)),
+        Scalar::LongDouble(number) | Scalar::ComplexLongDouble(number, _) => {
+            match decimal_to_i128(number) {
+                Ok(integer) => Ok(cast_long_double_integer(integer, dtype)),
+                Err(_) => {
+                    let number = number
+                        .parse::<f64>()
+                        .map_err(|_| StorageError::CastOverflow)?;
+                    Ok(cast_f64_to_integer(number, dtype))
+                }
+            }
+        }
+        _ => Ok(cast_integer_value(to_i128(value)?, dtype)),
+    }
+}
+
+fn cast_f64_to_integer(value: f64, dtype: DType) -> Scalar {
+    match dtype {
+        DType::Int8 => Scalar::Int8((value as i32) as i8),
+        DType::UInt8 => Scalar::UInt8((value as i32) as u8),
+        DType::Int16 => Scalar::Int16((value as i32) as i16),
+        DType::UInt16 => Scalar::UInt16((value as i32) as u16),
+        DType::Int32 => Scalar::Int32(value as i32),
+        DType::UInt32 => Scalar::UInt32(value as u32),
+        DType::Int64 => Scalar::Int64(value as i64),
+        DType::UInt64 => Scalar::UInt64(value as u64),
+        _ => unreachable!("cast_f64_to_integer requires an integer dtype"),
+    }
+}
+
+fn cast_integer_value(value: i128, dtype: DType) -> Scalar {
+    match dtype {
+        DType::Int8 => Scalar::Int8(value as i8),
+        DType::UInt8 => Scalar::UInt8(value as u8),
+        DType::Int16 => Scalar::Int16(value as i16),
+        DType::UInt16 => Scalar::UInt16(value as u16),
+        DType::Int32 => Scalar::Int32(value as i32),
+        DType::UInt32 => Scalar::UInt32(value as u32),
+        DType::Int64 => Scalar::Int64(value as i64),
+        DType::UInt64 => Scalar::UInt64(value as u64),
+        _ => unreachable!("cast_integer_value requires an integer dtype"),
+    }
+}
+
+fn cast_long_double_integer(value: i128, dtype: DType) -> Scalar {
+    match dtype {
+        DType::Int8 => Scalar::Int8(value.clamp(i32::MIN as i128, i32::MAX as i128) as i8),
+        DType::UInt8 => Scalar::UInt8(value.clamp(i32::MIN as i128, i32::MAX as i128) as u8),
+        DType::Int16 => Scalar::Int16(value.clamp(i32::MIN as i128, i32::MAX as i128) as i16),
+        DType::UInt16 => Scalar::UInt16(value.clamp(i32::MIN as i128, i32::MAX as i128) as u16),
+        DType::Int32 => Scalar::Int32(value.clamp(i32::MIN as i128, i32::MAX as i128) as i32),
+        DType::UInt32 => Scalar::UInt32(value.clamp(0, u32::MAX as i128) as u32),
+        DType::Int64 => Scalar::Int64(value.clamp(i64::MIN as i128, i64::MAX as i128) as i64),
+        DType::UInt64 => Scalar::UInt64(value.clamp(0, u64::MAX as i128) as u64),
+        _ => unreachable!("cast_long_double_integer requires an integer dtype"),
+    }
+}
+
+fn float_integer_cast_bounds(dtype: DType) -> Option<(i128, i128)> {
+    match dtype {
+        DType::Int8 | DType::UInt8 | DType::Int16 | DType::UInt16 => {
+            Some((i32::MIN as i128, i32::MAX as i128 + 1))
+        }
+        DType::Int32 => Some((i32::MIN as i128, i32::MAX as i128 + 1)),
+        DType::UInt32 => Some((0, u32::MAX as i128 + 1)),
+        DType::Int64 => Some((i64::MIN as i128, i64::MAX as i128 + 1)),
+        DType::UInt64 => Some((0, u64::MAX as i128 + 1)),
+        _ => None,
+    }
+}
+
+fn float_integer_cast_in_range(value: f64, lower: i128, upper: i128) -> bool {
+    if !value.is_finite() {
+        return false;
+    }
+    let truncated = value.trunc();
+    truncated >= lower as f64 && truncated < upper as f64
 }
 
 fn decimal_to_i128(value: &str) -> Result<i128, StorageError> {
@@ -1884,8 +1993,26 @@ impl View {
             })
             .collect::<Result<Vec<_>, _>>()?;
         let advanced_shape = broadcast_index_shapes(&advanced_shapes)?;
-        let first_advanced = *advanced_positions.first().unwrap();
-        let last_advanced = *advanced_positions.last().unwrap();
+        // Scalar integer terms do not add a broadcast dimension, but they do
+        // participate in NumPy's placement rules when mixed with advanced
+        // indices. In particular, a slice or new axis between an integer
+        // scalar and a fancy index moves the advanced dimensions to the front.
+        let placement_positions = indices
+            .iter()
+            .enumerate()
+            .filter_map(|(position, item)| {
+                matches!(
+                    item,
+                    IndexItem::Integer(_)
+                        | IndexItem::Fancy { .. }
+                        | IndexItem::BoolScalar(_)
+                        | IndexItem::BoolMask { .. }
+                )
+                .then_some(position)
+            })
+            .collect::<Vec<_>>();
+        let first_advanced = *placement_positions.first().unwrap();
+        let last_advanced = *placement_positions.last().unwrap();
         let separated = indices[first_advanced..=last_advanced]
             .iter()
             .any(|item| matches!(item, IndexItem::NewAxis | IndexItem::Slice { .. }));
@@ -1922,6 +2049,10 @@ impl View {
                 }
                 IndexItem::Integer(index) => {
                     validate_integer_index(input_axis, self.shape[input_axis], *index)?;
+                    if !separated && position == first_advanced {
+                        advanced_axis_start = Some(output_shape.len());
+                        output_shape.extend_from_slice(&advanced_shape);
+                    }
                     input_axis += 1;
                 }
                 IndexItem::Slice { start, step, len } => {
@@ -2736,6 +2867,71 @@ mod tests {
         assert_eq!(
             dst.snapshot().unwrap(),
             vec![Scalar::Int64(0), Scalar::Int64(0)]
+        );
+    }
+
+    #[test]
+    fn floating_integer_casts_saturate_like_numpy_array_casts() {
+        assert_eq!(
+            Scalar::Float64(1e20).cast(DType::Int64).unwrap(),
+            Scalar::Int64(i64::MAX)
+        );
+        assert_eq!(
+            Scalar::Float64(f64::NEG_INFINITY)
+                .cast(DType::Int32)
+                .unwrap(),
+            Scalar::Int32(i32::MIN)
+        );
+        assert_eq!(
+            Scalar::Float64(f64::NAN).cast(DType::UInt32).unwrap(),
+            Scalar::UInt32(0)
+        );
+        assert_eq!(
+            Scalar::Float64(1e20).cast(DType::Int8).unwrap(),
+            Scalar::Int8(-1)
+        );
+        assert_eq!(
+            Scalar::LongDouble("9223372036854775807".into())
+                .cast(DType::Int64)
+                .unwrap(),
+            Scalar::Int64(i64::MAX)
+        );
+        assert!(Scalar::Float64(f64::NAN).integer_cast_is_invalid(DType::Int32));
+        assert!(Scalar::Float64(1e20).integer_cast_is_invalid(DType::Int8));
+        assert!(!Scalar::Float64(300.0).integer_cast_is_invalid(DType::UInt8));
+    }
+
+    #[test]
+    fn scalar_integer_and_slice_before_fancy_index_move_advanced_axis() {
+        let values = (0..60).map(Scalar::Int64).collect::<Vec<_>>();
+        let owner = View::from_values(DType::Int64, vec![3, 4, 5], &values).unwrap();
+        let selected = owner
+            .index(&[
+                IndexItem::Integer(0),
+                IndexItem::Slice {
+                    start: 0,
+                    step: 1,
+                    len: 4,
+                },
+                IndexItem::Fancy {
+                    shape: vec![2],
+                    indices: vec![0, 2],
+                },
+            ])
+            .unwrap();
+        assert_eq!(selected.shape(), &[2, 4]);
+        assert_eq!(
+            selected.snapshot().unwrap(),
+            vec![
+                Scalar::Int64(0),
+                Scalar::Int64(5),
+                Scalar::Int64(10),
+                Scalar::Int64(15),
+                Scalar::Int64(2),
+                Scalar::Int64(7),
+                Scalar::Int64(12),
+                Scalar::Int64(17),
+            ]
         );
     }
 }

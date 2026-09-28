@@ -1399,6 +1399,17 @@ fn warn_scalar_cast_overflow(py: Python<'_>, value: &Scalar, dtype: DType) -> Py
 }
 
 fn warn_view_cast_overflow(py: Python<'_>, source: &View, dtype: DType) -> PyResult<()> {
+    if matches!(dtype.kind(), "i" | "u") {
+        if source
+            .snapshot()
+            .map_err(map_storage_error)?
+            .iter()
+            .any(|value| value.integer_cast_is_invalid(dtype))
+        {
+            emit_invalid_cast_warning(py)?;
+        }
+        return Ok(());
+    }
     if !matches!(dtype, DType::Float16 | DType::Float32 | DType::Complex64) {
         return Ok(());
     }
@@ -1428,6 +1439,13 @@ fn scalar_cast_overflows(value: &Scalar, dtype: DType) -> bool {
 
 fn emit_cast_overflow_warning(py: Python<'_>) -> PyResult<()> {
     let message = CString::new("overflow encountered in cast")
+        .expect("static warning text contains no NUL bytes");
+    let category = py.get_type::<PyRuntimeWarning>();
+    PyErr::warn(py, &category, message.as_c_str(), 2)
+}
+
+fn emit_invalid_cast_warning(py: Python<'_>) -> PyResult<()> {
+    let message = CString::new("invalid value encountered in cast")
         .expect("static warning text contains no NUL bytes");
     let category = py.get_type::<PyRuntimeWarning>();
     PyErr::warn(py, &category, message.as_c_str(), 2)
