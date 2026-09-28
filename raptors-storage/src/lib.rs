@@ -793,9 +793,7 @@ impl ByteOrder {
         match self {
             Self::NotApplicable => "|",
             Self::Native => "=",
-            Self::Little if cfg!(target_endian = "little") => "=",
             Self::Little => "<",
-            Self::Big if cfg!(target_endian = "big") => "=",
             Self::Big => ">",
         }
     }
@@ -1345,7 +1343,7 @@ impl View {
         let byte_order = if dtype.itemsize() == 1 {
             ByteOrder::NotApplicable
         } else {
-            byte_order.normalized()
+            byte_order
         };
         Self::allocated_order(dtype, byte_order, shape, fortran)
     }
@@ -1443,7 +1441,7 @@ impl View {
         let byte_order = if dtype.itemsize() == 1 {
             ByteOrder::NotApplicable
         } else {
-            byte_order.normalized()
+            byte_order
         };
         let buffer = if fortran {
             let mut physical = Vec::new();
@@ -1521,7 +1519,7 @@ impl View {
         let byte_order = if dtype.itemsize() == 1 {
             ByteOrder::NotApplicable
         } else {
-            byte_order.normalized()
+            byte_order
         };
         let itemsize =
             isize::try_from(dtype.itemsize()).map_err(|_| StorageError::ShapeOverflow)?;

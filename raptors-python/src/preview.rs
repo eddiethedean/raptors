@@ -171,6 +171,7 @@ impl PyDType {
             "<" => ByteOrder::Little,
             ">" => ByteOrder::Big,
             "|" if self.inner.itemsize() == 1 => ByteOrder::NotApplicable,
+            "|" => self.byte_order,
             "S" => {
                 if self.inner.itemsize() == 1 {
                     ByteOrder::NotApplicable
@@ -188,19 +189,14 @@ impl PyDType {
             }
             _ => {
                 return Err(PyValueError::new_err(
-                    "new byte order must be '=', '<', '>', or 'S'",
+                    "new byte order must be '=', '<', '>', '|', or 'S'",
                 ));
             }
         };
-        if byte_order == ByteOrder::NotApplicable && self.inner.itemsize() > 1 {
-            return Err(PyValueError::new_err(
-                "byte order '|' is only valid for one-byte dtypes",
-            ));
-        }
         let byte_order = if self.inner.itemsize() == 1 {
             ByteOrder::NotApplicable
         } else {
-            byte_order.normalized()
+            byte_order
         };
         Ok(Self {
             inner: self.inner,
@@ -220,13 +216,27 @@ impl PyDType {
                     .and_then(|s| dtype_from_spec(&s))
             });
         let equal = other.is_some_and(|(dtype, byte_order)| {
-            byte_order == self.byte_order && dtypes_equivalent(dtype, self.inner)
+            byte_orders_equivalent(dtype, byte_order, self.inner, self.byte_order)
+                && dtypes_equivalent(dtype, self.inner)
         });
         match op {
             CompareOp::Eq => equal,
             CompareOp::Ne => !equal,
             _ => false,
         }
+    }
+}
+
+fn byte_orders_equivalent(
+    left_dtype: DType,
+    left_order: ByteOrder,
+    right_dtype: DType,
+    right_order: ByteOrder,
+) -> bool {
+    if left_dtype.itemsize() == 1 && right_dtype.itemsize() == 1 {
+        true
+    } else {
+        left_order.is_native() == right_order.is_native()
     }
 }
 
@@ -1720,7 +1730,7 @@ fn dtype_from_name(name: &str) -> Option<DType> {
         } else {
             DType::Int32
         }),
-        "uint64" | "u8" | "Q" | "uint" | "uint_" | "ulonglong" => Some(DType::UInt64),
+        "uint64" | "u8" | "Q" | "uint" | "ulonglong" => Some(DType::UInt64),
         "L" | "ulong" => Some(if cfg!(target_os = "windows") {
             DType::UInt32
         } else {
@@ -2175,14 +2185,6 @@ pub(super) fn register(module: &Bound<'_, PyModule>) -> PyResult<()> {
         ),
         (
             "uint",
-            if cfg!(target_pointer_width = "64") {
-                DType::UInt64
-            } else {
-                DType::UInt32
-            },
-        ),
-        (
-            "uint_",
             if cfg!(target_pointer_width = "64") {
                 DType::UInt64
             } else {

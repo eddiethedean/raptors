@@ -666,6 +666,38 @@ def test_one_byte_newbyteorder_remains_native_and_equal(name):
     assert actual == base
 
 
+@pytest.mark.parametrize("dtype_spec", ["i2", ">i2", "<f4", "c16", "longdouble"])
+@pytest.mark.parametrize("order", ["<", "=", ">", "|", "S"])
+def test_newbyteorder_metadata_and_equality_match_numpy(dtype_spec, order):
+    expected_base = np.dtype(dtype_spec)
+    actual_base = raptors.DType(dtype_spec)
+    expected = expected_base.newbyteorder(order)
+    actual = actual_base.newbyteorder(order)
+
+    for attribute in ("name", "itemsize", "kind", "char", "byteorder", "isnative", "str"):
+        assert getattr(actual, attribute) == getattr(expected, attribute)
+    assert (actual == actual_base) == (expected == expected_base)
+
+    expected_array = np.array([1, 2], dtype=expected)
+    actual_array = raptors.array([1, 2], dtype=actual)
+    assert actual_array.dtype.byteorder == expected_array.dtype.byteorder
+    assert actual_array.dtype.str == expected_array.dtype.str
+    if dtype_spec == "longdouble":
+        assert [float(actual_array[index]) for index in range(2)] == [
+            float(expected_array[index]) for index in range(2)
+        ]
+    else:
+        assert_array_matches(expected_array, actual_array)
+
+
+def test_uint_unsupported_alias_is_rejected():
+    with pytest.raises(TypeError):
+        np.dtype("uint_")
+    with pytest.raises(ValueError):
+        raptors.DType("uint_")
+    assert not hasattr(raptors, "uint_")
+
+
 def test_scalar_assignment_views_copy_and_overlapping_assignment():
     expected = np.arange(6, dtype=np.int64)
     actual = raptors.array(expected.tolist(), dtype=raptors.int64)
