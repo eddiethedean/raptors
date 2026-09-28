@@ -219,12 +219,31 @@ impl PyDType {
                     .ok()
                     .and_then(|s| dtype_from_spec(&s))
             });
+        let equal = other.is_some_and(|(dtype, byte_order)| {
+            byte_order == self.byte_order && dtypes_equivalent(dtype, self.inner)
+        });
         match op {
-            CompareOp::Eq => other == Some((self.inner, self.byte_order)),
-            CompareOp::Ne => other != Some((self.inner, self.byte_order)),
+            CompareOp::Eq => equal,
+            CompareOp::Ne => !equal,
             _ => false,
         }
     }
+}
+
+fn dtypes_equivalent(left: DType, right: DType) -> bool {
+    if left == right {
+        return true;
+    }
+    if DType::LongDouble.itemsize() != DType::Float64.itemsize() {
+        return false;
+    }
+    matches!(
+        (left, right),
+        (DType::LongDouble, DType::Float64)
+            | (DType::Float64, DType::LongDouble)
+            | (DType::ComplexLongDouble, DType::Complex128)
+            | (DType::Complex128, DType::ComplexLongDouble)
+    )
 }
 
 #[pyclass(name = "Array", frozen, module = "raptors")]
@@ -396,13 +415,7 @@ impl PyArray {
     fn astype(&self, dtype: &Bound<'_, PyAny>, order: &str) -> PyResult<Self> {
         let py = dtype.py();
         let (target_dtype, byte_order, scalar_alias) = parse_dtype_spec(dtype)?;
-        let fortran = match order {
-            "C" => false,
-            "F" => true,
-            "A" => self.inner.is_f_contiguous(),
-            "K" => self.inner.is_f_contiguous() && !self.inner.is_c_contiguous(),
-            _ => return Err(PyValueError::new_err("order must be 'C', 'F', 'A', or 'K'")),
-        };
+        let axis_order = parse_array_axis_order(order, &self.inner)?;
         if target_dtype != self.inner.dtype() {
             warn_view_cast_overflow(py, &self.inner, target_dtype)?;
             warn_view_complex_cast(py, &self.inner, target_dtype)?;
@@ -410,7 +423,7 @@ impl PyArray {
         Ok(Self {
             inner: self
                 .inner
-                .astype_with_layout(target_dtype, byte_order, fortran)
+                .astype_with_axis_order(target_dtype, byte_order, &axis_order)
                 .map_err(map_storage_error)?,
             scalar_alias,
         })
@@ -908,7 +921,7 @@ fn array(
 ) -> PyResult<PyArray> {
     let requested = dtype.map(parse_dtype_spec).transpose()?;
     if let Ok(source) = data.extract::<PyRef<'_, PyArray>>() {
-        let fortran = parse_array_order(order, Some(&source.inner))?;
+        let axis_order = parse_array_axis_order(order, &source.inner)?;
         let (target_dtype, target_byte_order, scalar_alias) = requested.unwrap_or((
             source.inner.dtype(),
             source.inner.byte_order(),
@@ -941,11 +954,11 @@ fn array(
         let inner = if target_dtype == source.inner.dtype()
             && target_byte_order == source.inner.byte_order()
         {
-            source.inner.copy_order(fortran)
+            source.inner.copy_with_axis_order(&axis_order)
         } else {
             source
                 .inner
-                .astype_with_layout(target_dtype, target_byte_order, fortran)
+                .astype_with_axis_order(target_dtype, target_byte_order, &axis_order)
         }
         .map_err(map_storage_error)?;
         return Ok(PyArray {
@@ -988,6 +1001,38 @@ fn parse_array_order(order: &str, source: Option<&View>) -> PyResult<bool> {
         "F" => Ok(true),
         "A" => Ok(source.is_some_and(View::is_f_contiguous)),
         "K" => Ok(source.is_some_and(|view| view.is_f_contiguous() && !view.is_c_contiguous())),
+        _ => Err(PyValueError::new_err("order must be 'C', 'F', 'A', or 'K'")),
+    }
+}
+
+fn parse_array_axis_order(order: &str, source: &View) -> PyResult<Vec<usize>> {
+    let ndim = source.ndim();
+    let c_order = || (0..ndim).rev().collect::<Vec<_>>();
+    let f_order = || (0..ndim).collect::<Vec<_>>();
+    match order {
+        "C" => Ok(c_order()),
+        "F" => Ok(f_order()),
+        "A" => Ok(if source.is_f_contiguous() && !source.is_c_contiguous() {
+            f_order()
+        } else {
+            c_order()
+        }),
+        "K" => {
+            if ndim <= 1 || source.is_c_contiguous() {
+                return Ok(c_order());
+            }
+            if source.is_f_contiguous() {
+                return Ok(f_order());
+            }
+            let mut axes = (0..ndim).collect::<Vec<_>>();
+            axes.sort_by(|&left, &right| {
+                source.strides()[left]
+                    .unsigned_abs()
+                    .cmp(&source.strides()[right].unsigned_abs())
+                    .then_with(|| right.cmp(&left))
+            });
+            Ok(axes)
+        }
         _ => Err(PyValueError::new_err("order must be 'C', 'F', 'A', or 'K'")),
     }
 }

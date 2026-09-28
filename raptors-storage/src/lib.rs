@@ -1475,6 +1475,19 @@ impl View {
         })
     }
 
+    /// Builds an owning array using a fastest-to-slowest physical axis order.
+    /// Values are supplied in logical C iteration order.
+    pub fn from_values_with_axis_order(
+        dtype: DType,
+        byte_order: ByteOrder,
+        shape: Vec<usize>,
+        values: &[Scalar],
+        fastest_to_slowest: &[usize],
+    ) -> Result<Self, StorageError> {
+        let strides = strides_for_axis_order(dtype, &shape, fastest_to_slowest)?;
+        Self::from_values_with_strides(dtype, byte_order, shape, values, strides)
+    }
+
     /// Builds an owning array from logical C-order values using explicit
     /// non-overlapping strides. This is used for NumPy-compatible indexed
     /// copies whose physical axis order follows the source subspace.
@@ -1745,6 +1758,26 @@ impl View {
             .map(|value| value.cast(dtype))
             .collect::<Result<Vec<_>, _>>()?;
         Self::from_values_with_layout(dtype, byte_order, self.shape.clone(), &values, fortran)
+    }
+
+    pub fn astype_with_axis_order(
+        &self,
+        dtype: DType,
+        byte_order: ByteOrder,
+        fastest_to_slowest: &[usize],
+    ) -> Result<Self, StorageError> {
+        let values = self
+            .snapshot()?
+            .iter()
+            .map(|value| value.cast(dtype))
+            .collect::<Result<Vec<_>, _>>()?;
+        Self::from_values_with_axis_order(
+            dtype,
+            byte_order,
+            self.shape.clone(),
+            &values,
+            fastest_to_slowest,
+        )
     }
 
     pub fn index(&self, indices: &[IndexItem]) -> Result<Self, StorageError> {
@@ -2371,6 +2404,15 @@ impl View {
             fortran,
         )
     }
+    pub fn copy_with_axis_order(&self, fastest_to_slowest: &[usize]) -> Result<Self, StorageError> {
+        Self::from_values_with_axis_order(
+            self.dtype,
+            self.byte_order,
+            self.shape.clone(),
+            &self.snapshot()?,
+            fastest_to_slowest,
+        )
+    }
     pub fn snapshot(&self) -> Result<Vec<Scalar>, StorageError> {
         let offsets = self.all_element_offsets()?;
         let storage = self
@@ -2940,6 +2982,42 @@ fn c_strides(dtype: DType, shape: &[usize]) -> Result<Vec<isize>, StorageError> 
     }
     let mut stride = isize::try_from(dtype.itemsize()).map_err(|_| StorageError::ShapeOverflow)?;
     for axis in (0..shape.len()).rev() {
+        strides[axis] = stride;
+        stride = stride
+            .checked_mul(
+                isize::try_from(shape[axis].max(1)).map_err(|_| StorageError::ShapeOverflow)?,
+            )
+            .ok_or(StorageError::ShapeOverflow)?;
+    }
+    Ok(strides)
+}
+
+fn strides_for_axis_order(
+    dtype: DType,
+    shape: &[usize],
+    fastest_to_slowest: &[usize],
+) -> Result<Vec<isize>, StorageError> {
+    if fastest_to_slowest.len() != shape.len() {
+        return Err(StorageError::InvalidLayout);
+    }
+    let mut seen = vec![false; shape.len()];
+    for &axis in fastest_to_slowest {
+        let Some(axis_seen) = seen.get_mut(axis) else {
+            return Err(StorageError::InvalidLayout);
+        };
+        if *axis_seen {
+            return Err(StorageError::InvalidLayout);
+        }
+        *axis_seen = true;
+    }
+
+    if shape.contains(&0) {
+        return Ok(vec![0; shape.len()]);
+    }
+
+    let mut strides = vec![0; shape.len()];
+    let mut stride = isize::try_from(dtype.itemsize()).map_err(|_| StorageError::ShapeOverflow)?;
+    for &axis in fastest_to_slowest {
         strides[axis] = stride;
         stride = stride
             .checked_mul(

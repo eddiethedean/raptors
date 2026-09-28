@@ -259,6 +259,59 @@ def test_astype_preserves_fortran_layout_by_default():
     assert c_order.c_contiguous and not c_order.f_contiguous
 
 
+def test_keep_order_preserves_noncontiguous_axis_permutation():
+    reference = np.arange(24, dtype=np.int64).reshape(4, 6).T[::2]
+    candidate = raptors.array(
+        np.arange(24, dtype=np.int64).reshape(4, 6).tolist(), dtype=raptors.int64
+    ).T[::2]
+
+    expected_cast = reference.astype(np.float32, order="K")
+    actual_cast = candidate.astype(raptors.float32, order="K")
+    assert_array_matches(expected_cast, actual_cast)
+
+    expected_copy = np.array(reference, order="K", copy=True)
+    actual_copy = raptors.array(candidate, order="K", copy=True)
+    assert_array_matches(expected_copy, actual_copy)
+
+
+def test_any_order_uses_c_layout_when_singleton_array_is_both_contiguous():
+    reference = np.empty((1, 3), dtype=np.int64)
+    candidate = raptors.array(reference.tolist(), dtype=raptors.int64)
+    assert reference.flags.c_contiguous and reference.flags.f_contiguous
+
+    assert_array_matches(
+        np.array(reference, order="A", copy=True),
+        raptors.array(candidate, order="A", copy=True),
+    )
+    assert_array_matches(
+        reference.astype(np.float32, order="A"),
+        candidate.astype(raptors.float32, order="A"),
+    )
+
+
+def test_longdouble_dtype_alias_equality_matches_numpy_when_same_size():
+    if np.dtype("longdouble").itemsize != np.dtype("float64").itemsize:
+        pytest.skip("longdouble is distinct from float64 on this platform")
+
+    for long_name, alias_name in (
+        ("longdouble", "float64"),
+        ("clongdouble", "complex128"),
+    ):
+        expected_long = np.dtype(long_name)
+        expected_alias = np.dtype(alias_name)
+        actual_long = raptors.DType(long_name)
+        actual_alias = raptors.DType(alias_name)
+        assert expected_long == expected_alias
+        assert actual_long == actual_alias
+        assert actual_alias == actual_long
+        assert actual_long == alias_name
+        assert actual_alias == long_name
+
+        long_array = raptors.array([1], dtype=long_name)
+        alias_array = raptors.array([1], dtype=alias_name)
+        assert long_array.dtype == alias_array.dtype
+
+
 def test_longlong_dtype_alias_metadata_survives_arrays_and_scalars():
     for code, constant_name, scalar_name in (
         ("q", "longlong", "LongLongScalar"),
