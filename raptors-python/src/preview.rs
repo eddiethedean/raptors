@@ -417,8 +417,8 @@ impl PyArray {
         let (target_dtype, byte_order, scalar_alias) = parse_dtype_spec(dtype)?;
         let axis_order = parse_array_axis_order(order, &self.inner)?;
         if target_dtype != self.inner.dtype() {
-            warn_view_cast_overflow(py, &self.inner, target_dtype)?;
             warn_view_complex_cast(py, &self.inner, target_dtype)?;
+            warn_view_cast_overflow(py, &self.inner, target_dtype)?;
         }
         Ok(Self {
             inner: self
@@ -475,8 +475,8 @@ impl PyArray {
             )
         }) {
             if let Ok(source) = value.extract::<PyRef<'_, PyArray>>() {
-                warn_view_cast_overflow(value.py(), &source.inner, self.inner.dtype())?;
                 warn_view_complex_cast(value.py(), &source.inner, self.inner.dtype())?;
+                warn_view_cast_overflow(value.py(), &source.inner, self.inner.dtype())?;
                 return self
                     .inner
                     .assign_fancy_view(&indices, &source.inner)
@@ -495,8 +495,8 @@ impl PyArray {
         }
         let selected = self.inner.index(&indices).map_err(map_storage_error)?;
         if let Ok(source) = value.extract::<PyRef<'_, PyArray>>() {
-            warn_view_cast_overflow(value.py(), &source.inner, self.inner.dtype())?;
             warn_view_complex_cast(value.py(), &source.inner, self.inner.dtype())?;
+            warn_view_cast_overflow(value.py(), &source.inner, self.inner.dtype())?;
             selected
                 .assign_view(&source.inner)
                 .map_err(map_storage_error)
@@ -948,8 +948,8 @@ fn array(
             ));
         }
         if target_dtype != source.inner.dtype() {
-            warn_view_cast_overflow(data.py(), &source.inner, target_dtype)?;
             warn_view_complex_cast(data.py(), &source.inner, target_dtype)?;
+            warn_view_cast_overflow(data.py(), &source.inner, target_dtype)?;
         }
         let inner = if target_dtype == source.inner.dtype()
             && target_byte_order == source.inner.byte_order()
@@ -1210,8 +1210,8 @@ fn flatten(
         let mut values = array.inner.snapshot().map_err(map_storage_error)?;
         if let Some(dtype) = dtype {
             if array.inner.dtype() != dtype {
-                warn_view_cast_overflow(value.py(), &array.inner, dtype)?;
                 warn_view_complex_cast(value.py(), &array.inner, dtype)?;
+                warn_view_cast_overflow(value.py(), &array.inner, dtype)?;
                 values = values
                     .iter()
                     .map(|value| value.cast(dtype).map_err(map_storage_error))

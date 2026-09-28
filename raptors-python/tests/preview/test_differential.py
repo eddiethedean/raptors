@@ -488,6 +488,40 @@ def test_complex_to_real_array_cast_emits_complex_warning():
     assert_array_matches(reference_assignment, candidate_assignment)
 
 
+@pytest.mark.parametrize("operation", ["astype", "array", "assignment"])
+def test_complex_to_unsigned_cast_warning_order_matches_numpy(operation):
+    reference_source = np.array([-1 + 1j], dtype=np.complex128)
+    candidate_source = raptors.array([-1 + 1j], dtype=raptors.complex128)
+
+    def apply_numpy():
+        if operation == "astype":
+            return reference_source.astype(np.uint64)
+        if operation == "array":
+            return np.array(reference_source, dtype=np.uint64)
+        result = np.zeros(1, dtype=np.uint64)
+        result[:] = reference_source
+        return result
+
+    def apply_raptors():
+        if operation == "astype":
+            return candidate_source.astype(raptors.uint64)
+        if operation == "array":
+            return raptors.array(candidate_source, dtype=raptors.uint64)
+        result = raptors.zeros(1, dtype=raptors.uint64)
+        result[:] = candidate_source
+        return result
+
+    with pytest.warns() as expected_warnings:
+        expected = apply_numpy()
+    with pytest.warns() as actual_warnings:
+        actual = apply_raptors()
+
+    assert [str(w.message) for w in actual_warnings] == [
+        str(w.message) for w in expected_warnings
+    ]
+    assert_array_matches(expected, actual)
+
+
 def test_complex64_overflow_emits_runtime_warning():
     reference_source = np.array([1e100, -1e100], dtype=np.float64)
     candidate_source = raptors.array([1e100, -1e100], dtype=raptors.float64)
