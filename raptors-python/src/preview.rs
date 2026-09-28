@@ -372,7 +372,7 @@ impl PyArray {
         let fortran = match order {
             "C" => false,
             "F" => true,
-            "A" => self.inner.is_f_contiguous(),
+            "A" => self.inner.is_f_contiguous() && !self.inner.is_c_contiguous(),
             _ => return Err(PyValueError::new_err("order must be 'C', 'F', or 'A'")),
         };
         Ok(Self {

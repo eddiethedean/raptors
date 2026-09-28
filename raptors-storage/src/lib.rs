@@ -1689,12 +1689,14 @@ impl View {
         }
         if should_copy {
             let values = self.snapshot_order(fortran)?;
-            let strides = if fortran {
+            let len = element_count(&shape)?;
+            let strides = if len == 0 {
+                reshape_empty_strides(self.dtype, &shape, fortran)?
+            } else if fortran {
                 f_strides(self.dtype, &shape)?
             } else {
                 c_strides(self.dtype, &shape)?
             };
-            let len = element_count(&shape)?;
             let view = Self {
                 storage: Arc::new(RwLock::new(Buffer::from_values(
                     self.dtype,

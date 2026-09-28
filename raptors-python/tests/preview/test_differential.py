@@ -204,6 +204,11 @@ def test_reshape_infers_one_dimension():
             empty_reference.reshape(shape, order=order),
             empty_candidate.reshape(shape, order=order),
         )
+    for shape, order in [((0, 1), "C"), ((2, 0, 3), "C"), ((2, 0, 3), "F")]:
+        assert_array_matches(
+            empty_reference.reshape(shape, order=order, copy=True),
+            empty_candidate.reshape(shape, order=order, copy=True),
+        )
 
 
 def test_reshape_views_compatible_stepped_source():
@@ -286,6 +291,10 @@ def test_any_order_uses_c_layout_when_singleton_array_is_both_contiguous():
     assert_array_matches(
         reference.astype(np.float32, order="A"),
         candidate.astype(raptors.float32, order="A"),
+    )
+    assert_array_matches(
+        reference.reshape((3, 1), order="A"),
+        candidate.reshape((3, 1), order="A"),
     )
 
 
