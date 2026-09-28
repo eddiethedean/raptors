@@ -2528,17 +2528,18 @@ mod tests {
         assert_eq!(empty.strides(), &[8]);
     }
     #[test]
-    fn assignment_checks_dtype_and_shape() {
+    fn assignment_casts_values_and_checks_broadcast_shape() {
         let dst = array(&[1, 2]);
         assert_eq!(
             dst.assign_view(&View::zeros(DType::Int64, vec![1, 2]).unwrap())
                 .err(),
-            Some(StorageError::ShapeMismatch)
+            Some(StorageError::CannotBroadcast {
+                from: vec![1, 2],
+                to: vec![2]
+            })
         );
-        assert_eq!(
-            dst.assign_view(&View::zeros(DType::UInt64, vec![2]).unwrap())
-                .err(),
-            Some(StorageError::DTypeMismatch)
-        );
+        dst.assign_view(&View::zeros(DType::UInt64, vec![2]).unwrap())
+            .unwrap();
+        assert_eq!(dst.snapshot().unwrap(), vec![Scalar::Int64(0), Scalar::Int64(0)]);
     }
 }

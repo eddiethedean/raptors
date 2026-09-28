@@ -49,6 +49,10 @@ def test_zeros_and_empty_metadata(shape):
 
 
 @pytest.mark.parametrize("values,dtype,error", [
+    ([128], raptors.int8, OverflowError),
+    ([-129], raptors.int8, OverflowError),
+    ([256], raptors.uint8, OverflowError),
+    ([-1], raptors.uint8, OverflowError),
     ([2**63], raptors.int64, OverflowError),
     ([-1], raptors.uint64, OverflowError),
     ([float("nan")], raptors.int64, ValueError),
@@ -135,6 +139,12 @@ def test_longlong_dtype_alias_metadata_survives_arrays_and_scalars():
         assert candidate.dtype.char == expected.char
         if expected.char != getattr(raptors, "int64" if code == "q" else "uint64").char:
             assert type(candidate[0]).__name__ == scalar_name
+            scalar = candidate[0]
+            assert raptors.array([scalar]).dtype.char == expected.char
+            assert raptors.promote_types(code, code).char == expected.char
+            assert raptors.promote_types(code, expected.name).char == np.promote_types(
+                code, expected.name
+            ).char
 
 
 def test_ellipsis_counts_nested_boolean_list_rank():
@@ -148,14 +158,13 @@ def test_ellipsis_counts_nested_boolean_list_rank():
         assert actual[index] == expected[index]
 
 
-def test_dtype_metadata_and_explicit_dtype_requirement():
+def test_dtype_metadata_and_inferred_dtype():
     for dtype in (raptors.bool_, raptors.int64, raptors.uint64, raptors.float32, raptors.float64):
         assert dtype.name in {"bool", "int64", "uint64", "float32", "float64"}
         assert dtype.itemsize == np.dtype(dtype.name).itemsize
         assert dtype.kind == np.dtype(dtype.name).kind
     assert raptors.array([[1, 2], [3, 4]], dtype="int64").dtype == raptors.int64
-    with pytest.raises(TypeError):
-        raptors.array([1, 2])
+    assert_array_matches(np.array([1, 2]), raptors.array([1, 2]))
 
 
 def test_float32_overflow_warning_matches_reference():
@@ -166,6 +175,34 @@ def test_float32_overflow_warning_matches_reference():
         candidate = raptors.array(values, dtype=raptors.float32)
     assert len(candidate_warnings) == len(reference_warnings) == 2
     assert_array_matches(reference, candidate)
+
+
+def test_float16_overflow_warning_starts_at_rounding_boundary():
+    values = [65505.0, 65520.0]
+    with pytest.warns(RuntimeWarning, match="overflow encountered in cast") as reference_warnings:
+        reference = np.array(values, dtype=np.float16)
+    with pytest.warns(RuntimeWarning, match="overflow encountered in cast") as candidate_warnings:
+        candidate = raptors.array(values, dtype=raptors.float16)
+    assert len(candidate_warnings) == len(reference_warnings) == 1
+    assert_array_matches(reference, candidate)
+
+
+def test_array_casts_warn_when_finite_values_overflow_float32():
+    values = [1e100, -1e100]
+    reference_source = np.array(values, dtype=np.float64)
+    candidate_source = raptors.array(values, dtype=raptors.float64)
+
+    with pytest.warns(RuntimeWarning, match="overflow encountered in cast") as reference_warnings:
+        expected = reference_source.astype(np.float32)
+    with pytest.warns(RuntimeWarning, match="overflow encountered in cast") as candidate_warnings:
+        actual = candidate_source.astype(raptors.float32)
+    assert len(candidate_warnings) == len(reference_warnings) == 1
+    assert_array_matches(expected, actual)
+
+    with pytest.warns(RuntimeWarning, match="overflow encountered in cast") as candidate_warnings:
+        copied = raptors.array(candidate_source, dtype=raptors.float32)
+    assert len(candidate_warnings) == 1
+    assert_array_matches(expected, copied)
 
 
 @pytest.mark.parametrize("key", [slice(None, None, -1), slice(1, 5, 2), slice(5, 5, -1)])
@@ -245,11 +282,13 @@ def test_typed_scalar_results_can_be_reused_as_values(dtype, values):
     assert_array_matches(np.array([reference[1]], dtype=dtype.name), raptors.array([candidate[1]], dtype=dtype))
 
 
-def test_array_assignment_rejects_unsupported_casting_and_shape_changes():
+def test_array_assignment_casts_values_and_rejects_shape_changes():
+    expected = np.array([1, 2, 3], dtype=np.int64)
     actual = raptors.array([1, 2, 3], dtype=raptors.int64)
-    with pytest.raises(TypeError, match="dtypes must match"):
-        actual[:] = raptors.array([8, 9, 10], dtype=raptors.uint64)
-    with pytest.raises(ValueError, match="shapes must match exactly"):
+    expected[:] = np.array([8, 9, 10], dtype=np.uint64)
+    actual[:] = raptors.array([8, 9, 10], dtype=raptors.uint64)
+    assert_array_matches(expected, actual)
+    with pytest.raises(ValueError):
         actual[:] = raptors.array([8, 9], dtype=raptors.int64)
 
 
@@ -267,7 +306,7 @@ def test_view_keeps_allocation_alive_after_original_is_deleted():
 
 def test_unsupported_surface_is_absent_or_fails_clearly():
     assert not hasattr(raptors, "add")
-    assert not hasattr(raptors.Array, "reshape")
     value = raptors.array([1, 2], dtype=raptors.int64)
+    assert_array_matches(np.array([1, 2], dtype=np.int64).reshape((1, 2)), value.reshape((1, 2)))
     with pytest.raises(TypeError):
         _ = value + value

@@ -1,8 +1,8 @@
 //! Bindings for the deliberately small, NumPy-independent 0.1 preview.
 use pyo3::basic::CompareOp;
 use pyo3::exceptions::{
-    PyIndexError, PyKeyError, PyMemoryError, PyOverflowError, PyRuntimeError, PyTypeError,
-    PyValueError,
+    PyIndexError, PyKeyError, PyMemoryError, PyOverflowError, PyRuntimeError, PyRuntimeWarning,
+    PyTypeError, PyValueError,
 };
 use pyo3::prelude::*;
 use pyo3::types::{
@@ -10,6 +10,7 @@ use pyo3::types::{
     PySlice, PySliceMethods, PyTuple, PyTupleMethods,
 };
 use raptors_storage::{ByteOrder, DType, IndexItem, Scalar, StorageError, View};
+use std::ffi::CString;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 enum ScalarAlias {
@@ -29,6 +30,13 @@ impl ScalarAlias {
         match self {
             Self::LongLong => "LongLongScalar",
             Self::ULongLong => "ULongLongScalar",
+        }
+    }
+
+    fn dtype(self) -> DType {
+        match self {
+            Self::LongLong => DType::Int64,
+            Self::ULongLong => DType::UInt64,
         }
     }
 }
@@ -382,7 +390,8 @@ impl PyArray {
     }
     #[pyo3(signature = (dtype, order="K"))]
     fn astype(&self, dtype: &Bound<'_, PyAny>, order: &str) -> PyResult<Self> {
-        let (dtype, byte_order, scalar_alias) = parse_dtype_spec(dtype)?;
+        let py = dtype.py();
+        let (target_dtype, byte_order, scalar_alias) = parse_dtype_spec(dtype)?;
         let fortran = match order {
             "C" => false,
             "F" => true,
@@ -390,10 +399,13 @@ impl PyArray {
             "K" => self.inner.is_f_contiguous() && !self.inner.is_c_contiguous(),
             _ => return Err(PyValueError::new_err("order must be 'C', 'F', 'A', or 'K'")),
         };
+        if target_dtype != self.inner.dtype() {
+            warn_view_cast_overflow(py, &self.inner, target_dtype)?;
+        }
         Ok(Self {
             inner: self
                 .inner
-                .astype_with_layout(dtype, byte_order, fortran)
+                .astype_with_layout(target_dtype, byte_order, fortran)
                 .map_err(map_storage_error)?,
             scalar_alias,
         })
@@ -909,6 +921,9 @@ fn array(
                 "copy=False cannot satisfy the requested dtype or memory order",
             ));
         }
+        if target_dtype != source.inner.dtype() {
+            warn_view_cast_overflow(data.py(), &source.inner, target_dtype)?;
+        }
         let inner = if target_dtype == source.inner.dtype()
             && target_byte_order == source.inner.byte_order()
         {
@@ -930,10 +945,17 @@ fn array(
         ));
     }
     let fortran = parse_array_order(order, None)?;
-    let (shape, values) = flatten(data, requested.map(|(dtype, _, _)| dtype), 0)?;
+    let (shape, values, inferred_alias) = flatten(data, requested.map(|(dtype, _, _)| dtype), 0)?;
     let (dtype, byte_order, scalar_alias) = match requested {
         Some(descriptor) => descriptor,
-        None => (infer_dtype(&values)?, ByteOrder::Native, None),
+        None => {
+            let inferred_dtype = infer_dtype(&values)?;
+            (
+                inferred_dtype,
+                ByteOrder::Native,
+                inferred_alias.filter(|alias| alias.dtype() == inferred_dtype),
+            )
+        }
     };
     let values = values
         .iter()
@@ -977,13 +999,13 @@ fn empty(
 
 #[pyfunction]
 fn promote_types(left: &Bound<'_, PyAny>, right: &Bound<'_, PyAny>) -> PyResult<PyDType> {
-    let left = parse_dtype_spec(left)?.0;
-    let right = parse_dtype_spec(right)?.0;
+    let (left, _, left_alias) = parse_dtype_spec(left)?;
+    let (right, _, right_alias) = parse_dtype_spec(right)?;
     let inner = left.promote(right);
     Ok(PyDType {
         inner,
         byte_order: default_byte_order(inner),
-        scalar_alias: None,
+        scalar_alias: merge_scalar_aliases(left_alias, right_alias, inner),
     })
 }
 
@@ -1120,14 +1142,14 @@ fn flatten(
     value: &Bound<'_, PyAny>,
     dtype: Option<DType>,
     depth: usize,
-) -> PyResult<(Vec<usize>, Vec<Scalar>)> {
+) -> PyResult<(Vec<usize>, Vec<Scalar>, Option<ScalarAlias>)> {
     if depth > 64 {
         return Err(PyValueError::new_err("array nesting is too deep"));
     }
     if let Ok(array) = value.extract::<PyRef<'_, PyArray>>() {
         let array_shape = array.inner.shape().to_vec();
         let values = array.inner.snapshot().map_err(map_storage_error)?;
-        return Ok((array_shape, values));
+        return Ok((array_shape, values, array.scalar_alias));
     }
     if value.is_instance_of::<PyList>() || value.is_instance_of::<PyTuple>() {
         let mut children = Vec::new();
@@ -1135,34 +1157,37 @@ fn flatten(
             children.push(child?);
         }
         if children.is_empty() {
-            return Ok((vec![0], Vec::new()));
+            return Ok((vec![0], Vec::new(), None));
         }
         let mut expected: Option<Vec<usize>> = None;
         let mut flat = Vec::new();
+        let mut aliases = ScalarAliasAccumulator::default();
         for child in &children {
-            let (shape, mut values) = flatten(child, dtype, depth + 1)?;
+            let (shape, mut values, scalar_alias) = flatten(child, dtype, depth + 1)?;
             if expected.as_ref().is_some_and(|old| old != &shape) {
                 return Err(PyValueError::new_err("input sequence is ragged"));
             }
             expected.get_or_insert(shape);
+            aliases.include(scalar_alias);
             flat.append(&mut values);
         }
         let mut shape = vec![children.len()];
         shape.extend(expected.unwrap_or_default());
-        return Ok((shape, flat));
+        let inferred_alias = aliases.finish(infer_dtype(&flat)?);
+        return Ok((shape, flat, inferred_alias));
     }
     let scalar = match dtype {
         Some(dtype) => value_to_scalar(value, dtype)?,
         None => value_to_untyped_scalar(value)?,
     };
-    Ok((Vec::new(), vec![scalar]))
+    Ok((Vec::new(), vec![scalar], scalar_alias_from_value(value)))
 }
 
 fn sequence_value_to_view(value: &Bound<'_, PyAny>) -> PyResult<Option<View>> {
     if !value.is_instance_of::<PyList>() && !value.is_instance_of::<PyTuple>() {
         return Ok(None);
     }
-    let (shape, values) = flatten(value, None, 0)?;
+    let (shape, values, _) = flatten(value, None, 0)?;
     let dtype = infer_dtype(&values)?;
     let values = values
         .iter()
@@ -1173,8 +1198,29 @@ fn sequence_value_to_view(value: &Bound<'_, PyAny>) -> PyResult<Option<View>> {
     ))
 }
 
+fn scalar_alias_from_value(value: &Bound<'_, PyAny>) -> Option<ScalarAlias> {
+    if !value
+        .get_type()
+        .getattr("__module__")
+        .and_then(|module| module.extract::<String>())
+        .is_ok_and(|module| module == "raptors")
+    {
+        return None;
+    }
+    value
+        .getattr("dtype")
+        .ok()?
+        .extract::<PyRef<'_, PyDType>>()
+        .ok()
+        .and_then(|dtype| dtype.scalar_alias)
+}
+
 fn value_to_scalar(value: &Bound<'_, PyAny>, dtype: DType) -> PyResult<Scalar> {
+    if let Some(scalar) = checked_python_integer(value, dtype)? {
+        return Ok(scalar);
+    }
     if value.is_instance_of::<PyInt>()
+        && !value.is_instance_of::<PyBool>()
         && matches!(
             dtype,
             DType::Float16
@@ -1187,14 +1233,127 @@ fn value_to_scalar(value: &Bound<'_, PyAny>, dtype: DType) -> PyResult<Scalar> {
         )
     {
         if let Ok(number) = value.extract::<f64>() {
-            return Scalar::Float64(number)
-                .cast(dtype)
-                .map_err(map_storage_error);
+            let scalar = Scalar::Float64(number);
+            warn_scalar_cast_overflow(value.py(), &scalar, dtype)?;
+            return scalar.cast(dtype).map_err(map_storage_error);
         }
     }
-    value_to_untyped_scalar(value)?
-        .cast(dtype)
-        .map_err(map_storage_error)
+    let scalar = value_to_untyped_scalar(value)?;
+    check_nonfinite_integer_cast(&scalar, dtype)?;
+    warn_scalar_cast_overflow(value.py(), &scalar, dtype)?;
+    scalar.cast(dtype).map_err(map_storage_error)
+}
+
+fn checked_python_integer(value: &Bound<'_, PyAny>, dtype: DType) -> PyResult<Option<Scalar>> {
+    if !value.is_instance_of::<PyInt>()
+        || value.is_instance_of::<PyBool>()
+        || !matches!(
+            dtype,
+            DType::Int8
+                | DType::UInt8
+                | DType::Int16
+                | DType::UInt16
+                | DType::Int32
+                | DType::UInt32
+                | DType::Int64
+                | DType::UInt64
+        )
+    {
+        return Ok(None);
+    }
+
+    let value = value
+        .extract::<i128>()
+        .map_err(|_| PyOverflowError::new_err("Python int is outside the requested dtype range"))?;
+    let scalar = match dtype {
+        DType::Int8 => Scalar::Int8(i8::try_from(value).map_err(|_| python_int_range_error())?),
+        DType::UInt8 => Scalar::UInt8(u8::try_from(value).map_err(|_| python_int_range_error())?),
+        DType::Int16 => Scalar::Int16(i16::try_from(value).map_err(|_| python_int_range_error())?),
+        DType::UInt16 => {
+            Scalar::UInt16(u16::try_from(value).map_err(|_| python_int_range_error())?)
+        }
+        DType::Int32 => Scalar::Int32(i32::try_from(value).map_err(|_| python_int_range_error())?),
+        DType::UInt32 => {
+            Scalar::UInt32(u32::try_from(value).map_err(|_| python_int_range_error())?)
+        }
+        DType::Int64 => Scalar::Int64(i64::try_from(value).map_err(|_| python_int_range_error())?),
+        DType::UInt64 => {
+            Scalar::UInt64(u64::try_from(value).map_err(|_| python_int_range_error())?)
+        }
+        _ => unreachable!("only integer dtypes reach this conversion"),
+    };
+    Ok(Some(scalar))
+}
+
+fn python_int_range_error() -> PyErr {
+    PyOverflowError::new_err("Python int is outside the requested dtype range")
+}
+
+fn check_nonfinite_integer_cast(value: &Scalar, dtype: DType) -> PyResult<()> {
+    if !matches!(
+        dtype,
+        DType::Int8
+            | DType::UInt8
+            | DType::Int16
+            | DType::UInt16
+            | DType::Int32
+            | DType::UInt32
+            | DType::Int64
+            | DType::UInt64
+    ) {
+        return Ok(());
+    }
+    if let Ok(number) = value.as_f64() {
+        if number.is_nan() {
+            return Err(PyValueError::new_err("cannot convert float NaN to integer"));
+        }
+        if number.is_infinite() {
+            return Err(PyOverflowError::new_err(
+                "cannot convert float infinity to integer",
+            ));
+        }
+    }
+    Ok(())
+}
+
+fn warn_scalar_cast_overflow(py: Python<'_>, value: &Scalar, dtype: DType) -> PyResult<()> {
+    if scalar_cast_overflows(value, dtype) {
+        emit_cast_overflow_warning(py)?;
+    }
+    Ok(())
+}
+
+fn warn_view_cast_overflow(py: Python<'_>, source: &View, dtype: DType) -> PyResult<()> {
+    if !matches!(dtype, DType::Float16 | DType::Float32) {
+        return Ok(());
+    }
+    if source
+        .snapshot()
+        .map_err(map_storage_error)?
+        .iter()
+        .any(|value| scalar_cast_overflows(value, dtype))
+    {
+        emit_cast_overflow_warning(py)?;
+    }
+    Ok(())
+}
+
+fn scalar_cast_overflows(value: &Scalar, dtype: DType) -> bool {
+    let overflow_threshold = match dtype {
+        DType::Float16 => 65_520.0,
+        DType::Float32 => f32::MAX as f64 + 2.0_f64.powi(103),
+        _ => return false,
+    };
+    value
+        .as_f64()
+        .is_ok_and(|number| number.is_finite() && number.abs() >= overflow_threshold)
+}
+
+fn emit_cast_overflow_warning(py: Python<'_>) -> PyResult<()> {
+    let message = CString::new("overflow encountered in cast")
+        .expect("static warning text contains no NUL bytes");
+    let category = py.get_type::<PyRuntimeWarning>();
+    PyErr::warn(py, &category, message.as_c_str(), 2)
 }
 
 fn value_to_untyped_scalar(value: &Bound<'_, PyAny>) -> PyResult<Scalar> {
@@ -1309,6 +1468,46 @@ fn dtype_alias_for_spec(name: &str, dtype: DType) -> Option<ScalarAlias> {
             Some(ScalarAlias::ULongLong)
         }
         _ => None,
+    }
+}
+
+fn merge_scalar_aliases(
+    left: Option<ScalarAlias>,
+    right: Option<ScalarAlias>,
+    result_dtype: DType,
+) -> Option<ScalarAlias> {
+    let alias = match (left, right) {
+        (Some(left), Some(right)) if left != right => return None,
+        (Some(alias), _) | (_, Some(alias)) => alias,
+        (None, None) => return None,
+    };
+    (alias.dtype() == result_dtype).then_some(alias)
+}
+
+#[derive(Default)]
+struct ScalarAliasAccumulator {
+    alias: Option<ScalarAlias>,
+    conflict: bool,
+}
+
+impl ScalarAliasAccumulator {
+    fn include(&mut self, alias: Option<ScalarAlias>) {
+        let Some(alias) = alias else {
+            return;
+        };
+        match self.alias {
+            Some(previous) if previous != alias => self.conflict = true,
+            None => self.alias = Some(alias),
+            _ => {}
+        }
+    }
+
+    fn finish(self, dtype: DType) -> Option<ScalarAlias> {
+        if self.conflict {
+            None
+        } else {
+            self.alias.filter(|alias| alias.dtype() == dtype)
+        }
     }
 }
 fn default_byte_order(dtype: DType) -> ByteOrder {
@@ -1738,9 +1937,8 @@ fn map_storage_error(error: StorageError) -> PyErr {
         StorageError::DTypeMismatch => PyTypeError::new_err(error.to_string()),
         StorageError::ShapeMismatch => PyValueError::new_err(error.to_string()),
         StorageError::CannotBroadcast { .. } => PyValueError::new_err(error.to_string()),
-        StorageError::InvalidScalar | StorageError::CastOverflow => {
-            PyValueError::new_err(error.to_string())
-        }
+        StorageError::InvalidScalar => PyValueError::new_err(error.to_string()),
+        StorageError::CastOverflow => PyOverflowError::new_err(error.to_string()),
         StorageError::InvalidAxes
         | StorageError::InvalidOrder
         | StorageError::InvalidFancyIndex => PyIndexError::new_err(error.to_string()),
