@@ -6,7 +6,7 @@ This document replaces the previous async-service README concept. Use the [root 
 
 Raptors is rebuilding a Rust-backed Python package with the goal of providing NumPy's public functionality through `import raptors as np`, with a sound memory model and measured performance improvements.
 
-The local 0.1 preview is implemented on a separate checked storage path. It is a small supported subset, not a full NumPy replacement. Its hosted cross-platform release gates are pending, no general memory-safety guarantee is made, and the current benchmark shows no speed advantage.
+The published 0.1 preview is implemented on a separate checked storage path. It is a small supported subset, not a full NumPy replacement. Its hosted release gates passed, no general memory-safety guarantee is made, and the current benchmark shows no speed advantage.
 
 ## Intended audience
 

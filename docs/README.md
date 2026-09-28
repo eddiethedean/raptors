@@ -1,6 +1,6 @@
 # Raptors documentation
 
-The [rebuild plan](REBUILD_PLAN.md) is the authoritative statement of direction. Raptors aims to provide NumPy's public functionality through a different Python import. The 0.1 preview implementation is complete locally; the cross-platform release gate is pending. The legacy engine is retained separately for audit.
+The [rebuild plan](REBUILD_PLAN.md) is the authoritative statement of direction. Raptors aims to provide NumPy's public functionality through a different Python import. The 0.1 preview is published; its release evidence is recorded. The current release workflow builds eight stable-ABI target wheels for later releases. The legacy engine is retained separately for audit.
 
 ## Plan and engineering
 
@@ -37,4 +37,4 @@ The older filenames are retained so existing references continue to resolve. The
 
 ## Documentation rules
 
-Describe current behavior separately from proposed behavior. Compatibility statements must name their reference version and supporting tests; performance claims must link to reproducible measurements. Until v0.1 produces those records, describe unknowns as unverified. Vendor documentation and license notices inside development environments are not Raptors project documentation.
+Describe current behavior separately from proposed behavior. Compatibility statements must name their reference version and supporting tests; performance claims must link to reproducible measurements. Describe unknown behavior as unverified. Vendor documentation and license notices inside development environments are not Raptors project documentation.

@@ -4,7 +4,7 @@
 
 ## Present message
 
-The new 0.1 preview has a narrow, checked Rust storage path and pinned NumPy comparison tests. The legacy engine remains separate for audit. Hosted platform gates are pending; the preview does not establish full compatibility, general memory safety, or a speed advantage.
+The published 0.1 preview has a narrow, checked Rust storage path and pinned NumPy comparison tests. The legacy engine remains separate for audit. Its hosted release gates passed; the preview does not establish full compatibility, general memory safety, or a speed advantage.
 
 Do not describe the current package as a completed NumPy replacement or production-ready numerical engine. Those claims need release evidence.
 

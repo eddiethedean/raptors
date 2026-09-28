@@ -47,6 +47,6 @@ Preserve license notices and attribution for any reused upstream material. The c
 
 ## Release status
 
-The local 0.1 preview implementation and CPython 3.12–3.14 suites on macOS ARM64 are complete. Hosted platform wheels, Linux AddressSanitizer, and the pre-tag build-only run remain required before publishing. See [release evidence](RELEASE_0_1.md).
+The 0.1 preview implementation and CPython 3.12–3.14 suites on macOS ARM64 are complete. Its tagged release passed hosted wheel, Linux AddressSanitizer, and publication checks. For later releases, run the current eight-target workflow manually before tagging. See [release evidence](RELEASE_0_1.md).
 
 Use [docs/README.md](README.md) to find the current project guides. Describe current behavior separately from future plans and observed results.

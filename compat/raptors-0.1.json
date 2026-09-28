@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "release": "0.1",
-  "status": "local_implementation_complete_release_gate_pending",
+  "status": "published",
   "reference": {
     "distribution": "numpy",
     "version": "2.5.3",
@@ -78,10 +78,10 @@
     "python_differential_tests": {"status": "passed_locally_all_supported_python_versions", "path": "raptors-python/tests/preview", "passed_per_version": 48, "skipped_per_version": 0, "python_versions": ["3.12.13", "3.13.11", "3.14.3"], "platform": "macOS arm64"},
     "property_tests": "Hypothesis with deterministic bounded examples, included in the 48 passing Python cases",
     "miri": {"status": "passed_locally", "passed": 7, "target": "aarch64-apple-darwin"},
-    "sanitizer": {"status": "pending_hosted_ci", "target": "x86_64-unknown-linux-gnu"},
-    "cross_platform_wheels": {"status": "pending_hosted_ci", "matrix_size": 12, "local_extension_builds": ["CPython 3.12 macOS arm64", "CPython 3.13 macOS arm64", "CPython 3.14 macOS arm64"], "local_wheel_contract_check": "CPython 3.14 macOS arm64"},
+    "sanitizer": {"status": "passed_hosted_ci", "target": "x86_64-unknown-linux-gnu"},
+    "cross_platform_wheels": {"status": "published", "matrix_size": 12, "local_extension_builds": ["CPython 3.12 macOS arm64", "CPython 3.13 macOS arm64", "CPython 3.14 macOS arm64"], "local_wheel_contract_check": "CPython 3.14 macOS arm64"},
     "clean_import_without_numpy": "passed_locally for the CPython 3.14 macOS arm64 wheel",
     "performance_baseline": {"path": "docs/benchmarks/raptors-0.1-baseline.json", "status": "recorded_locally", "claim": "informational; no speed advantage claimed"},
-    "release_workflow": "build-only workflow_dispatch and hosted matrix have not yet run on the candidate changes"
+    "release_workflow": "tag-triggered v0.1.0 workflow passed all checks and published twelve version-specific wheels to PyPI"
   }
 }

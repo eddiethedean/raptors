@@ -8,7 +8,7 @@ Provide NumPy's public functionality through `import raptors as np`, with a soun
 
 ## Current status
 
-The repository now contains a narrow 0.1 preview on a separate checked storage path. Local CPython 3.12–3.14 differential/property suites pass on macOS ARM64, along with Rust and Miri checks. The CPython 3.14 wheel and NumPy-free installation checks pass. Hosted cross-platform and AddressSanitizer gates remain pending. This preview does not establish full compatibility, a general memory-safety guarantee, or faster execution.
+The repository contains a published, narrow 0.1 preview on a separate checked storage path. Local CPython 3.12–3.14 differential/property suites pass on macOS ARM64, along with Rust and Miri checks. The tagged release passed hosted cross-platform and AddressSanitizer gates. This preview does not establish full compatibility, a general memory-safety guarantee, or faster execution.
 
 ## Why rebuild
 
@@ -19,7 +19,7 @@ The previous approach declared broad completion without proving behavior. The ne
 1. Pin NumPy 2.5.3 and record the legacy baseline and public API inventory.
 2. Build a differential harness with seeded faulty-backend checks.
 3. Implement checked storage, shared views, and a small Python preview.
-4. Pass hosted safety and release-wheel gates before publishing 0.1.
+4. The 0.1 release gates passed; keep the same checks on future releases.
 5. Extend dtype, array, and numeric behavior through the 0.x phases.
 6. Demonstrate reproducible workload gains only after broader correctness is established.
 

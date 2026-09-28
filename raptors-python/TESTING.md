@@ -37,16 +37,23 @@ owner-lifetime cases run on every release wheel job.
 ## Wheel and dependency checks
 
 ```bash
-maturin build --release --locked --manifest-path raptors-python/Cargo.toml --interpreter python3.14 --out /tmp/raptors-wheels
-python scripts/check_wheel_contract.py /tmp/raptors-wheels/raptors-0.1.0-cp314-*.whl --python 3.14
-python scripts/check_clean_install.py /tmp/raptors-wheels/raptors-0.1.0-cp314-*.whl
+maturin build --release --locked --manifest-path raptors-python/Cargo.toml --interpreter python3.12 --out /tmp/raptors-wheels
+wheel=$(find /tmp/raptors-wheels -maxdepth 1 -name 'raptors-*.whl' -print -quit)
+python scripts/check_wheel_contract.py "$wheel" --python 3.12 --platform-family macosx --platform-fragment arm64
+python -m twine check "$wheel"
+python scripts/check_clean_install.py "$wheel" --python python3.12
 ```
 
-The first script checks wheel tags, metadata, runtime requirements, extension,
-and license inclusion. The second installs the wheel in a fresh environment
-with no NumPy and runs a mutation smoke test. The release workflow executes
-these checks across all advertised OS and Python combinations before PyPI
-publishing.
+The wheel contract check verifies the `cp312-abi3` tag, platform family and architecture,
+metadata, runtime requirements, extension, and license inclusion. The clean
+install check creates a fresh environment with no NumPy and runs a mutation
+smoke test. The release workflow builds one wheel for each of eight targets:
+manylinux x86-64 and ARM64, macOS x86-64 and ARM64, musllinux x86-64 and ARM64,
+and Windows x86-64 and ARM64. It installs that same wheel on CPython 3.12, 3.13,
+and 3.14 and runs the differential suite and NumPy-free smoke test on each.
+
+The published `0.1.0` release predates this strategy and contains twelve
+version-specific wheels across its original four platform targets.
 
 ## Legacy tests and baseline
 

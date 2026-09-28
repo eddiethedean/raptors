@@ -4,9 +4,9 @@ Raptors is building a Rust-backed Python package for NumPy's public functionalit
 
 ## Current status
 
-Version 0.1 is implemented locally as a narrow native preview. It supports explicit `bool`, `int64`, `uint64`, `float32`, and `float64` arrays; metadata; basic integer and slice views; scalar and exact-shape, same-dtype assignment; and independent copies. It does not implement arithmetic or general NumPy compatibility and makes no speed claim.
+Version 0.1.0 is published as a narrow native preview. It supports explicit `bool`, `int64`, `uint64`, `float32`, and `float64` arrays; metadata; basic integer and slice views; scalar and exact-shape, same-dtype assignment; and independent copies. It does not implement arithmetic or general NumPy compatibility and makes no speed claim.
 
-The 0.1 release gate remains pending. Local CPython 3.12–3.14 differential/property suites, Rust tests, Miri, CPython 3.14 wheel metadata checks, a clean install without NumPy, and an informational benchmark have run on macOS ARM64. The hosted Linux/macOS/Windows wheel matrix and Linux AddressSanitizer gate have not run on the candidate changes. See the [verification record](docs/NUMPY_TEST_VERIFICATION.md) and [0.1 execution plan](docs/RELEASE_0_1.md).
+The tagged `v0.1.0` workflow passed Rust, Miri, AddressSanitizer, and twelve version-specific wheel builds and published them to PyPI. This does not establish general NumPy compatibility, a general memory-safety guarantee, or a performance advantage. See the [verification record](docs/NUMPY_TEST_VERIFICATION.md) and [0.1 release record](docs/RELEASE_0_1.md).
 
 ## Repository map
 
@@ -36,9 +36,9 @@ See [Python build](raptors-python/BUILD.md), [Python testing](raptors-python/TES
 
 ## Release workflow
 
-`.github/workflows/release.yml` validates the tag and package versions, runs Rust safety checks, builds and tests wheels across the declared platform/Python matrix, then publishes those wheels to PyPI through the configured trusted publisher. It triggers on exact `vX.Y.Z` tags. A manual run performs the validation/build path without publishing.
+`.github/workflows/release.yml` validates the tag and package versions, runs Rust safety checks, builds and tests eight target wheels, then publishes those wheels to PyPI through the configured trusted publisher. Each `cp312-abi3` wheel is tested on CPython 3.12, 3.13, and 3.14. It triggers on exact `vX.Y.Z` tags. A manual run performs the validation/build path without publishing.
 
-Do not tag 0.1 until the pending gates in the [release plan](docs/RELEASE_0_1.md) have passed. Source distributions are not published until a clean source build is verified.
+The published 0.1.0 wheel set predates this eight-target strategy. Run the workflow manually and confirm it passes before creating a later release tag. Source distributions remain disabled until a clean source build is verified.
 
 ## Documentation
 

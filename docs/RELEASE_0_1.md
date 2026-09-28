@@ -6,11 +6,13 @@
 
 - **Behavioral oracle:** NumPy **2.5.3**, source tag `v2.5.3`, commit `dd88c0c19b54ad9ed3533224221285bf0873249a`; the test wheel and dependencies are locked in [`raptors-python/uv.lock`](../raptors-python/uv.lock). The initialized [`numpy-reference`](../numpy-reference) submodule matches that commit.
 - **Python:** GIL-enabled CPython 3.12, 3.13, and 3.14. PyPy, Python 3.15, and free-threaded CPython are out of scope.
-- **Wheel matrix:** Linux x86-64 with manylinux2014, macOS x86-64 and ARM64 with a macOS 11 deployment target, and Windows x86-64. Each target builds all three supported CPython versions.
+- **Published 0.1.0 wheel matrix:** Linux x86-64 with manylinux2014, macOS x86-64 and ARM64 with a macOS 11 deployment target, and Windows x86-64. Each target has version-specific wheels for CPython 3.12, 3.13, and 3.14 (twelve wheels total).
 - **Dependencies:** no runtime dependencies. NumPy, pytest, Hypothesis, maturin, and twine are in the locked development extra only.
 - **Distribution:** binary wheels only. A source distribution remains unpublished until a clean source build and installation are validated.
 
 The package metadata, CI and release matrices use the same Python range. The release workflow checks all package versions against an exact `vX.Y.Z` tag before publishing.
+
+The current workflow applies to releases after 0.1.0 and builds eight `cp312-abi3` wheels: manylinux x86-64 and ARM64, macOS x86-64 and ARM64, musllinux x86-64 and ARM64, and Windows x86-64 and ARM64. It tests each wheel on CPython 3.12, 3.13, and 3.14 before publishing.
 
 ## Public preview boundary
 

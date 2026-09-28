@@ -1,6 +1,6 @@
 # Raptors architecture
 
-**Status: the 0.1 storage and binding slice is implemented; the broader execution design remains planned.** The [rebuild plan](REBUILD_PLAN.md) defines the acceptance gates. The new preview uses checked storage; hosted safety and platform gates are still pending.
+**Status: the 0.1 storage and binding slice is implemented and published; the broader execution design remains planned.** The [rebuild plan](REBUILD_PLAN.md) defines the acceptance gates. The 0.1 hosted safety and wheel gates passed; the current eight-target stable-ABI workflow applies to later releases.
 
 ## Public contract
 

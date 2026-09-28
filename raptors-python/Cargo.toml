@@ -10,11 +10,11 @@ crate-type = ["cdylib"]
 path = "src/preview_lib.rs"
 
 [dependencies]
-pyo3 = { version = "0.27", features = ["extension-module", "num-complex"] }
+pyo3 = { version = "0.27", features = ["extension-module", "num-complex", "abi3-py312"] }
 raptors-storage = { path = "../raptors-storage" }
 
 [build-dependencies]
 pyo3-build-config = "0.27"
 
 [dev-dependencies]
-pyo3 = { version = "0.27", features = ["extension-module", "num-complex", "auto-initialize"] }
+pyo3 = { version = "0.27", features = ["extension-module", "num-complex", "auto-initialize", "abi3-py312"] }

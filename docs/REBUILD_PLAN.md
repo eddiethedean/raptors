@@ -2,9 +2,9 @@
 
 Date: 2026-09-28
 
-Status: accepted project direction; the 0.1 preview implementation is complete locally and its hosted release gate is pending. Releases 0.2–0.9 remain planned. See the [0.x release roadmap](CONVERSION_ROADMAP.md) for versioned deliverables and the [documentation index](README.md) for aligned development and validation guides. This plan supersedes the legacy completion roadmap and async-service positioning.
+Status: accepted project direction; the 0.1 preview is published, with its hosted release gates passed. Releases 0.2–0.9 remain planned. See the [0.x release roadmap](CONVERSION_ROADMAP.md) for versioned deliverables and the [documentation index](README.md) for aligned development and validation guides. This plan supersedes the legacy completion roadmap and async-service positioning.
 
-The local 0.1 result includes the pinned NumPy oracle, generated API inventory, compatibility manifest, legacy baseline record, differential/property harness, new safe storage crate, PyO3 preview, wheel checks, benchmark, Miri job, and tag-triggered trusted-publisher workflow. CPython 3.12–3.14 suites pass locally on macOS ARM64; hosted platform and AddressSanitizer jobs are still required. See [release 0.1](RELEASE_0_1.md) for exact scope and evidence.
+The 0.1 result includes the pinned NumPy oracle, generated API inventory, compatibility manifest, legacy baseline record, differential/property harness, new safe storage crate, PyO3 preview, wheel checks, benchmark, Miri job, and tag-triggered trusted-publisher workflow. CPython 3.12–3.14 suites pass locally on macOS ARM64; the tagged release passed hosted platform and AddressSanitizer jobs. The current workflow configures eight `cp312-abi3` target wheels for later releases. See [release 0.1](RELEASE_0_1.md) for exact scope and evidence.
 
 ## Goal and recommendation
 
@@ -35,7 +35,7 @@ Prior local checks established that five core array integration tests pass and t
 
 ## Compatibility contract
 
-The [0.1 execution plan](RELEASE_0_1.md) pins NumPy **2.5.3** at `dd88c0c19b54ad9ed3533224221285bf0873249a` and GIL-enabled CPython **3.12–3.14** as the first support range. The Python dependency lock and source submodule match that reference. The release workflow declares Linux x86-64, macOS x86-64/ARM64, and Windows x86-64. Hosted builds remain pending. Keep a separate compatibility job for a newer NumPy release so upstream changes cannot silently change the reference.
+The [0.1 execution plan](RELEASE_0_1.md) pins NumPy **2.5.3** at `dd88c0c19b54ad9ed3533224221285bf0873249a` and GIL-enabled CPython **3.12–3.14** as the first support range. The Python dependency lock and source submodule match that reference. Version 0.1.0 shipped twelve version-specific wheels for Linux x86-64, macOS x86-64/ARM64, and Windows x86-64. The current release workflow expands later releases to eight `cp312-abi3` wheels across manylinux, musllinux, macOS, and Windows x86-64/ARM64. Keep a separate compatibility job for a newer NumPy release so upstream changes cannot silently change the reference.
 
 The eventual inventory includes:
 
@@ -114,7 +114,7 @@ Compare more than numeric output: dtype, scalar versus array return, shape, rele
 
 Use curated upstream tests with their provenance and license notices preserved. Adapt imports and fixtures minimally; audit changes to assertions. Add generated cases using Hypothesis for Python and property testing for Rust. Shrink failures into permanent regressions. Exercise sequences of views, writes, copies, and owner destruction, not just isolated operations.
 
-**Exit gate:** the harness detects intentional faults in dtype selection, broadcasting, overlap, and view ownership. It fails for a missing extension and reports all skipped/unsupported cases explicitly. The 0.1 preview's harness probes and import behavior pass locally; hosted Python versions remain pending.
+**Exit gate:** the harness detects intentional faults in dtype selection, broadcasting, overlap, and view ownership. It fails for a missing extension and reports all skipped/unsupported cases explicitly. The 0.1 preview's harness probes passed locally and its tagged release passed hosted wheel tests on CPython 3.12–3.14.
 
 ### Work stream C — Prove the safe array foundation (v0.1 preview, v0.2 completion)
 
@@ -122,7 +122,7 @@ Implement the new storage/layout design with a deliberately small dtype set: boo
 
 Test allocation bounds, invalid metadata, negative and zero strides, non-contiguous access, parent destruction, repeated aliases, overlapping assignment, and read/write conflicts. Use Miri on isolated Rust storage/layout code, fuzz its constructors and operation sequences, and run sanitizer builds where supported. Test Python lifetimes through the actual extension.
 
-**Exit gate:** the 0.1 preview passes its declared owner-lifetime, stride, overlap, bounds, and initialization cases with documented invariants, reviewed unsafe boundaries, and recorded Miri/sanitizer results. Local Rust/Miri tests pass; hosted sanitizer and wheel-matrix evidence is pending. Complete the remaining foundation cases in 0.2 before growing the operation catalog.
+**Exit gate:** the 0.1 preview passes its declared owner-lifetime, stride, overlap, bounds, and initialization cases with documented invariants, reviewed unsafe boundaries, and recorded Miri/sanitizer results. Local Rust/Miri tests and hosted sanitizer/wheel checks passed for 0.1. Complete the remaining foundation cases in 0.2 before growing the operation catalog.
 
 ### Work stream D — Deliver one complete numeric path (v0.2-v0.3)
 
@@ -192,7 +192,7 @@ Do not weaken expected results, add blanket skips, catch all errors to return pl
 
 ## Current implementation checkpoint
 
-The 0.1 work streams have local artifacts and results recorded in [RELEASE_0_1.md](RELEASE_0_1.md) and [NUMPY_TEST_VERIFICATION.md](NUMPY_TEST_VERIFICATION.md). Do not interpret this checkpoint as release approval: the hosted 12-cell OS/Python wheel matrix and Linux AddressSanitizer still need to pass on the candidate commit. Estimate later work from the reviewed inventory and the measured difficulty of each complete numeric path. Full NumPy functionality is a sustained library engineering effort; a fixed short rewrite schedule would be speculation.
+The 0.1 work streams have local and hosted artifacts and results recorded in [RELEASE_0_1.md](RELEASE_0_1.md) and [NUMPY_TEST_VERIFICATION.md](NUMPY_TEST_VERIFICATION.md). Version 0.1.0 passed its twelve-cell OS/Python wheel matrix and Linux AddressSanitizer gate before publication. Run the current eight-target stable-ABI workflow before each later release. Estimate later work from the reviewed inventory and the measured difficulty of each complete numeric path. Full NumPy functionality is a sustained library engineering effort; a fixed short rewrite schedule would be speculation.
 
 ## Reference material
 

@@ -12,13 +12,14 @@ import tempfile
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("wheel", type=Path)
+    parser.add_argument("--python", default=sys.executable, help="interpreter to use for the clean environment")
     args = parser.parse_args()
     with tempfile.TemporaryDirectory(prefix="raptors-no-numpy-") as temporary:
         environment = Path(temporary) / "venv"
         uv = shutil.which("uv")
         if uv is None:
             raise SystemExit("uv must be available to create the isolated no-dependency environment")
-        subprocess.run([uv, "venv", "--python", sys.executable, str(environment)], check=True)
+        subprocess.run([uv, "venv", "--python", args.python, str(environment)], check=True)
         executable = environment / ("Scripts/python.exe" if os.name == "nt" else "bin/python")
         subprocess.run([uv, "pip", "install", "--python", str(executable), "--no-deps", str(args.wheel.resolve())], check=True)
         check = (

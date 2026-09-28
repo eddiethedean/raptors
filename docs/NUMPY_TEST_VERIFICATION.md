@@ -40,15 +40,20 @@ Local environment: macOS 26.5.2 ARM64, CPython 3.12.13/3.13.11/3.14.3, NumPy 2.5
 
 The Python suite is newly authored against the pinned NumPy oracle; it does not copy upstream NumPy tests. Hypothesis uses deterministic bounded strategies. Preview tests fail on import failure and have no skip or expected-failure markers.
 
-## Remaining release checks
+## Release outcome and subsequent workflow changes
 
-These jobs are configured in CI/release workflows but have **not** run on the current candidate changes:
+The local table above records the evidence assembled before publication. The
+tagged [`v0.1.0` release workflow](https://github.com/eddiethedean/raptors/actions/runs/36463556250)
+later passed hosted Miri, AddressSanitizer, all twelve version-specific wheel
+build and install checks, and published `raptors==0.1.0` to
+[PyPI](https://pypi.org/project/raptors/0.1.0/). The earlier build-only
+[`workflow_dispatch` run](https://github.com/eddiethedean/raptors/actions/runs/36461927101)
+also passed.
 
-- The full 12-cell wheel matrix: Linux x86-64, macOS x86-64/ARM64, and Windows x86-64, each with CPython 3.12–3.14. Local extension builds and tests pass on macOS ARM64 for all three Python versions.
-- Hosted Linux AddressSanitizer storage tests.
-- The GitHub `workflow_dispatch` build-only release validation.
-
-The workflow publishes only after those required jobs succeed for a `vX.Y.Z` tag. No tag or PyPI publication is part of this local verification.
+The release workflow has since changed for versions after 0.1.0: it builds
+eight `cp312-abi3` target wheels and tests each on CPython 3.12, 3.13, and 3.14.
+That updated matrix requires its own build-only `workflow_dispatch` run before
+the next release tag. It does not alter the already-published 0.1.0 wheel set.
 
 ## Reproducibility and interpretation
 
