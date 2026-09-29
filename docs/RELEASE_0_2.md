@@ -43,7 +43,7 @@ Implement in this order, with a separately reviewable change and evidence for ea
 
 ## Required reference and adversarial cases
 
-For each public behavior, save the exact NumPy call, input, expected value and dtype, scalar/array result type, shape/strides/flags where relevant, sharing and mutation result, and exception or warning category. Preserve the case's upstream source path/test ID if adapted from the pinned checkout. Compare exact integer and boolean values, bit-sensitive floating behavior where observable (including signed zero), and operation-specific complex component behavior. Do not compare `empty()`'s unspecified contents.
+For each public behavior, save the exact NumPy call, input, expected value and dtype, scalar/array result type, shape/strides/flags where relevant, sharing and mutation result, and exception or warning category. Preserve the case's upstream source path/test ID if adapted from the pinned checkout. Compare exact integer and boolean values, bit-sensitive floating behavior where observable (including signed zero), and operation-specific complex component behavior. Do not compare `empty()`'s unspecified contents. NumPy documents float-to-integer overflow results and warning sets as platform-dependent; compare exact cast values only for in-range inputs, and check invalid-cast warnings and result metadata separately for out-of-range inputs.
 
 | Case family | Minimum examples to include |
 | --- | --- |

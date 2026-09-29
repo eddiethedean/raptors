@@ -440,8 +440,8 @@ impl Scalar {
         }
     }
 
-    /// Whether casting this floating scalar to an integer dtype uses NumPy's
-    /// invalid-value path (which emits a RuntimeWarning in the Python API).
+    /// Whether this floating scalar is outside the integer dtype's conversion
+    /// range. The Python API uses this to emit an invalid-cast RuntimeWarning.
     pub fn integer_cast_is_invalid(&self, dtype: DType) -> bool {
         let Some((lower, upper)) = float_integer_cast_bounds(dtype) else {
             return false;
@@ -3303,7 +3303,7 @@ mod tests {
     }
 
     #[test]
-    fn floating_integer_casts_saturate_like_numpy_array_casts() {
+    fn floating_integer_casts_have_deterministic_results() {
         assert_eq!(
             Scalar::Float64(1e20).cast(DType::Int64).unwrap(),
             Scalar::Int64(i64::MAX)

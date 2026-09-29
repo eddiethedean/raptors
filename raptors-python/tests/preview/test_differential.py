@@ -1,5 +1,6 @@
 import gc
 import sys
+import warnings
 
 import numpy as np
 import pytest
@@ -516,7 +517,36 @@ def test_array_casts_warn_when_finite_values_overflow_float32():
         raptors.uint64,
     ],
 )
-def test_float_array_to_integer_cast_matches_numpy(dtype):
+def test_float_array_to_integer_cast_matches_numpy_for_in_range_values(dtype):
+    values = [-1.75, 0.0, 1.75] if dtype.kind == "i" else [0.0, 1.75, 42.5]
+    reference_source = np.array(values, dtype=np.float64)
+    candidate_source = raptors.array(values, dtype=raptors.float64)
+
+    expected = reference_source.astype(dtype.name)
+    actual = candidate_source.astype(dtype)
+    assert_array_matches(expected, actual)
+
+    expected_assignment = np.zeros(len(values), dtype=dtype.name)
+    actual_assignment = raptors.zeros(len(values), dtype=dtype)
+    expected_assignment[:] = reference_source
+    actual_assignment[:] = candidate_source
+    assert_array_matches(expected_assignment, actual_assignment)
+
+
+@pytest.mark.parametrize(
+    "dtype",
+    [
+        raptors.int8,
+        raptors.uint8,
+        raptors.int16,
+        raptors.uint16,
+        raptors.int32,
+        raptors.uint32,
+        raptors.int64,
+        raptors.uint64,
+    ],
+)
+def test_float_array_to_integer_invalid_cast_warns_without_requiring_undefined_values(dtype):
     values = [1e20, -1e20, float("inf"), float("-inf"), float("nan")]
     reference_source = np.array(values, dtype=np.float64)
     candidate_source = raptors.array(values, dtype=raptors.float64)
@@ -526,7 +556,8 @@ def test_float_array_to_integer_cast_matches_numpy(dtype):
     with pytest.warns(RuntimeWarning, match="invalid value encountered in cast") as actual_warnings:
         actual = candidate_source.astype(dtype)
     assert len(actual_warnings) == len(expected_warnings) == 1
-    assert_array_matches(expected, actual)
+    assert actual.dtype.name == expected.dtype.name == dtype.name
+    assert tuple(actual.shape) == tuple(expected.shape)
 
     expected_assignment = np.zeros(len(values), dtype=dtype.name)
     actual_assignment = raptors.zeros(len(values), dtype=dtype)
@@ -535,7 +566,8 @@ def test_float_array_to_integer_cast_matches_numpy(dtype):
     with pytest.warns(RuntimeWarning, match="invalid value encountered in cast") as actual_warnings:
         actual_assignment[:] = candidate_source
     assert len(actual_warnings) == len(expected_warnings) == 1
-    assert_array_matches(expected_assignment, actual_assignment)
+    assert actual_assignment.dtype.name == expected_assignment.dtype.name == dtype.name
+    assert tuple(actual_assignment.shape) == tuple(expected_assignment.shape)
 
 
 def test_complex_to_real_scalar_conversion_raises_type_error():
@@ -578,8 +610,8 @@ def test_complex_to_real_array_cast_emits_complex_warning():
 
 @pytest.mark.parametrize("operation", ["astype", "array", "assignment"])
 def test_complex_to_unsigned_cast_warning_order_matches_numpy(operation):
-    reference_source = np.array([-1 + 1j], dtype=np.complex128)
-    candidate_source = raptors.array([-1 + 1j], dtype=raptors.complex128)
+    reference_source = np.array([1 + 1j], dtype=np.complex128)
+    candidate_source = raptors.array([1 + 1j], dtype=raptors.complex128)
 
     def apply_numpy():
         if operation == "astype":
@@ -608,6 +640,43 @@ def test_complex_to_unsigned_cast_warning_order_matches_numpy(operation):
         str(w.message) for w in expected_warnings
     ]
     assert_array_matches(expected, actual)
+
+
+@pytest.mark.parametrize("operation", ["astype", "array", "assignment"])
+def test_invalid_complex_to_unsigned_cast_keeps_complex_warning(operation):
+    reference_source = np.array([-1 + 1j], dtype=np.complex128)
+    candidate_source = raptors.array([-1 + 1j], dtype=raptors.complex128)
+
+    def apply_numpy():
+        if operation == "astype":
+            return reference_source.astype(np.uint64)
+        if operation == "array":
+            return np.array(reference_source, dtype=np.uint64)
+        result = np.zeros(1, dtype=np.uint64)
+        result[:] = reference_source
+        return result
+
+    def apply_raptors():
+        if operation == "astype":
+            return candidate_source.astype(raptors.uint64)
+        if operation == "array":
+            return raptors.array(candidate_source, dtype=raptors.uint64)
+        result = raptors.zeros(1, dtype=raptors.uint64)
+        result[:] = candidate_source
+        return result
+
+    with warnings.catch_warnings(record=True) as expected_warnings:
+        warnings.simplefilter("always")
+        expected = apply_numpy()
+    with warnings.catch_warnings(record=True) as actual_warnings:
+        warnings.simplefilter("always")
+        actual = apply_raptors()
+
+    assert any(issubclass(item.category, np.exceptions.ComplexWarning) for item in expected_warnings)
+    assert any(issubclass(item.category, raptors.ComplexWarning) for item in actual_warnings)
+    assert expected.dtype == np.dtype(np.uint64)
+    assert actual.dtype.name == "uint64"
+    assert tuple(actual.shape) == tuple(expected.shape)
 
 
 def test_complex64_overflow_emits_runtime_warning():
