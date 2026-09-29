@@ -560,6 +560,29 @@ def test_longlong_dtype_alias_metadata_survives_arrays_and_scalars():
             ).char
 
 
+@pytest.mark.parametrize(("code", "constant_name"), [("i", "intc"), ("I", "uintc")])
+def test_c_integer_dtype_codes_survive_arrays_scalars_and_promotion(code, constant_name):
+    expected = np.dtype(code)
+    descriptor = raptors.DType(code)
+    assert descriptor.char == expected.char
+    assert getattr(raptors, constant_name).char == expected.char
+
+    expected_array = np.array([1, 2], dtype=expected)
+    actual_array = raptors.array([1, 2], dtype=code)
+    assert_array_matches(expected_array, actual_array)
+    scalar = actual_array[0]
+    assert scalar.dtype.char == expected.char
+    assert raptors.array([scalar]).dtype.char == expected.char
+    assert raptors.promote_types(code, code).char == np.promote_types(code, code).char
+
+
+def test_integer_promotion_uses_numpy_c_int_descriptor_when_needed():
+    expected = np.promote_types(np.dtype("int8"), np.dtype("uint16"))
+    actual = raptors.promote_types("int8", "uint16")
+    assert actual.name == expected.name
+    assert actual.char == expected.char
+
+
 @pytest.mark.parametrize("complex_dtype", [raptors.complex64, raptors.complex128])
 def test_complex_and_longdouble_promotion_matches_numpy(complex_dtype):
     expected = np.promote_types(np.dtype(complex_dtype.name), np.dtype(np.longdouble))

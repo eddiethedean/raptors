@@ -14,6 +14,8 @@ use std::ffi::CString;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 enum ScalarAlias {
+    IntC,
+    UIntC,
     LongLong,
     ULongLong,
 }
@@ -21,6 +23,8 @@ enum ScalarAlias {
 impl ScalarAlias {
     fn char(self) -> char {
         match self {
+            Self::IntC => 'i',
+            Self::UIntC => 'I',
             Self::LongLong => 'q',
             Self::ULongLong => 'Q',
         }
@@ -28,6 +32,8 @@ impl ScalarAlias {
 
     fn class_name(self) -> &'static str {
         match self {
+            Self::IntC => "Int32Scalar",
+            Self::UIntC => "UInt32Scalar",
             Self::LongLong => "LongLongScalar",
             Self::ULongLong => "ULongLongScalar",
         }
@@ -35,6 +41,8 @@ impl ScalarAlias {
 
     fn dtype(self) -> DType {
         match self {
+            Self::IntC => DType::Int32,
+            Self::UIntC => DType::UInt32,
             Self::LongLong => DType::Int64,
             Self::ULongLong => DType::UInt64,
         }
@@ -572,13 +580,13 @@ fn native_f64<'py>(value: f64, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
 macro_rules! scalar_wrapper {
     ($class:ident, $name:literal, $ty:ty, $native:ident, $dtype:ident, $truth:expr $(, $index:item)?) => {
         #[pyclass(name = $name, frozen, module = "raptors")]
-        #[derive(Clone)] struct $class($ty);
+        #[derive(Clone)] struct $class($ty, Option<ScalarAlias>);
         #[pymethods]
         impl $class {
             fn __repr__(&self) -> String { format!("raptors.{}({:?})", $name, self.0) }
             fn __bool__(&self) -> bool { ($truth)(self.0) }
             #[getter]
-            fn dtype(&self, py: Python<'_>) -> PyResult<Py<PyDType>> { Py::new(py, PyDType { inner: DType::$dtype, byte_order: default_byte_order(DType::$dtype), scalar_alias: None }) }
+            fn dtype(&self, py: Python<'_>) -> PyResult<Py<PyDType>> { Py::new(py, PyDType { inner: DType::$dtype, byte_order: default_byte_order(DType::$dtype), scalar_alias: self.1 }) }
             fn item(&self, py: Python<'_>) -> PyResult<Py<PyAny>> { Ok($native(self.0, py)?.unbind()) }
             fn __int__(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
                 let value = $native(self.0, py)?;
@@ -1092,10 +1100,17 @@ fn promote_types(left: &Bound<'_, PyAny>, right: &Bound<'_, PyAny>) -> PyResult<
     let (left, _, left_alias) = parse_dtype_spec(left)?;
     let (right, _, right_alias) = parse_dtype_spec(right)?;
     let inner = left.promote(right);
+    let scalar_alias = merge_scalar_aliases(left_alias, right_alias, inner).or_else(|| {
+        (cfg!(target_os = "windows")
+            && inner == DType::Int32
+            && left != DType::Int32
+            && right != DType::Int32)
+            .then_some(ScalarAlias::IntC)
+    });
     Ok(PyDType {
         inner,
         byte_order: default_byte_order(inner),
-        scalar_alias: merge_scalar_aliases(left_alias, right_alias, inner),
+        scalar_alias,
     })
 }
 
@@ -1885,6 +1900,12 @@ fn dtype_alias_for_spec(name: &str, dtype: DType) -> Option<ScalarAlias> {
         _ => name,
     };
     match base {
+        "i" | "intc" if dtype == DType::Int32 && DType::Int32.char() != 'i' => {
+            Some(ScalarAlias::IntC)
+        }
+        "I" | "uintc" if dtype == DType::UInt32 && DType::UInt32.char() != 'I' => {
+            Some(ScalarAlias::UIntC)
+        }
         "q" | "longlong" if dtype == DType::Int64 && DType::Int64.char() != 'q' => {
             Some(ScalarAlias::LongLong)
         }
@@ -2356,18 +2377,26 @@ fn scalar_to_python(
         _ => {}
     }
     match value {
-        Scalar::Bool(x) => Ok(Py::new(py, PyBoolScalar(x))?.into_any()),
-        Scalar::Int8(x) => Ok(Py::new(py, PyInt8Scalar(x))?.into_any()),
-        Scalar::UInt8(x) => Ok(Py::new(py, PyUInt8Scalar(x))?.into_any()),
-        Scalar::Int16(x) => Ok(Py::new(py, PyInt16Scalar(x))?.into_any()),
-        Scalar::UInt16(x) => Ok(Py::new(py, PyUInt16Scalar(x))?.into_any()),
-        Scalar::Int32(x) => Ok(Py::new(py, PyInt32Scalar(x))?.into_any()),
-        Scalar::UInt32(x) => Ok(Py::new(py, PyUInt32Scalar(x))?.into_any()),
-        Scalar::Int64(x) => Ok(Py::new(py, PyInt64Scalar(x))?.into_any()),
-        Scalar::UInt64(x) => Ok(Py::new(py, PyUInt64Scalar(x))?.into_any()),
-        Scalar::Float16(x) => Ok(Py::new(py, PyFloat16Scalar(x))?.into_any()),
-        Scalar::Float32(x) => Ok(Py::new(py, PyFloat32Scalar(x))?.into_any()),
-        Scalar::Float64(x) => Ok(Py::new(py, PyFloat64Scalar(x))?.into_any()),
+        Scalar::Bool(x) => Ok(Py::new(py, PyBoolScalar(x, None))?.into_any()),
+        Scalar::Int8(x) => Ok(Py::new(py, PyInt8Scalar(x, None))?.into_any()),
+        Scalar::UInt8(x) => Ok(Py::new(py, PyUInt8Scalar(x, None))?.into_any()),
+        Scalar::Int16(x) => Ok(Py::new(py, PyInt16Scalar(x, None))?.into_any()),
+        Scalar::UInt16(x) => Ok(Py::new(py, PyUInt16Scalar(x, None))?.into_any()),
+        Scalar::Int32(x) => Ok(Py::new(
+            py,
+            PyInt32Scalar(x, scalar_alias.filter(|alias| *alias == ScalarAlias::IntC)),
+        )?
+        .into_any()),
+        Scalar::UInt32(x) => Ok(Py::new(
+            py,
+            PyUInt32Scalar(x, scalar_alias.filter(|alias| *alias == ScalarAlias::UIntC)),
+        )?
+        .into_any()),
+        Scalar::Int64(x) => Ok(Py::new(py, PyInt64Scalar(x, None))?.into_any()),
+        Scalar::UInt64(x) => Ok(Py::new(py, PyUInt64Scalar(x, None))?.into_any()),
+        Scalar::Float16(x) => Ok(Py::new(py, PyFloat16Scalar(x, None))?.into_any()),
+        Scalar::Float32(x) => Ok(Py::new(py, PyFloat32Scalar(x, None))?.into_any()),
+        Scalar::Float64(x) => Ok(Py::new(py, PyFloat64Scalar(x, None))?.into_any()),
         Scalar::Complex64(re, im) => Ok(Py::new(py, PyComplex64Scalar(re, im))?.into_any()),
         Scalar::Complex128(re, im) => Ok(Py::new(py, PyComplex128Scalar(re, im))?.into_any()),
         Scalar::LongDouble(value) => Ok(Py::new(py, PyLongDoubleScalar(value))?.into_any()),
