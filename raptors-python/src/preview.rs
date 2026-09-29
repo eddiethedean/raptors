@@ -477,13 +477,18 @@ impl PyArray {
     }
     fn __setitem__(&self, key: &Bound<'_, PyAny>, value: &Bound<'_, PyAny>) -> PyResult<()> {
         let (indices, _) = parse_indices(&self.inner, key)?;
-        let sequence = sequence_value_to_view(value, self.inner.dtype())?;
-        if indices.iter().any(|item| {
+        let advanced = indices.iter().any(|item| {
             matches!(
                 item,
                 IndexItem::Fancy { .. } | IndexItem::BoolScalar(_) | IndexItem::BoolMask { .. }
             )
-        }) {
+        });
+        if !advanced && (value.is_instance_of::<PyList>() || value.is_instance_of::<PyTuple>()) {
+            let selected = self.inner.index(&indices).map_err(map_storage_error)?;
+            return assign_basic_sequence(&selected, value);
+        }
+        let sequence = sequence_value_to_view(value, self.inner.dtype())?;
+        if advanced {
             if let Ok(source) = value.extract::<PyRef<'_, PyArray>>() {
                 warn_view_complex_cast(value.py(), &source.inner, self.inner.dtype())?;
                 warn_view_cast_overflow(value.py(), &source.inner, self.inner.dtype())?;
@@ -1291,6 +1296,175 @@ fn sequence_value_to_view(value: &Bound<'_, PyAny>, dtype: DType) -> PyResult<Op
     ))
 }
 
+enum SequenceAtom<'py> {
+    Python(Bound<'py, PyAny>),
+    Stored(Scalar),
+}
+
+fn flatten_assignment_sequence<'py>(
+    value: &Bound<'py, PyAny>,
+    dtype: DType,
+    depth: usize,
+) -> PyResult<(Vec<usize>, Vec<SequenceAtom<'py>>)> {
+    if depth > 64 {
+        return Err(PyValueError::new_err("array nesting is too deep"));
+    }
+    if let Ok(array) = value.extract::<PyRef<'_, PyArray>>() {
+        if array.inner.dtype() != dtype {
+            warn_view_complex_cast(value.py(), &array.inner, dtype)?;
+            warn_view_cast_overflow(value.py(), &array.inner, dtype)?;
+        }
+        let values = array
+            .inner
+            .snapshot()
+            .map_err(map_storage_error)?
+            .into_iter()
+            .map(SequenceAtom::Stored)
+            .collect();
+        return Ok((array.inner.shape().to_vec(), values));
+    }
+    if value.is_instance_of::<PyList>() || value.is_instance_of::<PyTuple>() {
+        let children = value.try_iter()?.collect::<PyResult<Vec<_>>>()?;
+        if children.is_empty() {
+            return Ok((vec![0], Vec::new()));
+        }
+        let mut expected_shape: Option<Vec<usize>> = None;
+        let mut values = Vec::new();
+        for child in &children {
+            let (shape, mut child_values) = flatten_assignment_sequence(child, dtype, depth + 1)?;
+            if expected_shape
+                .as_ref()
+                .is_some_and(|previous| previous != &shape)
+            {
+                return Err(PyValueError::new_err("input sequence is ragged"));
+            }
+            expected_shape.get_or_insert(shape);
+            values.append(&mut child_values);
+        }
+        let mut shape = vec![children.len()];
+        shape.extend(expected_shape.unwrap_or_default());
+        return Ok((shape, values));
+    }
+    Ok((vec![], vec![SequenceAtom::Python(value.clone())]))
+}
+
+fn assignment_sequence_size(shape: &[usize]) -> PyResult<usize> {
+    shape.iter().try_fold(1usize, |size, &dimension| {
+        size.checked_mul(dimension)
+            .filter(|&size| size <= isize::MAX as usize)
+            .ok_or_else(|| PyValueError::new_err("array shape exceeds supported limits"))
+    })
+}
+
+fn validate_assignment_broadcast(source: &[usize], target: &[usize]) -> PyResult<()> {
+    if source.len() > target.len()
+        || source
+            .iter()
+            .rev()
+            .zip(target.iter().rev())
+            .any(|(&from, &to)| from != 1 && from != to)
+    {
+        return Err(map_storage_error(StorageError::CannotBroadcast {
+            from: source.to_vec(),
+            to: target.to_vec(),
+        }));
+    }
+    Ok(())
+}
+
+fn broadcast_source_index(
+    source_shape: &[usize],
+    target_shape: &[usize],
+    target_linear: usize,
+) -> PyResult<usize> {
+    let mut target_coordinates = vec![0; target_shape.len()];
+    let mut remainder = target_linear;
+    for axis in (0..target_shape.len()).rev() {
+        let dimension = target_shape[axis];
+        if dimension == 0 {
+            return Err(PyValueError::new_err("invalid empty assignment coordinate"));
+        }
+        target_coordinates[axis] = remainder % dimension;
+        remainder /= dimension;
+    }
+    let leading = target_shape.len() - source_shape.len();
+    source_shape
+        .iter()
+        .enumerate()
+        .try_fold(0usize, |linear, (axis, &dimension)| {
+            let coordinate = if dimension == 1 {
+                0
+            } else {
+                target_coordinates[leading + axis]
+            };
+            linear
+                .checked_mul(dimension)
+                .and_then(|linear| linear.checked_add(coordinate))
+                .ok_or_else(|| PyValueError::new_err("assignment shape exceeds supported limits"))
+        })
+}
+
+fn convert_assignment_atom(atom: &SequenceAtom<'_>, dtype: DType) -> PyResult<Scalar> {
+    match atom {
+        SequenceAtom::Python(value) => value_to_scalar(value, dtype),
+        SequenceAtom::Stored(value) => value.cast(dtype).map_err(map_storage_error),
+    }
+}
+
+fn assign_basic_sequence(target: &View, value: &Bound<'_, PyAny>) -> PyResult<()> {
+    let (source_shape, source_values) = flatten_assignment_sequence(value, target.dtype(), 0)?;
+    if assignment_sequence_size(&source_shape)? != source_values.len() {
+        return Err(PyValueError::new_err("input sequence has an invalid shape"));
+    }
+    if let Err(shape_error) = validate_assignment_broadcast(&source_shape, target.shape()) {
+        // NumPy converts a sequence before reporting a later broadcast error.
+        // Keep that error precedence, but leave the destination untouched.
+        for atom in &source_values {
+            convert_assignment_atom(atom, target.dtype())?;
+        }
+        return Err(shape_error);
+    }
+
+    let target_size = target.size().map_err(map_storage_error)?;
+    let mut converted_source: Vec<Option<Scalar>> = std::iter::repeat_with(|| None)
+        .take(source_values.len())
+        .collect();
+    if target_size == 0 {
+        for (index, atom) in source_values.iter().enumerate() {
+            converted_source[index] = Some(convert_assignment_atom(atom, target.dtype())?);
+        }
+        return Ok(());
+    }
+
+    let mut converted_target = Vec::new();
+    converted_target
+        .try_reserve_exact(target_size)
+        .map_err(|_| PyMemoryError::new_err("array assignment allocation failed"))?;
+    for target_linear in 0..target_size {
+        let source_linear = broadcast_source_index(&source_shape, target.shape(), target_linear)?;
+        if converted_source[source_linear].is_none() {
+            match convert_assignment_atom(&source_values[source_linear], target.dtype()) {
+                Ok(value) => converted_source[source_linear] = Some(value),
+                Err(error) => {
+                    target
+                        .assign_prefix(&converted_target)
+                        .map_err(map_storage_error)?;
+                    return Err(error);
+                }
+            }
+        }
+        converted_target.push(
+            converted_source[source_linear]
+                .as_ref()
+                .expect("the source scalar was converted")
+                .clone(),
+        );
+    }
+    target
+        .assign_prefix(&converted_target)
+        .map_err(map_storage_error)
+}
+
 fn scalar_alias_from_value(value: &Bound<'_, PyAny>) -> Option<ScalarAlias> {
     if !value
         .get_type()
@@ -1319,13 +1493,7 @@ fn value_to_scalar(value: &Bound<'_, PyAny>, dtype: DType) -> PyResult<Scalar> {
         && !value.is_instance_of::<PyBool>()
         && matches!(
             dtype,
-            DType::Float16
-                | DType::Float32
-                | DType::Float64
-                | DType::Complex64
-                | DType::Complex128
-                | DType::LongDouble
-                | DType::ComplexLongDouble
+            DType::Float16 | DType::Float32 | DType::Float64 | DType::Complex64 | DType::Complex128
         )
     {
         if let Ok(number) = value.extract::<f64>() {
@@ -1787,7 +1955,9 @@ fn parse_indices(array: &View, key: &Bound<'_, PyAny>) -> PyResult<(Vec<IndexIte
     let consuming = keys
         .iter()
         .map(|key| {
-            if key.is_instance_of::<PyEllipsis>() || key.is_none() || key.is_instance_of::<PyBool>()
+            if key.is_instance_of::<PyEllipsis>()
+                || key.is_none()
+                || bool_scalar_value(key).is_some()
             {
                 0
             } else if let Ok(index_array) = key.extract::<PyRef<'_, PyArray>>() {
@@ -1872,8 +2042,8 @@ fn parse_indices(array: &View, key: &Bound<'_, PyAny>) -> PyResult<(Vec<IndexIte
             only_basic_integers = false;
             continue;
         }
-        if key.is_instance_of::<PyBool>() {
-            indices.push(IndexItem::BoolScalar(key.extract::<bool>()?));
+        if let Some(value) = bool_scalar_value(&key) {
+            indices.push(IndexItem::BoolScalar(value));
             advanced = true;
             only_basic_integers = false;
             continue;
@@ -2026,6 +2196,17 @@ fn parse_indices(array: &View, key: &Bound<'_, PyAny>) -> PyResult<(Vec<IndexIte
                 .all(|item| matches!(item, IndexItem::Integer(_)))
     };
     Ok((indices, scalar))
+}
+
+fn bool_scalar_value(value: &Bound<'_, PyAny>) -> Option<bool> {
+    if value.is_instance_of::<PyBool>() {
+        value.extract::<bool>().ok()
+    } else {
+        value
+            .extract::<PyRef<'_, PyBoolScalar>>()
+            .ok()
+            .map(|scalar| scalar.0)
+    }
 }
 
 fn scalar_to_isize(value: &Scalar) -> PyResult<isize> {

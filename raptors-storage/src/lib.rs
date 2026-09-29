@@ -2062,6 +2062,26 @@ impl View {
         }
         Ok(())
     }
+    /// Assigns values to the first logical elements of this view. This is
+    /// used by sequence assignment to preserve writes made before a later
+    /// Python scalar conversion fails.
+    pub fn assign_prefix(&self, values: &[Scalar]) -> Result<(), StorageError> {
+        let offsets = self.all_element_offsets()?;
+        if values.len() > offsets.len() {
+            return Err(StorageError::ShapeMismatch);
+        }
+        if values.iter().any(|value| value.dtype() != self.dtype) {
+            return Err(StorageError::DTypeMismatch);
+        }
+        let mut storage = self
+            .storage
+            .write()
+            .map_err(|_| StorageError::LockPoisoned)?;
+        for (&offset, value) in offsets.iter().zip(values) {
+            storage.write_as(offset, self.dtype, self.byte_order, value.clone())?;
+        }
+        Ok(())
+    }
     /// Snapshots the source before taking the destination write lock, making overlapping assignments safe.
     pub fn assign_view(&self, source: &Self) -> Result<(), StorageError> {
         if source.ndim() > self.ndim()

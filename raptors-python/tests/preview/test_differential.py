@@ -648,6 +648,17 @@ def test_scalar_integer_indices_participate_in_advanced_axis_placement():
             assert int(actual[tuple(map(int, coordinates))]) == int(expected[coordinates])
 
 
+def test_raptors_boolean_scalar_is_a_boolean_index():
+    reference = np.arange(6, dtype=np.int64).reshape(2, 3)
+    candidate = raptors.array(reference.tolist(), dtype=raptors.int64)
+    for value in (False, True):
+        reference_key = np.array(value, dtype=np.bool_)[()]
+        candidate_key = raptors.array(value, dtype=raptors.bool_)[()]
+        assert type(candidate_key).__name__ == "BoolScalar"
+        assert_array_matches(reference[reference_key], candidate[candidate_key])
+        assert_array_matches(reference[(reference_key, ...)], candidate[(candidate_key, ...)])
+
+
 @pytest.mark.parametrize("order", ["C", "F"])
 def test_advanced_index_result_strides_match_numpy(order):
     values_2d = np.arange(12, dtype=np.int64).reshape((3, 4), order=order)
@@ -818,6 +829,57 @@ def test_array_assignment_casts_values_and_rejects_shape_changes():
     assert_array_matches(expected, actual)
     with pytest.raises(ValueError):
         actual[:] = raptors.array([8, 9], dtype=raptors.int64)
+
+
+def test_basic_sequence_assignment_keeps_successful_prefix_on_conversion_error():
+    reference = np.zeros(3, dtype=np.int64)
+    candidate = raptors.zeros(3, dtype=raptors.int64)
+    values = [1, 1e20, 3]
+
+    with pytest.raises(OverflowError):
+        reference[:] = values
+    with pytest.raises(OverflowError):
+        candidate[:] = values
+    assert_array_matches(reference, candidate)
+    assert reference.tolist() == [1, 0, 0]
+
+
+def test_sequence_assignment_conversion_error_precedes_broadcast_error():
+    reference = np.zeros(3, dtype=np.int64)
+    candidate = raptors.zeros(3, dtype=raptors.int64)
+    values = [1, 1e20]
+
+    with pytest.raises(OverflowError):
+        reference[:] = values
+    with pytest.raises(OverflowError):
+        candidate[:] = values
+    assert_array_matches(reference, candidate)
+
+
+def test_fancy_sequence_assignment_does_not_partially_write_on_conversion_error():
+    reference = np.zeros(3, dtype=np.int64)
+    candidate = raptors.zeros(3, dtype=raptors.int64)
+    reference_key = np.array([0, 1, 2], dtype=np.int64)
+    candidate_key = raptors.array([0, 1, 2], dtype=raptors.int64)
+    values = [1, 1e20, 3]
+
+    with pytest.raises(OverflowError):
+        reference[reference_key] = values
+    with pytest.raises(OverflowError):
+        candidate[candidate_key] = values
+    assert_array_matches(reference, candidate)
+    assert reference.tolist() == [0, 0, 0]
+
+
+def test_python_integer_to_longdouble_preserves_extended_precision():
+    value = 2**53 + 1
+    reference = np.array([value], dtype=np.longdouble)
+    candidate = raptors.array([value], dtype=raptors.DType("longdouble"))
+
+    if np.dtype("longdouble").itemsize > np.dtype("float64").itemsize:
+        assert np.longdouble(str(candidate[0])) == reference[0]
+    else:
+        assert float(candidate[0]) == float(reference[0])
 
 
 @pytest.mark.parametrize("fancy", [False, True])
