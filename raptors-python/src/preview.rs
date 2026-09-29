@@ -476,7 +476,7 @@ impl PyArray {
         }
     }
     fn __setitem__(&self, key: &Bound<'_, PyAny>, value: &Bound<'_, PyAny>) -> PyResult<()> {
-        let (indices, _) = parse_indices(&self.inner, key)?;
+        let (indices, returns_scalar) = parse_indices(&self.inner, key)?;
         let advanced = indices.iter().any(|item| {
             matches!(
                 item,
@@ -485,7 +485,7 @@ impl PyArray {
         });
         if !advanced && (value.is_instance_of::<PyList>() || value.is_instance_of::<PyTuple>()) {
             let selected = self.inner.index(&indices).map_err(map_storage_error)?;
-            return assign_basic_sequence(&selected, value);
+            return assign_basic_sequence(&selected, value, returns_scalar);
         }
         let sequence = sequence_value_to_view(value, self.inner.dtype())?;
         if advanced {
@@ -1443,8 +1443,12 @@ fn convert_assignment_atom(atom: &SequenceAtom<'_>, dtype: DType) -> PyResult<Sc
     }
 }
 
-fn assign_basic_sequence(target: &View, value: &Bound<'_, PyAny>) -> PyResult<()> {
-    if target.ndim() == 0 {
+fn assign_basic_sequence(
+    target: &View,
+    value: &Bound<'_, PyAny>,
+    returns_scalar: bool,
+) -> PyResult<()> {
+    if target.ndim() == 0 && returns_scalar {
         if target.dtype() == DType::Bool {
             return target
                 .assign_scalar(Scalar::Bool(value.is_truthy()?))

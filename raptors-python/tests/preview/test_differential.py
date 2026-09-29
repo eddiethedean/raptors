@@ -892,6 +892,21 @@ def test_scalar_boolean_assignment_uses_sequence_truthiness():
     assert_array_matches(reference, candidate)
 
 
+def test_zero_dimensional_ellipsis_assignment_preserves_array_semantics():
+    reference = np.zeros((), dtype=np.bool_)
+    candidate = raptors.zeros((), dtype=raptors.bool_)
+
+    with pytest.raises(ValueError):
+        reference[...] = [False]
+    with pytest.raises(ValueError):
+        candidate[...] = [False]
+    assert_array_matches(reference, candidate)
+
+    reference[()] = [False]
+    candidate[()] = [False]
+    assert_array_matches(reference, candidate)
+
+
 def test_sequence_assignment_conversion_error_precedes_broadcast_error():
     reference = np.zeros(3, dtype=np.int64)
     candidate = raptors.zeros(3, dtype=raptors.int64)
