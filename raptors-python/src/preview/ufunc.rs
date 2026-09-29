@@ -3,17 +3,16 @@ use super::{
     scalar_to_python, PyArray, ScalarAlias,
 };
 use pyo3::exceptions::{
-    PyFloatingPointError, PyIndexError, PyOverflowError, PyRuntimeError, PyRuntimeWarning,
-    PyTypeError, PyUserWarning, PyValueError,
+    PyFloatingPointError, PyIndexError, PyLookupError, PyOverflowError, PyRuntimeError,
+    PyRuntimeWarning, PyTypeError, PyUserWarning, PyValueError,
 };
 use pyo3::prelude::*;
-use pyo3::types::{PyBool, PyDict, PyFloat, PyInt, PyList, PyString, PyTuple, PyType};
+use pyo3::types::{PyBool, PyDict, PyFloat, PyInt, PyList, PyModule, PyString, PyTuple, PyType};
 use pyo3::PyTypeInfo;
 use raptors_longdouble as native_longdouble;
 use raptors_storage::{
     keep_order_axes, ufunc as kernels, ByteOrder, DType, IndexItem, Scalar, View,
 };
-use std::cell::RefCell;
 use std::collections::HashMap;
 use std::ffi::CString;
 
@@ -441,6 +440,10 @@ pub(super) fn register(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_class::<PyUFunc>()?;
     module.add_class::<PyErrState>()?;
     let py = module.py();
+    let context_var = PyModule::import(py, "contextvars")?
+        .getattr("ContextVar")?
+        .call1(("raptors._ERROR_CONTEXT",))?;
+    module.add("_ERROR_CONTEXT", context_var)?;
     let exception_bases = PyTuple::new(
         py,
         [
@@ -593,13 +596,6 @@ impl ErrorCallOverride {
     }
 }
 
-thread_local! {
-    static ERROR_STATE: RefCell<ErrorState> = RefCell::new(ErrorState::default());
-    static ERROR_CALL: RefCell<Option<Py<PyAny>>> = const { RefCell::new(None) };
-    static ERROR_STATE_STACK: RefCell<Vec<ErrorState>> = const { RefCell::new(Vec::new()) };
-    static ERROR_CALL_STACK: RefCell<Vec<Option<Py<PyAny>>>> = const { RefCell::new(Vec::new()) };
-}
-
 #[pyfunction]
 #[pyo3(signature = (all=None, divide=None, over=None, under=None, invalid=None))]
 fn seterr(
@@ -611,29 +607,24 @@ fn seterr(
     invalid: Option<&str>,
 ) -> PyResult<Py<PyAny>> {
     let overrides = ErrorOverrides::new(all, divide, over, under, invalid)?;
-    let previous = ERROR_STATE.with(|state| {
-        let mut state = state.borrow_mut();
-        let previous = *state;
-        overrides.apply(&mut state);
-        previous
-    });
+    let context = current_error_context(py)?;
+    let previous = error_state_from_context(&context)?;
+    let mut updated = previous;
+    overrides.apply(&mut updated);
+    let callback = error_call_from_context(&context)?;
+    let stack = error_stack_from_context(&context)?;
+    set_error_context(py, updated, callback, stack)?;
     error_state_dict(py, previous)
 }
 
 #[pyfunction]
 fn geterr(py: Python<'_>) -> PyResult<Py<PyAny>> {
-    ERROR_STATE.with(|state| error_state_dict(py, *state.borrow()))
+    error_state_dict(py, error_state_from_context(&current_error_context(py)?)?)
 }
 
 #[pyfunction]
 fn geterrcall(py: Python<'_>) -> PyResult<Py<PyAny>> {
-    ERROR_CALL.with(|callback| {
-        Ok(callback
-            .borrow()
-            .as_ref()
-            .map(|value| value.clone_ref(py))
-            .unwrap_or_else(|| py.None()))
-    })
+    Ok(error_call_from_context(&current_error_context(py)?)?.unwrap_or_else(|| py.None()))
 }
 
 #[pyfunction]
@@ -646,13 +637,14 @@ fn seterrcall(py: Python<'_>, func: Option<&Bound<'_, PyAny>>) -> PyResult<Py<Py
             ));
         }
     }
-    let previous = ERROR_CALL.with(|callback| {
-        std::mem::replace(
-            &mut *callback.borrow_mut(),
-            func.filter(|func| !func.is_none())
-                .map(|func| func.clone().unbind()),
-        )
-    });
+    let context = current_error_context(py)?;
+    let state = error_state_from_context(&context)?;
+    let previous = error_call_from_context(&context)?;
+    let stack = error_stack_from_context(&context)?;
+    let callback = func
+        .filter(|func| !func.is_none())
+        .map(|func| func.clone().unbind());
+    set_error_context(py, state, callback, stack)?;
     Ok(previous
         .map(|value| value.into_any())
         .unwrap_or_else(|| py.None()))
@@ -709,7 +701,7 @@ impl PyErrState {
         })
     }
     fn __enter__(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
-        enter_error_state(py, self.overrides, &self.call_override);
+        enter_error_state(py, self.overrides, &self.call_override)?;
         Ok(py.None())
     }
     fn __exit__(
@@ -719,7 +711,7 @@ impl PyErrState {
         exc_value: Option<&Bound<'_, PyAny>>,
         traceback: Option<&Bound<'_, PyAny>>,
     ) -> PyResult<bool> {
-        exit_error_state(py);
+        exit_error_state(py)?;
         let _ = (exc_type, exc_value, traceback);
         Ok(false)
     }
@@ -754,10 +746,14 @@ impl PyErrStateDecorator {
         args: &Bound<'_, PyTuple>,
         kwargs: Option<&Bound<'_, PyDict>>,
     ) -> PyResult<Py<PyAny>> {
-        enter_error_state(py, self.overrides, &self.call_override);
+        enter_error_state(py, self.overrides, &self.call_override)?;
         let result = self.function.bind(py).call(args, kwargs);
-        exit_error_state(py);
-        result.map(Bound::unbind)
+        let restored = exit_error_state(py);
+        match (result, restored) {
+            (Err(error), _) => Err(error),
+            (Ok(_), Err(error)) => Err(error),
+            (Ok(result), Ok(())) => Ok(result.unbind()),
+        }
     }
     fn __get__(
         &self,
@@ -798,32 +794,113 @@ impl PyErrStateDecorator {
     }
 }
 
-fn enter_error_state(py: Python<'_>, overrides: ErrorOverrides, call_override: &ErrorCallOverride) {
-    ERROR_STATE.with(|state| {
-        let mut state = state.borrow_mut();
-        ERROR_STATE_STACK.with(|stack| stack.borrow_mut().push(*state));
-        overrides.apply(&mut state);
-    });
-    ERROR_CALL.with(|callback| {
-        let mut callback = callback.borrow_mut();
-        ERROR_CALL_STACK.with(|stack| {
-            stack
-                .borrow_mut()
-                .push(callback.as_ref().map(|value| value.clone_ref(py)));
-        });
-        if let ErrorCallOverride::Set(value) = call_override {
-            *callback = value.as_ref().map(|value| value.clone_ref(py));
-        }
-    });
+fn error_context_var<'py>(py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
+    PyModule::import(py, "raptors.raptors")?.getattr("_ERROR_CONTEXT")
 }
 
-fn exit_error_state(_py: Python<'_>) {
-    if let Some(previous) = ERROR_STATE_STACK.with(|stack| stack.borrow_mut().pop()) {
-        ERROR_STATE.with(|state| *state.borrow_mut() = previous);
+fn empty_error_context<'py>(py: Python<'py>) -> PyResult<Bound<'py, PyTuple>> {
+    make_error_context(py, ErrorState::default(), None, PyTuple::empty(py))
+}
+
+fn current_error_context<'py>(py: Python<'py>) -> PyResult<Bound<'py, PyTuple>> {
+    let context_var = error_context_var(py)?;
+    match context_var.call_method0("get") {
+        Ok(value) => Ok(value.cast_into::<PyTuple>()?),
+        Err(error) if error.is_instance_of::<PyLookupError>(py) => empty_error_context(py),
+        Err(error) => Err(error),
     }
-    if let Some(previous) = ERROR_CALL_STACK.with(|stack| stack.borrow_mut().pop()) {
-        ERROR_CALL.with(|callback| *callback.borrow_mut() = previous);
+}
+
+fn error_state_from_context(context: &Bound<'_, PyTuple>) -> PyResult<ErrorState> {
+    let mode = |index| -> PyResult<ErrorMode> {
+        let name = context.get_item(index)?.extract::<String>()?;
+        ErrorMode::parse(Some(&name))?.ok_or_else(|| {
+            PyRuntimeError::new_err("floating error context contains an empty error mode")
+        })
+    };
+    Ok(ErrorState {
+        divide: mode(0)?,
+        over: mode(1)?,
+        under: mode(2)?,
+        invalid: mode(3)?,
+    })
+}
+
+fn error_call_from_context(context: &Bound<'_, PyTuple>) -> PyResult<Option<Py<PyAny>>> {
+    let callback = context.get_item(4)?;
+    Ok((!callback.is_none()).then(|| callback.unbind()))
+}
+
+fn error_stack_from_context<'py>(context: &Bound<'py, PyTuple>) -> PyResult<Bound<'py, PyTuple>> {
+    Ok(context.get_item(5)?.cast_into::<PyTuple>()?)
+}
+
+fn make_error_context<'py>(
+    py: Python<'py>,
+    state: ErrorState,
+    callback: Option<Py<PyAny>>,
+    stack: Bound<'py, PyTuple>,
+) -> PyResult<Bound<'py, PyTuple>> {
+    let items = vec![
+        PyString::new(py, state.divide.name()).into_any().unbind(),
+        PyString::new(py, state.over.name()).into_any().unbind(),
+        PyString::new(py, state.under.name()).into_any().unbind(),
+        PyString::new(py, state.invalid.name()).into_any().unbind(),
+        callback.unwrap_or_else(|| py.None()),
+        stack.unbind().into_any(),
+    ];
+    PyTuple::new(py, items)
+}
+
+fn set_error_context(
+    py: Python<'_>,
+    state: ErrorState,
+    callback: Option<Py<PyAny>>,
+    stack: Bound<'_, PyTuple>,
+) -> PyResult<()> {
+    let context = make_error_context(py, state, callback, stack)?;
+    error_context_var(py)?.call_method1("set", (context,))?;
+    Ok(())
+}
+
+fn enter_error_state(
+    py: Python<'_>,
+    overrides: ErrorOverrides,
+    call_override: &ErrorCallOverride,
+) -> PyResult<()> {
+    let context = current_error_context(py)?;
+    let mut state = error_state_from_context(&context)?;
+    let callback = error_call_from_context(&context)?;
+    let stack = error_stack_from_context(&context)?;
+
+    let frame_values = (0..5)
+        .map(|index| context.get_item(index).map(Bound::unbind))
+        .collect::<PyResult<Vec<_>>>()?;
+    let frame = PyTuple::new(py, frame_values)?;
+    let mut stack_values = stack.iter().map(Bound::unbind).collect::<Vec<_>>();
+    stack_values.push(frame.into_any().unbind());
+    let stack = PyTuple::new(py, stack_values)?;
+
+    overrides.apply(&mut state);
+    let callback = match call_override {
+        ErrorCallOverride::Preserve => callback,
+        ErrorCallOverride::Set(value) => value.as_ref().map(|value| value.clone_ref(py)),
+    };
+    set_error_context(py, state, callback, stack)
+}
+
+fn exit_error_state(py: Python<'_>) -> PyResult<()> {
+    let context = current_error_context(py)?;
+    let stack = error_stack_from_context(&context)?;
+    if stack.is_empty() {
+        return Ok(());
     }
+
+    let frame = stack.get_item(stack.len() - 1)?.cast_into::<PyTuple>()?;
+    let state = error_state_from_context(&frame)?;
+    let callback = error_call_from_context(&frame)?;
+    let restored_stack = PyTuple::new(py, stack.iter().take(stack.len() - 1).map(Bound::unbind))?;
+    set_error_context(py, state, callback, restored_stack)
 }
 
 fn error_state_dict(py: Python<'_>, state: ErrorState) -> PyResult<Py<PyAny>> {
@@ -1269,6 +1346,12 @@ fn logaddexp_intermediate_overflow(name: &str, inputs: &[Scalar]) -> bool {
     let [left, right] = inputs else {
         return false;
     };
+    if native_longdouble::has_extended_native() {
+        if let (Scalar::LongDouble(left), Scalar::LongDouble(right)) = (left, right) {
+            return native_longdouble::logaddexp_intermediate_overflow(left, right)
+                .unwrap_or(false);
+        }
+    }
     let (Ok(left), Ok(right)) = (left.as_f64(), right.as_f64()) else {
         return false;
     };
@@ -1442,7 +1525,9 @@ fn report_errors(py: Python<'_>, name: &str, flags: ErrorFlags) -> PyResult<()> 
     if flags.is_empty() {
         return Ok(());
     }
-    let state = ERROR_STATE.with(|state| *state.borrow());
+    let context = current_error_context(py)?;
+    let state = error_state_from_context(&context)?;
+    let callback = error_call_from_context(&context)?;
     let combined_flag = u8::from(flags.divide)
         | (u8::from(flags.over) << 1)
         | (u8::from(flags.under) << 2)
@@ -1471,9 +1556,7 @@ fn report_errors(py: Python<'_>, name: &str, flags: ErrorFlags) -> PyResult<()> 
                     .call_method1("write", (format!("Warning: {}\n", warning),))?;
             }
             ErrorMode::Call | ErrorMode::Log => {
-                let callback = ERROR_CALL
-                    .with(|value| value.borrow().as_ref().map(|value| value.clone_ref(py)));
-                let Some(callback) = callback else {
+                let Some(callback) = callback.as_ref() else {
                     return Err(PyRuntimeError::new_err(
                         "floating point error mode requires a callback",
                     ));
