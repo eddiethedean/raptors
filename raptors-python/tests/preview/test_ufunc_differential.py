@@ -216,8 +216,9 @@ def test_registered_ufunc_aliases_and_metadata_match_numpy(contract):
     assert canonical.nin == reference.nin
     assert canonical.nout == reference.nout
     assert canonical.nargs == reference.nargs
-    assert canonical.ntypes == len(contract["numeric_types"])
-    assert canonical.types == contract["numeric_types"]
+    expected_types = _numpy_numeric_signatures(reference)
+    assert canonical.ntypes == len(expected_types)
+    assert canonical.types == expected_types, (canonical.types, expected_types)
     assert canonical.identity == reference.identity
     assert canonical.signature == reference.signature
 
@@ -1020,7 +1021,7 @@ def test_floating_error_modes_cover_divide_overflow_underflow_and_invalid(
         raptors.seterr(**actual_state)
 
 
-def test_exact_subnormal_results_do_not_report_underflow():
+def test_exact_subnormal_flags_match_numpy():
     tiny = np.nextafter(np.float64(0), np.float64(1))
     cases = [
         ("add", [tiny], [0.0]),
@@ -1067,14 +1068,56 @@ def test_exact_subnormal_results_do_not_report_underflow():
             continue
         _assert_ufunc_result_matches(expected, actual)
 
-    # NumPy's exp2 exception flags for exact subnormal powers vary with its
-    # platform wheel implementation. Keep the numerical result differential
-    # here and cover its flag behavior separately once it is runtime-stable.
+    # NumPy's exp2 exception flag for exact subnormal powers varies across
+    # platform wheels. Compare the numerical result here and keep the flag
+    # variation documented until it is stable across the supported targets.
     with np.errstate(under="ignore"):
         expected = np.exp2(np.array([-1074.0], dtype=np.float64))
     with raptors.errstate(under="ignore"):
         actual = raptors.exp2(raptors.array([-1074.0], dtype=raptors.float64))
     _assert_ufunc_result_matches(expected, actual)
+
+
+@pytest.mark.parametrize("dtype", [np.dtype("longdouble"), np.dtype("clongdouble")])
+def test_wide_longdouble_addition_preserves_precision(dtype):
+    candidate_dtype = _raptors_dtype_for_numpy(dtype)
+    left = np.array([2**53 + 1], dtype=dtype)
+    right = np.array([1], dtype=dtype)
+    expected = np.add(left, right)
+
+    actual = raptors.add(
+        raptors.array([2**53 + 1], dtype=candidate_dtype),
+        raptors.array([1], dtype=candidate_dtype),
+    )
+    expected_candidate = raptors.array([int(expected[0].real)], dtype=candidate_dtype)
+
+    assert actual.dtype == candidate_dtype
+    assert bool(raptors.equal(actual, expected_candidate)[0])
+
+
+def test_wide_longdouble_exp_uses_extended_exponent_range():
+    dtype = np.dtype("longdouble")
+    candidate_dtype = _raptors_dtype_for_numpy(dtype)
+    expected_input = np.array([1000.0], dtype=dtype)
+    actual_input = raptors.array([1000.0], dtype=candidate_dtype)
+
+    try:
+        with np.errstate(over="raise"):
+            expected = np.exp(expected_input)
+        expected_overflow = False
+    except FloatingPointError:
+        expected_overflow = True
+
+    try:
+        with raptors.errstate(over="raise"):
+            actual = raptors.exp(actual_input)
+        actual_overflow = False
+    except FloatingPointError:
+        actual_overflow = True
+
+    assert actual_overflow == expected_overflow
+    if not expected_overflow:
+        assert bool(raptors.isfinite(actual)[0]) == bool(np.isfinite(expected[0]))
 
 
 @pytest.mark.parametrize(

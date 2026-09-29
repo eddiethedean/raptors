@@ -601,6 +601,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "raptors-longdouble"
+version = "0.3.0"
+dependencies = [
+ "cc",
+]
+
+[[package]]
 name = "raptors-python"
 version = "0.3.0"
 dependencies = [
@@ -615,6 +622,7 @@ version = "0.3.0"
 dependencies = [
  "half",
  "num-complex",
+ "raptors-longdouble",
 ]
 
 [[package]]

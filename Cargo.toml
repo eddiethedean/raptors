@@ -3,6 +3,7 @@ members = [
     "raptors-core",
     "raptors-python",
     "raptors-storage",
+    "raptors-longdouble",
 ]
 resolver = "2"
 

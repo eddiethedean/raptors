@@ -774,26 +774,22 @@ fn classify_errors(name: &str, inputs: &[Scalar], outputs: &[Scalar]) -> ErrorFl
     {
         flags.divide = true;
     }
+    let input_finite = inputs.iter().all(scalar_is_finite);
     for output in outputs {
-        let (real, imag) = output.as_complex().unwrap_or((f64::NAN, f64::NAN));
-        let output_nan = real.is_nan() || imag.is_nan();
-        let output_infinite = real.is_infinite() || imag.is_infinite();
-        let input_finite = inputs.iter().all(scalar_is_finite);
+        let (_, imag) = output.as_complex().unwrap_or((f64::NAN, f64::NAN));
+        let output_nan = scalar_is_nan(output);
+        let output_infinite = scalar_is_infinite(output);
         if output_nan && !input_nan {
             flags.invalid = true;
         }
         if output_infinite && input_finite && !flags.divide {
             flags.over = true;
         }
-        let real_is_subnormal = real != 0.0 && real.abs() < smallest_normal(output.dtype());
-        let imag_is_subnormal = imag != 0.0 && imag.abs() < smallest_normal(output.dtype());
-        if (real_is_subnormal || imag_is_subnormal)
-            && !exact_subnormal_result(name, inputs, output, imag)
-        {
+        if output.is_subnormal() && !exact_subnormal_result(name, inputs, output, imag) {
             flags.under = true;
         }
         if matches!(output.dtype().kind(), "f" | "c") {
-            let rounded_to_zero = real == 0.0 && imag == 0.0;
+            let rounded_to_zero = output.is_zero();
             let nonzero_inputs = inputs.iter().all(|input| !scalar_is_zero(input));
             let likely_underflow = match (name, inputs) {
                 ("exp" | "exp2" | "expm1" | "reciprocal" | "square", [value]) => {
@@ -818,6 +814,12 @@ fn classify_errors(name: &str, inputs: &[Scalar], outputs: &[Scalar]) -> ErrorFl
 }
 
 fn scalar_is_nan(value: &Scalar) -> bool {
+    if matches!(
+        value,
+        Scalar::LongDouble(_) | Scalar::ComplexLongDouble(_, _)
+    ) {
+        return value.is_nan();
+    }
     if value.dtype().kind() == "c" {
         value
             .as_complex()
@@ -827,6 +829,12 @@ fn scalar_is_nan(value: &Scalar) -> bool {
     }
 }
 fn scalar_is_finite(value: &Scalar) -> bool {
+    if matches!(
+        value,
+        Scalar::LongDouble(_) | Scalar::ComplexLongDouble(_, _)
+    ) {
+        return value.is_finite();
+    }
     if value.dtype().kind() == "c" {
         value
             .as_complex()
@@ -835,21 +843,32 @@ fn scalar_is_finite(value: &Scalar) -> bool {
         value.as_f64().is_ok_and(f64::is_finite)
     }
 }
+fn scalar_is_infinite(value: &Scalar) -> bool {
+    if matches!(
+        value,
+        Scalar::LongDouble(_) | Scalar::ComplexLongDouble(_, _)
+    ) {
+        return value.is_infinite();
+    }
+    if value.dtype().kind() == "c" {
+        value
+            .as_complex()
+            .is_ok_and(|(re, im)| re.is_infinite() || im.is_infinite())
+    } else {
+        value.as_f64().is_ok_and(f64::is_infinite)
+    }
+}
 fn scalar_is_zero(value: &Scalar) -> bool {
+    if matches!(
+        value,
+        Scalar::LongDouble(_) | Scalar::ComplexLongDouble(_, _)
+    ) {
+        return value.is_zero();
+    }
     value
         .as_complex()
         .is_ok_and(|(re, im)| re == 0.0 && im == 0.0)
 }
-fn smallest_normal(dtype: DType) -> f64 {
-    match dtype {
-        DType::Float16 => 6.103_515_625e-5,
-        DType::Float32 | DType::Complex64 => f32::MIN_POSITIVE as f64,
-        DType::Float64 | DType::Complex128 => f64::MIN_POSITIVE,
-        DType::LongDouble | DType::ComplexLongDouble => f64::MIN_POSITIVE,
-        _ => 0.0,
-    }
-}
-
 fn exact_subnormal_result(name: &str, inputs: &[Scalar], output: &Scalar, imag: f64) -> bool {
     if output.dtype().kind() != "f" || imag != 0.0 {
         return false;
@@ -867,7 +886,13 @@ fn exact_subnormal_result(name: &str, inputs: &[Scalar], output: &Scalar, imag: 
         }
         ("reciprocal", [value]) => exact_product_matches(output, value, 1.0),
         ("exp2", [exponent]) => exact_exp2_matches(exponent, result),
-        ("ldexp", [value, exponent]) => exact_ldexp_matches(value, exponent, result),
+        ("ldexp", [value, exponent]) => {
+            // NumPy's Windows wheels report underflow for the least
+            // subnormal result from ldexp even when it is exactly
+            // representable. Match that platform-specific flag behavior.
+            !(cfg!(target_os = "windows") && output.is_subnormal())
+                && exact_ldexp_matches(value, exponent, result)
+        }
         ("positive" | "conjugate" | "conj", [value]) => {
             value.as_f64().is_ok_and(|value| value == result)
         }

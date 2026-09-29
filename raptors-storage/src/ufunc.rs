@@ -6,6 +6,7 @@
 
 use crate::{DType, Scalar, StorageError};
 use num_complex::Complex;
+use raptors_longdouble as native_longdouble;
 use std::cmp::Ordering;
 
 #[path = "ufunc_loop_resolver.rs"]
@@ -271,6 +272,77 @@ fn signature_name(name: &str) -> &str {
 }
 
 pub fn unary(name: &str, value: Scalar, output: DType) -> Result<Vec<Scalar>, StorageError> {
+    if native_longdouble::has_extended_native() {
+        if matches!(name, "frexp" | "modf") && output == DType::LongDouble {
+            let text = long_double_text(&value)?;
+            if name == "frexp" {
+                if let Some((fraction, exponent)) = native_longdouble::frexp(&text) {
+                    return Ok(vec![Scalar::LongDouble(fraction), Scalar::Int32(exponent)]);
+                }
+            } else if let Some((fraction, integral)) = native_longdouble::modf(&text) {
+                return Ok(vec![
+                    Scalar::LongDouble(fraction),
+                    Scalar::LongDouble(integral),
+                ]);
+            }
+        }
+
+        if matches!(name, "isfinite" | "isinf" | "isnan") {
+            match &value {
+                Scalar::LongDouble(text) => {
+                    let result = match name {
+                        "isfinite" => native_longdouble::classify(text, 4),
+                        "isinf" => native_longdouble::classify(text, 1),
+                        _ => native_longdouble::classify(text, 0),
+                    };
+                    if let Some(result) = result {
+                        return Ok(vec![Scalar::Bool(result)]);
+                    }
+                }
+                Scalar::ComplexLongDouble(real, imag) => {
+                    let real_infinite = native_longdouble::classify(real, 1).unwrap_or(false);
+                    let imag_infinite = native_longdouble::classify(imag, 1).unwrap_or(false);
+                    let real_nan = native_longdouble::classify(real, 0).unwrap_or(false);
+                    let imag_nan = native_longdouble::classify(imag, 0).unwrap_or(false);
+                    let result = match name {
+                        "isfinite" => !(real_infinite || imag_infinite || real_nan || imag_nan),
+                        "isinf" => real_infinite || imag_infinite,
+                        _ => real_nan || imag_nan,
+                    };
+                    return Ok(vec![Scalar::Bool(result)]);
+                }
+                _ => {}
+            }
+        }
+
+        if name == "signbit" {
+            if let Scalar::LongDouble(text) = &value {
+                if let Some(result) = native_longdouble::classify(text, 2) {
+                    return Ok(vec![Scalar::Bool(result)]);
+                }
+            }
+        }
+
+        if output == DType::LongDouble {
+            if value.dtype().kind() == "c" {
+                let (real, imag) = complex_long_double_parts(&value)?;
+                if let Some((result, _)) = native_longdouble::unary_complex(name, &real, &imag) {
+                    return Ok(vec![Scalar::LongDouble(result)]);
+                }
+            } else {
+                let text = long_double_text(&value)?;
+                if let Some(result) = native_longdouble::unary_real(name, &text) {
+                    return Ok(vec![Scalar::LongDouble(result)]);
+                }
+            }
+        } else if output == DType::ComplexLongDouble {
+            let (real, imag) = complex_long_double_parts(&value)?;
+            if let Some((real, imag)) = native_longdouble::unary_complex(name, &real, &imag) {
+                return Ok(vec![Scalar::ComplexLongDouble(real, imag)]);
+            }
+        }
+    }
+
     let result = match name {
         "negative" if value.dtype().kind() == "c" => unary_float_or_complex(name, value, output)?,
         "negative" => integer_unary(&value, output, i128::wrapping_neg, |x| -x)?,
@@ -319,6 +391,30 @@ pub fn binary(
     }
     if is_bitwise(name) {
         return Ok(vec![bitwise_binary(name, left, right, output)?]);
+    }
+    if native_longdouble::has_extended_native() && output == DType::LongDouble {
+        let left_text = long_double_text(&left)?;
+        let right_text = long_double_text(&right)?;
+        if let Some((first, second)) = native_longdouble::binary_real(name, &left_text, &right_text)
+        {
+            return if name == "divmod" {
+                Ok(vec![Scalar::LongDouble(first), Scalar::LongDouble(second)])
+            } else {
+                Ok(vec![Scalar::LongDouble(first)])
+            };
+        }
+    } else if native_longdouble::has_extended_native() && output == DType::ComplexLongDouble {
+        let (left_real, left_imag) = complex_long_double_parts(&left)?;
+        let (right_real, right_imag) = complex_long_double_parts(&right)?;
+        if let Some((real, imag)) = native_longdouble::binary_complex(
+            name,
+            &left_real,
+            &left_imag,
+            &right_real,
+            &right_imag,
+        ) {
+            return Ok(vec![Scalar::ComplexLongDouble(real, imag)]);
+        }
     }
     if name == "divmod" {
         let q = binary("floor_divide", left.clone(), right.clone(), output)?;
@@ -492,6 +588,20 @@ pub fn binary(
 
 fn is_integer(dtype: DType) -> bool {
     matches!(dtype.kind(), "i" | "u" | "b")
+}
+
+fn long_double_text(value: &Scalar) -> Result<String, StorageError> {
+    match value.cast(DType::LongDouble)? {
+        Scalar::LongDouble(value) => Ok(value),
+        _ => Err(StorageError::InvalidScalar),
+    }
+}
+
+fn complex_long_double_parts(value: &Scalar) -> Result<(String, String), StorageError> {
+    match value.cast(DType::ComplexLongDouble)? {
+        Scalar::ComplexLongDouble(real, imag) => Ok((real, imag)),
+        _ => Err(StorageError::InvalidScalar),
+    }
 }
 fn is_comparison(name: &str) -> bool {
     matches!(
@@ -1282,29 +1392,47 @@ fn integer_reciprocal(value: &Scalar, dtype: DType) -> Result<Scalar, StorageErr
 }
 
 fn scalar_is_nan(value: &Scalar) -> bool {
+    if matches!(
+        value,
+        Scalar::LongDouble(_) | Scalar::ComplexLongDouble(_, _)
+    ) {
+        return value.is_nan();
+    }
     match value {
         Scalar::Float16(x) | Scalar::Float32(x) => x.is_nan(),
         Scalar::Float64(x) => x.is_nan(),
         Scalar::Complex64(re, im) => re.is_nan() || im.is_nan(),
         Scalar::Complex128(re, im) => re.is_nan() || im.is_nan(),
-        Scalar::LongDouble(x) => x.parse::<f64>().map(|n| n.is_nan()).unwrap_or(false),
+        Scalar::LongDouble(x) => native_longdouble::classify(x, 0)
+            .unwrap_or_else(|| x.parse::<f64>().map(|n| n.is_nan()).unwrap_or(false)),
         Scalar::ComplexLongDouble(re, im) => {
-            re.parse::<f64>().map(|n| n.is_nan()).unwrap_or(false)
-                || im.parse::<f64>().map(|n| n.is_nan()).unwrap_or(false)
+            native_longdouble::classify(re, 0)
+                .unwrap_or_else(|| re.parse::<f64>().map(|n| n.is_nan()).unwrap_or(false))
+                || native_longdouble::classify(im, 0)
+                    .unwrap_or_else(|| im.parse::<f64>().map(|n| n.is_nan()).unwrap_or(false))
         }
         _ => false,
     }
 }
 fn scalar_is_infinite(value: &Scalar) -> bool {
+    if matches!(
+        value,
+        Scalar::LongDouble(_) | Scalar::ComplexLongDouble(_, _)
+    ) {
+        return value.is_infinite();
+    }
     match value {
         Scalar::Float16(x) | Scalar::Float32(x) => x.is_infinite(),
         Scalar::Float64(x) => x.is_infinite(),
         Scalar::Complex64(re, im) => re.is_infinite() || im.is_infinite(),
         Scalar::Complex128(re, im) => re.is_infinite() || im.is_infinite(),
-        Scalar::LongDouble(x) => x.parse::<f64>().map(|n| n.is_infinite()).unwrap_or(false),
+        Scalar::LongDouble(x) => native_longdouble::classify(x, 1)
+            .unwrap_or_else(|| x.parse::<f64>().map(|n| n.is_infinite()).unwrap_or(false)),
         Scalar::ComplexLongDouble(re, im) => {
-            re.parse::<f64>().map(|n| n.is_infinite()).unwrap_or(false)
-                || im.parse::<f64>().map(|n| n.is_infinite()).unwrap_or(false)
+            native_longdouble::classify(re, 1)
+                .unwrap_or_else(|| re.parse::<f64>().map(|n| n.is_infinite()).unwrap_or(false))
+                || native_longdouble::classify(im, 1)
+                    .unwrap_or_else(|| im.parse::<f64>().map(|n| n.is_infinite()).unwrap_or(false))
         }
         _ => false,
     }
@@ -1314,7 +1442,24 @@ fn scalar_is_finite(value: &Scalar) -> bool {
 }
 
 fn compare(name: &str, left: &Scalar, right: &Scalar) -> Result<bool, StorageError> {
-    let ordering = if left.dtype().kind() == "c" || right.dtype().kind() == "c" {
+    let ordering = if native_longdouble::has_extended_native()
+        && (matches!(left.dtype(), DType::LongDouble | DType::ComplexLongDouble)
+            || matches!(right.dtype(), DType::LongDouble | DType::ComplexLongDouble))
+    {
+        let comparison = if left.dtype().kind() == "c" || right.dtype().kind() == "c" {
+            let (left_real, left_imag) = complex_long_double_parts(left)?;
+            let (right_real, right_imag) = complex_long_double_parts(right)?;
+            native_longdouble::compare_complex(&left_real, &left_imag, &right_real, &right_imag)
+        } else {
+            native_longdouble::compare(&long_double_text(left)?, &long_double_text(right)?)
+        };
+        match comparison.flatten() {
+            Some(-1) => Some(Ordering::Less),
+            Some(0) => Some(Ordering::Equal),
+            Some(1) => Some(Ordering::Greater),
+            _ => None,
+        }
+    } else if left.dtype().kind() == "c" || right.dtype().kind() == "c" {
         let (left_re, left_im) = left.as_complex()?;
         let (right_re, right_im) = right.as_complex()?;
         if left_im.is_nan() || right_im.is_nan() {

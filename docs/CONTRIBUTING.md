@@ -27,19 +27,21 @@ Do not weaken expected results, add broad skips, suppress arbitrary errors, or c
 ## Relevant local checks
 
 ```bash
-rustfmt --edition 2021 --check raptors-storage/src/lib.rs raptors-python/src/preview.rs raptors-python/src/preview_lib.rs raptors-python/build.rs
+rustfmt --edition 2021 --check raptors-longdouble/src/lib.rs raptors-longdouble/build.rs raptors-storage/src/lib.rs raptors-python/src/preview.rs raptors-python/src/preview_lib.rs raptors-python/build.rs
 cargo test --locked -p raptors-storage
+cargo test --locked -p raptors-longdouble
 cargo check --locked -p raptors-python
-cargo clippy --locked -p raptors-storage -p raptors-python --all-targets -- -D warnings
-cargo +nightly miri test --locked -p raptors-storage
-uv run --project raptors-python --extra dev --no-sync python -m pytest raptors-python/tests/preview -q
+cargo clippy --locked -p raptors-longdouble -p raptors-storage -p raptors-python --all-targets -- -D warnings
+RAPTORS_SKIP_NATIVE_LONGDOUBLE=1 cargo +nightly miri test --locked -p raptors-storage
+./raptors-python/run_tests.sh
+uv build --sdist --project raptors-python --out-dir /tmp/raptors-dist
 ```
 
 The PR CI also runs the storage tests under Miri and AddressSanitizer and tests each supported CPython version. The tag workflow builds/tests every advertised wheel and publishes only after all required jobs pass. `cargo fmt --all` and the legacy test suites are not part of the 0.2 release gate.
 
 ## Safety and evidence
 
-The numeric storage crate is intentionally free of `unsafe` code. Keep checked bounds and initialization, shared allocation locking, and owner retention at the storage boundary. `Arc` alone does not justify `Send` or `Sync`. Any future unsafe code needs explicit preconditions and review. Miri and sanitizers supplement review; neither proves the entire package safe.
+The numeric storage crate is intentionally free of `unsafe` code. Keep checked bounds and initialization, shared allocation locking, and owner retention at the storage boundary. `Arc` alone does not justify `Send` or `Sync`. The `raptors-longdouble` bridge isolates its bounded string and fixed-byte C calls; it never receives array storage pointers. Keep those buffers initialized, lengths exact, and C output capacities checked. Miri and sanitizers supplement review; neither proves the foreign math library safe.
 
 Performance changes need equivalent Python calls and measurements that include conversion and allocation costs. The 0.2 baseline shows lower median latency for NumPy on all eight measured operations; do not claim acceleration from Rust, Rayon, or SIMD presence.
 

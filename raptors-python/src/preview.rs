@@ -17,6 +17,8 @@ use std::ffi::CString;
 enum ScalarAlias {
     IntC,
     UIntC,
+    Long,
+    ULong,
     LongLong,
     ULongLong,
 }
@@ -26,6 +28,8 @@ impl ScalarAlias {
         match self {
             Self::IntC => 'i',
             Self::UIntC => 'I',
+            Self::Long => 'l',
+            Self::ULong => 'L',
             Self::LongLong => 'q',
             Self::ULongLong => 'Q',
         }
@@ -35,6 +39,8 @@ impl ScalarAlias {
         match self {
             Self::IntC => "Int32Scalar",
             Self::UIntC => "UInt32Scalar",
+            Self::Long => "Int32Scalar",
+            Self::ULong => "UInt32Scalar",
             Self::LongLong => "LongLongScalar",
             Self::ULongLong => "ULongLongScalar",
         }
@@ -44,6 +50,8 @@ impl ScalarAlias {
         match self {
             Self::IntC => DType::Int32,
             Self::UIntC => DType::UInt32,
+            Self::Long => DType::Int32,
+            Self::ULong => DType::UInt32,
             Self::LongLong => DType::Int64,
             Self::ULongLong => DType::UInt64,
         }
@@ -1036,10 +1044,7 @@ impl PyLongDoubleScalar {
         &self.0
     }
     fn __bool__(&self) -> bool {
-        self.0
-            .parse::<f64>()
-            .map(|value| value != 0.0)
-            .unwrap_or(false)
+        Scalar::LongDouble(self.0.clone()).truthy()
     }
     fn __float__(&self) -> PyResult<f64> {
         self.0
@@ -1071,15 +1076,7 @@ impl PyComplexLongDoubleScalar {
         format!("raptors.ComplexLongDoubleScalar(({}, {}))", self.0, self.1)
     }
     fn __bool__(&self) -> bool {
-        self.0
-            .parse::<f64>()
-            .map(|value| value != 0.0)
-            .unwrap_or(false)
-            || self
-                .1
-                .parse::<f64>()
-                .map(|value| value != 0.0)
-                .unwrap_or(false)
+        Scalar::ComplexLongDouble(self.0.clone(), self.1.clone()).truthy()
     }
     fn __complex__(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
         let re = self
@@ -2067,6 +2064,10 @@ fn parse_dtype_spec(value: &Bound<'_, PyAny>) -> PyResult<(DType, ByteOrder, Opt
     // their ordinary dtype metadata. This keeps dtype parsing independent of
     // NumPy while supporting objects such as numpy.dtype('>i4') and
     // numpy.float64 when callers use NumPy as an optional oracle.
+    let scalar_char = value
+        .getattr("char")
+        .ok()
+        .and_then(|candidate| candidate.extract::<String>().ok());
     for attribute in ["str", "name", "__name__"] {
         let Ok(candidate) = value.getattr(attribute) else {
             continue;
@@ -2075,7 +2076,12 @@ fn parse_dtype_spec(value: &Bound<'_, PyAny>) -> PyResult<(DType, ByteOrder, Opt
             continue;
         };
         if let Some((inner, byte_order)) = dtype_from_spec(&candidate) {
-            return Ok((inner, byte_order, dtype_alias_for_spec(&candidate, inner)));
+            let scalar_alias = dtype_alias_for_spec(&candidate, inner).or_else(|| {
+                scalar_char
+                    .as_deref()
+                    .and_then(|code| dtype_alias_for_spec(code, inner))
+            });
+            return Ok((inner, byte_order, scalar_alias));
         }
     }
     Err(PyTypeError::new_err(
@@ -2089,6 +2095,12 @@ fn dtype_alias_for_spec(name: &str, dtype: DType) -> Option<ScalarAlias> {
         _ => name,
     };
     match base {
+        "l" | "long" if cfg!(target_os = "windows") && dtype == DType::Int32 => {
+            Some(ScalarAlias::Long)
+        }
+        "L" | "ulong" if cfg!(target_os = "windows") && dtype == DType::UInt32 => {
+            Some(ScalarAlias::ULong)
+        }
         "i" | "intc" if dtype == DType::Int32 && DType::Int32.char() != 'i' => {
             Some(ScalarAlias::IntC)
         }
@@ -2573,12 +2585,19 @@ fn scalar_to_python(
         Scalar::UInt16(x) => Ok(Py::new(py, PyUInt16Scalar(x, None))?.into_any()),
         Scalar::Int32(x) => Ok(Py::new(
             py,
-            PyInt32Scalar(x, scalar_alias.filter(|alias| *alias == ScalarAlias::IntC)),
+            PyInt32Scalar(
+                x,
+                scalar_alias.filter(|alias| matches!(alias, ScalarAlias::IntC | ScalarAlias::Long)),
+            ),
         )?
         .into_any()),
         Scalar::UInt32(x) => Ok(Py::new(
             py,
-            PyUInt32Scalar(x, scalar_alias.filter(|alias| *alias == ScalarAlias::UIntC)),
+            PyUInt32Scalar(
+                x,
+                scalar_alias
+                    .filter(|alias| matches!(alias, ScalarAlias::UIntC | ScalarAlias::ULong)),
+            ),
         )?
         .into_any()),
         Scalar::Int64(x) => Ok(Py::new(py, PyInt64Scalar(x, None))?.into_any()),

@@ -3,6 +3,7 @@ name = "raptors-python"
 version = "0.3.0"
 edition = "2021"
 autotests = false
+exclude = [".venv/**", ".venv-release-*/**"]
 
 [lib]
 name = "raptors"

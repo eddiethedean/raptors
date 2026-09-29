@@ -12,3 +12,4 @@ path = "src/lib.rs"
 [dependencies]
 half = "2.7"
 num-complex = "0.4"
+raptors-longdouble = { path = "../raptors-longdouble" }
