@@ -108,6 +108,24 @@ def test_conversion_and_ragged_errors(values, dtype, error):
         np.array(values, dtype=dtype.name)
 
 
+def test_ragged_shape_error_precedes_element_cast_error():
+    values = [[1e100], [1, 2]]
+    with pytest.raises(ValueError):
+        np.array(values, dtype=np.int8)
+    with pytest.raises(ValueError):
+        raptors.array(values, dtype=raptors.int8)
+
+    reference = np.zeros(2, dtype=np.int8)
+    candidate = raptors.zeros(2, dtype=raptors.int8)
+    reference_index = np.array([0, 1], dtype=np.int64)
+    candidate_index = raptors.array([0, 1], dtype=raptors.int64)
+    with pytest.raises(ValueError):
+        reference[reference_index] = values
+    with pytest.raises(ValueError):
+        candidate[candidate_index] = values
+    assert_array_matches(reference, candidate)
+
+
 @pytest.mark.parametrize(
     "value,dtype",
     [(1e20, raptors.int64), (-1e20, raptors.uint64)],
@@ -842,6 +860,36 @@ def test_basic_sequence_assignment_keeps_successful_prefix_on_conversion_error()
         candidate[:] = values
     assert_array_matches(reference, candidate)
     assert reference.tolist() == [1, 0, 0]
+
+
+@pytest.mark.parametrize(
+    "dtype,error",
+    [
+        (raptors.int8, TypeError),
+        (raptors.float32, ValueError),
+        (raptors.complex64, TypeError),
+    ],
+)
+def test_scalar_target_sequence_assignment_rejects_sequence_before_cast(dtype, error):
+    reference = np.zeros(1, dtype=dtype.name)
+    candidate = raptors.zeros(1, dtype=dtype)
+
+    with pytest.raises(error):
+        reference[0] = [1e100]
+    with pytest.raises(error):
+        candidate[0] = [1e100]
+    assert_array_matches(reference, candidate)
+
+
+def test_scalar_boolean_assignment_uses_sequence_truthiness():
+    reference = np.zeros(2, dtype=np.bool_)
+    candidate = raptors.zeros(2, dtype=raptors.bool_)
+
+    reference[0] = [False]
+    candidate[0] = [False]
+    reference[1] = []
+    candidate[1] = []
+    assert_array_matches(reference, candidate)
 
 
 def test_sequence_assignment_conversion_error_precedes_broadcast_error():

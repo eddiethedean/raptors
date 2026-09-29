@@ -1002,6 +1002,7 @@ fn array(
         ));
     }
     let fortran = parse_array_order(order, None)?;
+    validate_rectangular_input(data, 0)?;
     let (shape, values, inferred_alias) = flatten(data, requested.map(|(dtype, _, _)| dtype), 0)?;
     let (dtype, byte_order, scalar_alias) = match requested {
         Some(descriptor) => descriptor,
@@ -1282,10 +1283,41 @@ fn flatten(
     Ok((Vec::new(), vec![scalar], scalar_alias_from_value(value)))
 }
 
+fn validate_rectangular_input(value: &Bound<'_, PyAny>, depth: usize) -> PyResult<Vec<usize>> {
+    if depth > 64 {
+        return Err(PyValueError::new_err("array nesting is too deep"));
+    }
+    if let Ok(array) = value.extract::<PyRef<'_, PyArray>>() {
+        return Ok(array.inner.shape().to_vec());
+    }
+    if value.is_instance_of::<PyList>() || value.is_instance_of::<PyTuple>() {
+        let children = value.try_iter()?.collect::<PyResult<Vec<_>>>()?;
+        if children.is_empty() {
+            return Ok(vec![0]);
+        }
+        let mut expected_shape: Option<Vec<usize>> = None;
+        for child in &children {
+            let shape = validate_rectangular_input(child, depth + 1)?;
+            if expected_shape
+                .as_ref()
+                .is_some_and(|previous| previous != &shape)
+            {
+                return Err(PyValueError::new_err("input sequence is ragged"));
+            }
+            expected_shape.get_or_insert(shape);
+        }
+        let mut shape = vec![children.len()];
+        shape.extend(expected_shape.unwrap_or_default());
+        return Ok(shape);
+    }
+    Ok(Vec::new())
+}
+
 fn sequence_value_to_view(value: &Bound<'_, PyAny>, dtype: DType) -> PyResult<Option<View>> {
     if !value.is_instance_of::<PyList>() && !value.is_instance_of::<PyTuple>() {
         return Ok(None);
     }
+    validate_rectangular_input(value, 0)?;
     let (shape, values, _) = flatten(value, Some(dtype), 0)?;
     let values = values
         .iter()
@@ -1412,6 +1444,23 @@ fn convert_assignment_atom(atom: &SequenceAtom<'_>, dtype: DType) -> PyResult<Sc
 }
 
 fn assign_basic_sequence(target: &View, value: &Bound<'_, PyAny>) -> PyResult<()> {
+    if target.ndim() == 0 {
+        if target.dtype() == DType::Bool {
+            return target
+                .assign_scalar(Scalar::Bool(value.is_truthy()?))
+                .map_err(map_storage_error);
+        }
+        return match target.dtype().kind() {
+            "f" => Err(PyValueError::new_err(
+                "setting an array element with a sequence",
+            )),
+            "i" | "u" | "c" => Err(PyTypeError::new_err(
+                "cannot convert a sequence to a scalar array element",
+            )),
+            _ => unreachable!("numeric dtype kind is known"),
+        };
+    }
+    validate_rectangular_input(value, 0)?;
     let (source_shape, source_values) = flatten_assignment_sequence(value, target.dtype(), 0)?;
     if assignment_sequence_size(&source_shape)? != source_values.len() {
         return Err(PyValueError::new_err("input sequence has an invalid shape"));
