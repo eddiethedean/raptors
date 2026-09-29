@@ -545,7 +545,7 @@ def test_extrema_nan_and_signed_zero_semantics_match_numpy(name, values):
 @pytest.mark.parametrize("dtype", [np.dtype("float32"), np.dtype("float64"), np.dtype("longdouble")])
 @pytest.mark.parametrize("name", ["maximum", "minimum", "fmax", "fmin"])
 @pytest.mark.parametrize("left,right", [(-0.0, 0.0), (0.0, -0.0)])
-def test_extrema_signed_zero_selection_is_order_independent(dtype, name, left, right):
+def test_extrema_signed_zero_selection_matches_numpy(dtype, name, left, right):
     expected_left = np.array([left], dtype=dtype)
     expected_right = np.array([right], dtype=dtype)
     candidate_dtype = _raptors_dtype_for_numpy(dtype)
@@ -1369,6 +1369,7 @@ def test_exact_subnormal_flags_match_numpy():
         ("divide", [tiny], [1.0]),
         ("ldexp", [1.0], [-1074]),
         ("expm1", [tiny], None),
+        ("expm1", [-tiny], None),
     ]
 
     for name, left, right in cases:
@@ -1402,6 +1403,19 @@ def test_exact_subnormal_flags_match_numpy():
             actual_underflow = False
         except FloatingPointError:
             actual_underflow = True
+
+        if name == "expm1":
+            # expm1(tiny) is mathematically inexact even though it rounds to
+            # tiny. NumPy's underflow flag for this case varies by Python
+            # wheel, so assert Raptors' consistent IEEE underflow result and
+            # compare the numerical output with flags ignored.
+            assert actual_underflow
+            with np.errstate(under="ignore"):
+                expected = np.expm1(expected_left)
+            with raptors.errstate(under="ignore"):
+                actual = raptors.expm1(actual_left)
+            _assert_ufunc_result_matches(expected, actual)
+            continue
 
         assert actual_underflow == expected_underflow, name
         if expected_underflow:

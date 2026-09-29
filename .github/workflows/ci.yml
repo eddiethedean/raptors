@@ -149,4 +149,4 @@ jobs:
       - name: Run differential and property tests
         env:
           PYTEST_DISABLE_PLUGIN_AUTOLOAD: '1'
-        run: uv run --project raptors-python --extra dev --locked python -m pytest -p xdist.plugin raptors-python/tests/preview -q
+        run: uv run --project raptors-python --extra dev --locked python -m pytest -p xdist.plugin -n auto raptors-python/tests/preview -q

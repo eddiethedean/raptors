@@ -14,7 +14,7 @@ if command -v uv >/dev/null 2>&1; then
     uv run --project "$SCRIPT_DIR" --extra dev --no-sync \
         maturin develop --manifest-path "$SCRIPT_DIR/Cargo.toml" --release
     uv run --project "$SCRIPT_DIR" --extra dev --no-sync \
-        python -m pytest "$SCRIPT_DIR/tests/preview" -v
+        python -m pytest -n auto "$SCRIPT_DIR/tests/preview" -q
 else
     if ! python -c "import raptors" >/dev/null 2>&1; then
         if ! command -v maturin >/dev/null 2>&1; then
@@ -23,7 +23,7 @@ else
         fi
         (cd "$WORKSPACE_ROOT" && maturin develop --manifest-path "$SCRIPT_DIR/Cargo.toml" --release)
     fi
-    python -m pytest "$SCRIPT_DIR/tests/preview" -v
+    python -m pytest -n auto "$SCRIPT_DIR/tests/preview" -q
 fi
 
 cargo test --offline --locked --manifest-path "$WORKSPACE_ROOT/Cargo.toml" \

@@ -528,6 +528,19 @@ mod tests {
     }
 
     #[test]
+    fn extended_longdouble_extrema_keep_the_first_signed_zero() {
+        if !has_extended_native() {
+            return;
+        }
+        for operation in ["maximum", "minimum"] {
+            let (positive_first, _) = binary_real(operation, "0", "-0").unwrap();
+            let (negative_first, _) = binary_real(operation, "-0", "0").unwrap();
+            assert_eq!(classify(&positive_first, 2), Some(false), "{operation}");
+            assert_eq!(classify(&negative_first, 2), Some(true), "{operation}");
+        }
+    }
+
+    #[test]
     fn native_complex_addition_keeps_extended_precision() {
         if !has_extended_native() {
             return;
