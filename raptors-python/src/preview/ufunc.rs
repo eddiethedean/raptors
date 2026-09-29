@@ -8,7 +8,9 @@ use pyo3::exceptions::{
 };
 use pyo3::prelude::*;
 use pyo3::types::{PyBool, PyDict, PyInt, PyList, PyTuple};
-use raptors_storage::{ufunc as kernels, ByteOrder, DType, IndexItem, Scalar, View};
+use raptors_storage::{
+    keep_order_axes, ufunc as kernels, ByteOrder, DType, IndexItem, Scalar, View,
+};
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::ffi::CString;
@@ -762,6 +764,7 @@ fn classify_errors(name: &str, inputs: &[Scalar], outputs: &[Scalar]) -> ErrorFl
         && matches!(name, "pow" | "power" | "float_power")
         && scalar_is_zero(&inputs[0])
         && inputs[1].as_f64().is_ok_and(|value| value < 0.0)
+        && inputs.iter().all(|value| value.dtype().kind() != "c")
     {
         flags.divide = true;
     }
@@ -786,6 +789,9 @@ fn classify_errors(name: &str, inputs: &[Scalar], outputs: &[Scalar]) -> ErrorFl
             flags.over = true;
         }
         if output.is_subnormal() && !exact_subnormal_result(name, inputs, output, imag) {
+            flags.under = true;
+        }
+        if name == "cos" && matches!(inputs, [input] if cos_intermediate_underflow(input, output)) {
             flags.under = true;
         }
         if matches!(output.dtype().kind(), "f" | "c") {
@@ -886,6 +892,7 @@ fn exact_subnormal_result(name: &str, inputs: &[Scalar], output: &Scalar, imag: 
         }
         ("reciprocal", [value]) => exact_product_matches(output, value, 1.0),
         ("exp2", [exponent]) => exact_exp2_matches(exponent, result),
+        ("expm1", [value]) => value.as_f64().is_ok_and(|value| value == result),
         ("ldexp", [value, exponent]) => {
             // NumPy's Windows wheels report underflow for the least
             // subnormal result from ldexp even when it is exactly
@@ -918,6 +925,19 @@ fn exact_subnormal_result(name: &str, inputs: &[Scalar], output: &Scalar, imag: 
             .is_ok_and(|expected| expected == result),
         _ => false,
     }
+}
+
+fn cos_intermediate_underflow(input: &Scalar, output: &Scalar) -> bool {
+    let threshold = match output.dtype() {
+        DType::Float16 | DType::Float32 => f32::MIN_POSITIVE.sqrt() as f64,
+        DType::Float64 => f64::MIN_POSITIVE.sqrt(),
+        DType::LongDouble if DType::LongDouble.itemsize() == 8 => f64::MIN_POSITIVE.sqrt(),
+        _ => return false,
+    };
+    input
+        .as_f64()
+        .is_ok_and(|value| value != 0.0 && value.abs() < threshold)
+        && output.as_f64().is_ok_and(|value| value.abs() == 1.0)
 }
 
 fn negated_scalar(value: &Scalar) -> Scalar {
@@ -1597,6 +1617,7 @@ fn call(
                     &values[index],
                     order.as_str(),
                     &operands,
+                    None,
                 )?;
                 result_objects.push(
                     Py::new(
@@ -1626,6 +1647,7 @@ fn call(
             &output_values,
             order.as_str(),
             &operands,
+            None,
         )?;
         arrays.push(PyArray {
             inner: view,
@@ -2071,6 +2093,7 @@ fn make_output_view(
     values: &[Scalar],
     order: &str,
     operands: &[Operand],
+    outer_left_ndim: Option<usize>,
 ) -> PyResult<View> {
     let arrays = operands
         .iter()
@@ -2081,9 +2104,44 @@ fn make_output_view(
         && arrays.iter().any(|view| !view.is_c_contiguous());
     let fortran = match order {
         "F" => true,
-        "A" | "K" => f_only,
+        "A" => f_only,
         _ => false,
     };
+    if order == "K" {
+        let layouts = if let Some(left_ndim) = outer_left_ndim {
+            operands
+                .iter()
+                .enumerate()
+                .filter_map(|(operand_index, operand)| {
+                    let view = operand.view.as_ref()?;
+                    let start = if operand_index == 0 { 0 } else { left_ndim };
+                    let mut operand_shape = vec![1; shape.len()];
+                    let mut strides = vec![0; shape.len()];
+                    operand_shape[start..start + view.ndim()].copy_from_slice(view.shape());
+                    strides[start..start + view.ndim()].copy_from_slice(view.strides());
+                    Some((operand_shape, strides))
+                })
+                .collect::<Vec<_>>()
+        } else {
+            arrays
+                .iter()
+                .map(|view| (view.shape().to_vec(), view.strides().to_vec()))
+                .collect::<Vec<_>>()
+        };
+        let axis_order = keep_order_axes(&shape, &layouts).map_err(map_storage_error)?;
+        return View::from_values_with_axis_order(
+            dtype,
+            if dtype.itemsize() == 1 {
+                ByteOrder::NotApplicable
+            } else {
+                ByteOrder::Native
+            },
+            shape,
+            values,
+            &axis_order,
+        )
+        .map_err(map_storage_error);
+    }
     View::from_values_with_layout(
         dtype,
         if dtype.itemsize() == 1 {
@@ -2205,10 +2263,6 @@ fn normalize_axes(axis: Option<&Bound<'_, PyAny>>, ndim: usize) -> PyResult<Opti
     let raw_axes = if let Ok(tuple) = axis.cast::<PyTuple>() {
         tuple
             .iter()
-            .map(|value| value.extract::<isize>())
-            .collect::<PyResult<Vec<_>>>()?
-    } else if let Ok(list) = axis.cast::<PyList>() {
-        list.iter()
             .map(|value| value.extract::<isize>())
             .collect::<PyResult<Vec<_>>>()?
     } else {
@@ -2765,7 +2819,9 @@ fn outer(
                     }
                 }
                 "subok" => {
-                    let _ = value.is_truthy()?;
+                    if !value.is_instance_of::<PyBool>() {
+                        return Err(PyTypeError::new_err("'subok' must be a boolean"));
+                    }
                 }
                 "signature" | "sig" => {
                     if signature_seen {
@@ -2990,6 +3046,7 @@ fn outer(
                 &values[index],
                 order.as_str(),
                 &operands,
+                Some(left_shape.len()),
             )?;
             let object = Py::new(
                 py,
@@ -3079,8 +3136,7 @@ fn at(
             if rhs.is_array || name == "ldexp" {
                 [target.inner.dtype(), rhs.dtype]
             } else {
-                let promoted = weak_scalar_dtype(target.inner.dtype(), rhs)?;
-                [promoted, promoted]
+                [target.inner.dtype(), target.inner.dtype()]
             }
         } else {
             [target.inner.dtype(), target.inner.dtype()]
@@ -3176,8 +3232,7 @@ fn at(
         if rhs.is_array || name == "ldexp" {
             [target.inner.dtype(), rhs.dtype]
         } else {
-            let promoted = weak_scalar_dtype(target.inner.dtype(), rhs)?;
-            [promoted, promoted]
+            [target.inner.dtype(), target.inner.dtype()]
         }
     } else {
         [target.inner.dtype(), target.inner.dtype()]

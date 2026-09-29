@@ -517,6 +517,17 @@ mod tests {
     }
 
     #[test]
+    fn ldexp_clamps_exponents_before_converting_to_c_int() {
+        if !has_extended_native() {
+            return;
+        }
+        let overflow = binary_real("ldexp", "1", "2147483648").unwrap().0;
+        assert_eq!(classify(&overflow, 1), Some(true));
+        let underflow = binary_real("ldexp", "1", "-2147483649").unwrap().0;
+        assert_eq!(classify(&underflow, 3), Some(true));
+    }
+
+    #[test]
     fn native_complex_addition_keeps_extended_precision() {
         if !has_extended_native() {
             return;
