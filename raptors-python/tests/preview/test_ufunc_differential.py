@@ -1081,8 +1081,10 @@ def test_exact_subnormal_flags_match_numpy():
 @pytest.mark.parametrize("dtype", [np.dtype("longdouble"), np.dtype("clongdouble")])
 def test_wide_longdouble_addition_preserves_precision(dtype):
     candidate_dtype = _raptors_dtype_for_numpy(dtype)
-    left = np.array([2**53 + 1], dtype=dtype)
-    right = np.array([1], dtype=dtype)
+    left_real = np.array([2**53 + 1], dtype=np.longdouble)
+    right_real = np.array([1], dtype=np.longdouble)
+    left = left_real if dtype.kind == "f" else left_real.astype(dtype)
+    right = right_real if dtype.kind == "f" else right_real.astype(dtype)
     expected = np.add(left, right)
 
     actual = raptors.add(

@@ -2719,7 +2719,7 @@
     "python_xdist": {
       "status": "passed_locally",
       "workers": 12,
-      "pytest_seconds": 6.51,
+      "pytest_seconds": 6.32,
       "command": "./raptors-python/run_tests.sh"
     },
     "rust_workspace_tests": {
