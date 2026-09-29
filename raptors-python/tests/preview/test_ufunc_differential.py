@@ -164,7 +164,9 @@ def _assert_ufunc_result_matches(reference, candidate, *, exact=False):
         return
 
     if np.isscalar(reference):
-        assert candidate.dtype.name == np.asarray(reference).dtype.name
+        expected_dtype = np.asarray(reference).dtype
+        assert candidate.dtype.name == expected_dtype.name
+        assert candidate.dtype.char == expected_dtype.char
         expected = _as_comparable(reference)
         actual = _as_comparable(candidate)
         if exact or np.asarray(reference).dtype.kind not in "fc":

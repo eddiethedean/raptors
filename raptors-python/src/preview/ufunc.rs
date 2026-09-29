@@ -1585,7 +1585,7 @@ fn call(
                         py,
                         PyArray {
                             inner: view,
-                            scalar_alias: ufunc_result_alias(outputs[index]),
+                            scalar_alias: inferred_output_alias(&operands, outputs[index]),
                         },
                     )?
                     .into_any(),
@@ -1648,8 +1648,31 @@ fn call(
 }
 
 fn inferred_output_alias(operands: &[Operand], output: DType) -> Option<ScalarAlias> {
-    if let Some(alias) = ufunc_result_alias(output) {
-        return Some(alias);
+    if cfg!(target_os = "windows") {
+        let aliases = operands
+            .iter()
+            .filter_map(|operand| operand.scalar_alias)
+            .filter(|alias| alias.dtype() == output)
+            .collect::<Vec<_>>();
+        match output {
+            DType::Int32 => {
+                if aliases.contains(&ScalarAlias::Long)
+                    || aliases.is_empty() && operands.iter().any(|operand| operand.dtype == output)
+                {
+                    return Some(ScalarAlias::Long);
+                }
+                return Some(ScalarAlias::IntC);
+            }
+            DType::UInt32 => {
+                if aliases.contains(&ScalarAlias::ULong)
+                    || aliases.is_empty() && operands.iter().any(|operand| operand.dtype == output)
+                {
+                    return Some(ScalarAlias::ULong);
+                }
+                return Some(ScalarAlias::UIntC);
+            }
+            _ => {}
+        }
     }
     let mut alias = None;
     for operand in operands {
@@ -1661,18 +1684,6 @@ fn inferred_output_alias(operands: &[Operand], output: DType) -> Option<ScalarAl
         }
     }
     alias.filter(|alias| alias.dtype() == output)
-}
-
-fn ufunc_result_alias(output: DType) -> Option<ScalarAlias> {
-    if cfg!(target_os = "windows") {
-        match output {
-            DType::Int32 => Some(ScalarAlias::IntC),
-            DType::UInt32 => Some(ScalarAlias::UIntC),
-            _ => None,
-        }
-    } else {
-        None
-    }
 }
 
 fn weak_promote(left: &Operand, right: &Operand) -> PyResult<DType> {
@@ -2197,6 +2208,7 @@ fn finish_single(
     shape: Vec<usize>,
     dtype: DType,
     values: Vec<Scalar>,
+    scalar_alias: Option<ScalarAlias>,
     out: Option<&Bound<'_, PyAny>>,
     scalar_when_zero_dim: bool,
 ) -> PyResult<Py<PyAny>> {
@@ -2226,7 +2238,7 @@ fn finish_single(
                 .first()
                 .cloned()
                 .unwrap_or_else(|| Scalar::zero(dtype)),
-            ufunc_result_alias(dtype),
+            scalar_alias,
         );
     }
     let view = View::from_values_with_layout(
@@ -2245,7 +2257,7 @@ fn finish_single(
         py,
         PyArray {
             inner: view,
-            scalar_alias: ufunc_result_alias(dtype),
+            scalar_alias,
         },
     )?
     .into_any())
@@ -2403,7 +2415,15 @@ fn reduce(
                 .map_err(map_storage_error)?,
         );
     }
-    let result = finish_single(py, output_shape, result_dtype, values, out, !keepdims)?;
+    let result = finish_single(
+        py,
+        output_shape,
+        result_dtype,
+        values,
+        inferred_output_alias(std::slice::from_ref(&source), result_dtype),
+        out,
+        !keepdims,
+    )?;
     report_errors(py, name, error_flags)?;
     Ok(result)
 }
@@ -2471,7 +2491,15 @@ fn accumulate(
             accumulator = Some(result);
         }
     }
-    let result = finish_single(py, shape, result_dtype, output, out, false)?;
+    let result = finish_single(
+        py,
+        shape,
+        result_dtype,
+        output,
+        inferred_output_alias(std::slice::from_ref(&source), result_dtype),
+        out,
+        false,
+    )?;
     report_errors(py, name, error_flags)?;
     Ok(result)
 }
@@ -2575,7 +2603,15 @@ fn reduceat(
                 .map_err(map_storage_error)?;
         }
     }
-    let result = finish_single(py, output_shape, result_dtype, output, out, false)?;
+    let result = finish_single(
+        py,
+        output_shape,
+        result_dtype,
+        output,
+        inferred_output_alias(std::slice::from_ref(&source), result_dtype),
+        out,
+        false,
+    )?;
     report_errors(py, name, error_flags)?;
     Ok(result)
 }
@@ -2872,7 +2908,7 @@ fn outer(
                 py,
                 PyArray {
                     inner: view,
-                    scalar_alias: ufunc_result_alias(outputs[index]),
+                    scalar_alias: inferred_output_alias(&operands, outputs[index]),
                 },
             )?
             .into_any();
