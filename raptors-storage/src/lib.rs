@@ -720,7 +720,10 @@ fn decimal_to_i128(value: &str) -> Result<i128, StorageError> {
         return Err(StorageError::CastOverflow);
     }
     digits.truncate(integer_len.min(digits.len()));
-    digits.extend(std::iter::repeat('0').take(integer_len.saturating_sub(digits.len())));
+    digits.extend(std::iter::repeat_n(
+        '0',
+        integer_len.saturating_sub(digits.len()),
+    ));
     let magnitude = digits
         .parse::<u128>()
         .map_err(|_| StorageError::CastOverflow)?;
@@ -761,6 +764,12 @@ pub enum IndexItem {
         shape: Vec<usize>,
         indices: Vec<usize>,
     },
+}
+
+struct AdvancedIndexLayout {
+    output_shape: Vec<usize>,
+    offsets: Vec<usize>,
+    output_strides: Vec<isize>,
 }
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
@@ -1862,21 +1871,22 @@ impl View {
                 IndexItem::Fancy { .. } | IndexItem::BoolScalar(_) | IndexItem::BoolMask { .. }
             )
         }) {
-            let (shape, offsets, strides) = self.advanced_offsets(indices)?;
+            let layout = self.advanced_offsets(indices)?;
             let storage = self
                 .storage
                 .read()
                 .map_err(|_| StorageError::LockPoisoned)?;
-            let values = offsets
+            let values = layout
+                .offsets
                 .into_iter()
                 .map(|offset| storage.read_as(offset, self.dtype, self.byte_order))
                 .collect::<Result<Vec<_>, _>>()?;
             return Self::from_values_with_strides(
                 self.dtype,
                 self.byte_order,
-                shape,
+                layout.output_shape,
                 &values,
-                strides,
+                layout.output_strides,
             );
         }
         let consuming = indices
@@ -2099,12 +2109,12 @@ impl View {
         value: Scalar,
     ) -> Result<(), StorageError> {
         let value = value.cast(self.dtype)?;
-        let (_, offsets, _) = self.advanced_offsets(indices)?;
+        let layout = self.advanced_offsets(indices)?;
         let mut storage = self
             .storage
             .write()
             .map_err(|_| StorageError::LockPoisoned)?;
-        for offset in offsets {
+        for offset in layout.offsets {
             storage.write_as(offset, self.dtype, self.byte_order, value.clone())?;
         }
         Ok(())
@@ -2115,7 +2125,9 @@ impl View {
         indices: &[IndexItem],
         source: &Self,
     ) -> Result<(), StorageError> {
-        let (target_shape, offsets, _) = self.advanced_offsets(indices)?;
+        let layout = self.advanced_offsets(indices)?;
+        let target_shape = layout.output_shape;
+        let offsets = layout.offsets;
         if source.ndim() > target_shape.len()
             || source
                 .shape
@@ -2155,10 +2167,7 @@ impl View {
         Ok(())
     }
 
-    fn advanced_offsets(
-        &self,
-        indices: &[IndexItem],
-    ) -> Result<(Vec<usize>, Vec<usize>, Vec<isize>), StorageError> {
+    fn advanced_offsets(&self, indices: &[IndexItem]) -> Result<AdvancedIndexLayout, StorageError> {
         let advanced_positions = indices
             .iter()
             .enumerate()
@@ -2465,7 +2474,11 @@ impl View {
             }
             offsets.push(self.element_offset(&input_coords)?);
         }
-        Ok((output_shape, offsets, output_strides))
+        Ok(AdvancedIndexLayout {
+            output_shape,
+            offsets,
+            output_strides,
+        })
     }
     pub fn copy(&self) -> Result<Self, StorageError> {
         self.copy_order(false)

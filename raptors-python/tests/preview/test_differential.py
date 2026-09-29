@@ -185,6 +185,19 @@ def test_shape_dimensions_reject_booleans():
         raptors.zeros((True,))
 
 
+def test_scalar_shapes_accept_the_integer_index_protocol():
+    class IndexLike:
+        def __index__(self):
+            return 3
+
+    values = np.array([1, 2, 3], dtype=np.int64)
+    candidate = raptors.array([1, 2, 3], dtype=raptors.int64)
+    for shape in (np.int64(3), IndexLike()):
+        assert raptors.zeros(shape).shape == np.zeros(shape).shape == (3,)
+        assert raptors.empty(shape).shape == np.empty(shape).shape == (3,)
+        assert_array_matches(values.reshape(shape), candidate.reshape(shape))
+
+
 def test_reshape_infers_one_dimension():
     reference = np.arange(24, dtype=np.int64)
     candidate = raptors.array(reference.tolist(), dtype=raptors.int64)

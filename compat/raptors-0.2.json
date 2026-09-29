@@ -79,13 +79,22 @@
     "Casting overflow, invalid casts, warnings, and all NumPy promotion edge cases need reference coverage",
     "Extended precision accepts the numeric inputs currently exposed by the Python API but does not accept arbitrary high-precision Python values",
     "Some advanced-index and non-contiguous reshape sharing cases are unverified",
-    "No differential, Rust behavioral, Miri, sanitizer, wheel-matrix, or release gate has passed for this snapshot"
+    "Miri, AddressSanitizer, the full wheel matrix, cross-version/platform differential runs, and release gates remain pending"
   ],
   "evidence": {
-    "cargo_check": {"status": "passed", "command": "cargo check -p raptors-python"},
+    "environment": {
+      "date": "2026-09-28",
+      "platform": "macOS 26.5.2 arm64",
+      "rust": "1.96.0",
+      "python": "CPython 3.12.13",
+      "numpy": "2.5.3"
+    },
+    "rustfmt": {"status": "passed_locally", "command": "rustfmt --edition 2021 --check raptors-storage/src/lib.rs raptors-python/src/preview.rs raptors-python/src/preview_lib.rs raptors-python/build.rs"},
+    "cargo_clippy": {"status": "passed_locally", "command": "cargo clippy --locked -p raptors-storage -p raptors-python --all-targets -- -D warnings"},
+    "cargo_check": {"status": "passed_locally", "command": "cargo check --locked -p raptors-python"},
     "storage_cross_compile": {"status": "passed", "target": "x86_64-apple-darwin", "command": "cargo check --target x86_64-apple-darwin -p raptors-storage"},
-    "python_differential_tests": "not_run",
-    "rust_behavioral_tests": "not_run",
+    "python_differential_tests": {"status": "passed_locally", "passed": 144, "skipped": 0, "command": "python -m pytest tests/preview -q"},
+    "rust_behavioral_tests": {"status": "passed_locally", "passed": 9, "command": "cargo test --locked -p raptors-storage"},
     "miri": "not_run",
     "sanitizer": "not_run",
     "wheel_matrix": "not_run",

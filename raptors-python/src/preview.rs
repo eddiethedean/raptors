@@ -1174,7 +1174,7 @@ fn parse_reshape_shape(value: &Bound<'_, PyAny>, input_size: usize) -> PyResult<
     }
 
     if let Some(axis) = inferred_axis {
-        if known_size == 0 || input_size % known_size != 0 {
+        if known_size == 0 || !input_size.is_multiple_of(known_size) {
             return Err(PyValueError::new_err(format!(
                 "cannot reshape array of size {input_size} into shape {:?}",
                 shape
@@ -1186,16 +1186,16 @@ fn parse_reshape_shape(value: &Bound<'_, PyAny>, input_size: usize) -> PyResult<
 }
 
 fn shape_dimensions<'py>(value: &Bound<'py, PyAny>) -> PyResult<Vec<Bound<'py, PyAny>>> {
-    if value.is_instance_of::<PyInt>() && !value.is_instance_of::<PyBool>() {
-        Ok(vec![value.clone()])
-    } else if let Ok(tuple) = value.cast::<PyTuple>() {
+    if let Ok(tuple) = value.cast::<PyTuple>() {
         Ok(tuple.iter().collect())
     } else if let Ok(list) = value.cast::<PyList>() {
         Ok(list.iter().collect())
+    } else if value.is_instance_of::<PyBool>() {
+        Ok(vec![value.clone()])
     } else {
-        Err(PyTypeError::new_err(
-            "shape must be an integer or tuple/list of integers",
-        ))
+        let operator = PyModule::import(value.py(), "operator")?;
+        let index = operator.getattr("index")?.call1((value,))?;
+        Ok(vec![index])
     }
 }
 
