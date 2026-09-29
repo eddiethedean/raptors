@@ -15,9 +15,13 @@ use std::ffi::CString;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 enum ScalarAlias {
+    #[cfg(target_os = "windows")]
     IntC,
+    #[cfg(target_os = "windows")]
     UIntC,
+    #[cfg(target_os = "windows")]
     Long,
+    #[cfg(target_os = "windows")]
     ULong,
     LongLong,
     ULongLong,
@@ -26,9 +30,13 @@ enum ScalarAlias {
 impl ScalarAlias {
     fn char(self) -> char {
         match self {
+            #[cfg(target_os = "windows")]
             Self::IntC => 'i',
+            #[cfg(target_os = "windows")]
             Self::UIntC => 'I',
+            #[cfg(target_os = "windows")]
             Self::Long => 'l',
+            #[cfg(target_os = "windows")]
             Self::ULong => 'L',
             Self::LongLong => 'q',
             Self::ULongLong => 'Q',
@@ -37,9 +45,13 @@ impl ScalarAlias {
 
     fn class_name(self) -> &'static str {
         match self {
+            #[cfg(target_os = "windows")]
             Self::IntC => "Int32Scalar",
+            #[cfg(target_os = "windows")]
             Self::UIntC => "UInt32Scalar",
+            #[cfg(target_os = "windows")]
             Self::Long => "Int32Scalar",
+            #[cfg(target_os = "windows")]
             Self::ULong => "UInt32Scalar",
             Self::LongLong => "LongLongScalar",
             Self::ULongLong => "ULongLongScalar",
@@ -48,9 +60,13 @@ impl ScalarAlias {
 
     fn dtype(self) -> DType {
         match self {
+            #[cfg(target_os = "windows")]
             Self::IntC => DType::Int32,
+            #[cfg(target_os = "windows")]
             Self::UIntC => DType::UInt32,
+            #[cfg(target_os = "windows")]
             Self::Long => DType::Int32,
+            #[cfg(target_os = "windows")]
             Self::ULong => DType::UInt32,
             Self::LongLong => DType::Int64,
             Self::ULongLong => DType::UInt64,
@@ -113,11 +129,7 @@ impl PyDType {
         let prefix = if self.inner.itemsize() == 1 {
             "|"
         } else if self.byte_order.is_native() {
-            if cfg!(target_endian = "little") {
-                "<"
-            } else {
-                ">"
-            }
+            native_endian_prefix()
         } else {
             self.byte_order.symbol(self.inner)
         };
@@ -193,11 +205,7 @@ impl PyDType {
                 if self.inner.itemsize() == 1 {
                     ByteOrder::NotApplicable
                 } else if self.byte_order.is_native() {
-                    if cfg!(target_endian = "little") {
-                        ByteOrder::Big
-                    } else {
-                        ByteOrder::Little
-                    }
+                    opposite_native_byte_order()
                 } else if self.byte_order == ByteOrder::Little {
                     ByteOrder::Big
                 } else {
@@ -1271,13 +1279,7 @@ fn promote_types(left: &Bound<'_, PyAny>, right: &Bound<'_, PyAny>) -> PyResult<
     let (left, _, left_alias) = parse_dtype_spec(left)?;
     let (right, _, right_alias) = parse_dtype_spec(right)?;
     let inner = left.promote(right);
-    let scalar_alias = merge_scalar_aliases(left_alias, right_alias, inner).or_else(|| {
-        (cfg!(target_os = "windows")
-            && inner == DType::Int32
-            && left != DType::Int32
-            && right != DType::Int32)
-            .then_some(ScalarAlias::IntC)
-    });
+    let scalar_alias = merge_scalar_aliases(left_alias, right_alias, inner);
     Ok(PyDType {
         inner,
         byte_order: default_byte_order(inner),
@@ -2045,14 +2047,7 @@ fn parse_dtype_spec(value: &Bound<'_, PyAny>) -> PyResult<(DType, ByteOrder, Opt
     let builtins = PyModule::import(value.py(), "builtins")?;
     for (name, dtype) in [
         ("bool", DType::Bool),
-        (
-            "int",
-            if cfg!(target_pointer_width = "64") {
-                DType::Int64
-            } else {
-                DType::Int32
-            },
-        ),
+        ("int", pointer_int_dtype()),
         ("float", DType::Float64),
         ("complex", DType::Complex128),
     ] {
@@ -2094,26 +2089,27 @@ fn dtype_alias_for_spec(name: &str, dtype: DType) -> Option<ScalarAlias> {
         Some(b'<') | Some(b'>') | Some(b'=') | Some(b'|') => &name[1..],
         _ => name,
     };
-    match base {
-        "l" | "long" if cfg!(target_os = "windows") && dtype == DType::Int32 => {
-            Some(ScalarAlias::Long)
+    #[cfg(target_os = "windows")]
+    {
+        match base {
+            "l" | "long" if dtype == DType::Int32 => Some(ScalarAlias::Long),
+            "L" | "ulong" if dtype == DType::UInt32 => Some(ScalarAlias::ULong),
+            "i" | "intc" if dtype == DType::Int32 => Some(ScalarAlias::IntC),
+            "I" | "uintc" if dtype == DType::UInt32 => Some(ScalarAlias::UIntC),
+            _ => None,
         }
-        "L" | "ulong" if cfg!(target_os = "windows") && dtype == DType::UInt32 => {
-            Some(ScalarAlias::ULong)
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        match base {
+            "q" | "longlong" if dtype == DType::Int64 && DType::Int64.char() != 'q' => {
+                Some(ScalarAlias::LongLong)
+            }
+            "Q" | "ulonglong" if dtype == DType::UInt64 && DType::UInt64.char() != 'Q' => {
+                Some(ScalarAlias::ULongLong)
+            }
+            _ => None,
         }
-        "i" | "intc" if dtype == DType::Int32 && DType::Int32.char() != 'i' => {
-            Some(ScalarAlias::IntC)
-        }
-        "I" | "uintc" if dtype == DType::UInt32 && DType::UInt32.char() != 'I' => {
-            Some(ScalarAlias::UIntC)
-        }
-        "q" | "longlong" if dtype == DType::Int64 && DType::Int64.char() != 'q' => {
-            Some(ScalarAlias::LongLong)
-        }
-        "Q" | "ulonglong" if dtype == DType::UInt64 && DType::UInt64.char() != 'Q' => {
-            Some(ScalarAlias::ULongLong)
-        }
-        _ => None,
     }
 }
 
@@ -2195,27 +2191,11 @@ fn dtype_from_name(name: &str) -> Option<DType> {
         "int32" | "i4" | "i" | "intc" => Some(DType::Int32),
         "uint32" | "u4" | "I" | "uintc" => Some(DType::UInt32),
         "int64" | "i8" | "q" | "int" | "int_" | "longlong" => Some(DType::Int64),
-        "l" | "long" => Some(if cfg!(target_os = "windows") {
-            DType::Int32
-        } else {
-            DType::Int64
-        }),
-        "intp" | "p" | "n" => Some(if cfg!(target_pointer_width = "64") {
-            DType::Int64
-        } else {
-            DType::Int32
-        }),
+        "l" | "long" => Some(c_long_dtype()),
+        "intp" | "p" | "n" => Some(pointer_int_dtype()),
         "uint64" | "u8" | "Q" | "uint" | "ulonglong" => Some(DType::UInt64),
-        "L" | "ulong" => Some(if cfg!(target_os = "windows") {
-            DType::UInt32
-        } else {
-            DType::UInt64
-        }),
-        "uintp" | "P" | "N" => Some(if cfg!(target_pointer_width = "64") {
-            DType::UInt64
-        } else {
-            DType::UInt32
-        }),
+        "L" | "ulong" => Some(c_ulong_dtype()),
+        "uintp" | "P" | "N" => Some(pointer_uint_dtype()),
         "float16" | "f2" | "e" | "half" => Some(DType::Float16),
         "float32" | "f4" | "f" | "single" => Some(DType::Float32),
         "float64" | "f8" | "d" | "double" | "float" => Some(DType::Float64),
@@ -2227,6 +2207,66 @@ fn dtype_from_name(name: &str) -> Option<DType> {
         "complex256" | "c32" if DType::LongDouble.itemsize() > 8 => Some(DType::ComplexLongDouble),
         _ => None,
     }
+}
+
+#[cfg(target_endian = "little")]
+const fn native_endian_prefix() -> &'static str {
+    "<"
+}
+
+#[cfg(target_endian = "big")]
+const fn native_endian_prefix() -> &'static str {
+    ">"
+}
+
+#[cfg(target_endian = "little")]
+const fn opposite_native_byte_order() -> ByteOrder {
+    ByteOrder::Big
+}
+
+#[cfg(target_endian = "big")]
+const fn opposite_native_byte_order() -> ByteOrder {
+    ByteOrder::Little
+}
+
+#[cfg(target_os = "windows")]
+const fn c_long_dtype() -> DType {
+    DType::Int32
+}
+
+#[cfg(not(target_os = "windows"))]
+const fn c_long_dtype() -> DType {
+    DType::Int64
+}
+
+#[cfg(target_os = "windows")]
+const fn c_ulong_dtype() -> DType {
+    DType::UInt32
+}
+
+#[cfg(not(target_os = "windows"))]
+const fn c_ulong_dtype() -> DType {
+    DType::UInt64
+}
+
+#[cfg(target_pointer_width = "64")]
+const fn pointer_int_dtype() -> DType {
+    DType::Int64
+}
+
+#[cfg(not(target_pointer_width = "64"))]
+const fn pointer_int_dtype() -> DType {
+    DType::Int32
+}
+
+#[cfg(target_pointer_width = "64")]
+const fn pointer_uint_dtype() -> DType {
+    DType::UInt64
+}
+
+#[cfg(not(target_pointer_width = "64"))]
+const fn pointer_uint_dtype() -> DType {
+    DType::UInt32
 }
 
 fn parse_indices(array: &View, key: &Bound<'_, PyAny>) -> PyResult<(Vec<IndexItem>, bool)> {
@@ -2583,23 +2623,12 @@ fn scalar_to_python(
         Scalar::UInt8(x) => Ok(Py::new(py, PyUInt8Scalar(x, None))?.into_any()),
         Scalar::Int16(x) => Ok(Py::new(py, PyInt16Scalar(x, None))?.into_any()),
         Scalar::UInt16(x) => Ok(Py::new(py, PyUInt16Scalar(x, None))?.into_any()),
-        Scalar::Int32(x) => Ok(Py::new(
-            py,
-            PyInt32Scalar(
-                x,
-                scalar_alias.filter(|alias| matches!(alias, ScalarAlias::IntC | ScalarAlias::Long)),
-            ),
-        )?
-        .into_any()),
-        Scalar::UInt32(x) => Ok(Py::new(
-            py,
-            PyUInt32Scalar(
-                x,
-                scalar_alias
-                    .filter(|alias| matches!(alias, ScalarAlias::UIntC | ScalarAlias::ULong)),
-            ),
-        )?
-        .into_any()),
+        Scalar::Int32(x) => {
+            Ok(Py::new(py, PyInt32Scalar(x, int32_scalar_alias(scalar_alias)))?.into_any())
+        }
+        Scalar::UInt32(x) => {
+            Ok(Py::new(py, PyUInt32Scalar(x, uint32_scalar_alias(scalar_alias)))?.into_any())
+        }
         Scalar::Int64(x) => Ok(Py::new(py, PyInt64Scalar(x, None))?.into_any()),
         Scalar::UInt64(x) => Ok(Py::new(py, PyUInt64Scalar(x, None))?.into_any()),
         Scalar::Float16(x) => Ok(Py::new(py, PyFloat16Scalar(x, None))?.into_any()),
@@ -2613,6 +2642,27 @@ fn scalar_to_python(
         }
     }
 }
+
+#[cfg(target_os = "windows")]
+fn int32_scalar_alias(alias: Option<ScalarAlias>) -> Option<ScalarAlias> {
+    alias.filter(|alias| matches!(alias, ScalarAlias::IntC | ScalarAlias::Long))
+}
+
+#[cfg(not(target_os = "windows"))]
+fn int32_scalar_alias(_alias: Option<ScalarAlias>) -> Option<ScalarAlias> {
+    None
+}
+
+#[cfg(target_os = "windows")]
+fn uint32_scalar_alias(alias: Option<ScalarAlias>) -> Option<ScalarAlias> {
+    alias.filter(|alias| matches!(alias, ScalarAlias::UIntC | ScalarAlias::ULong))
+}
+
+#[cfg(not(target_os = "windows"))]
+fn uint32_scalar_alias(_alias: Option<ScalarAlias>) -> Option<ScalarAlias> {
+    None
+}
+
 fn map_storage_error(error: StorageError) -> PyErr {
     match error {
         StorageError::ShapeOverflow => {
@@ -2678,56 +2728,14 @@ pub(super) fn register(module: &Bound<'_, PyModule>) -> PyResult<()> {
         ("ubyte", DType::UInt8),
         ("short", DType::Int16),
         ("ushort", DType::UInt16),
-        (
-            "int_",
-            if cfg!(target_pointer_width = "64") {
-                DType::Int64
-            } else {
-                DType::Int32
-            },
-        ),
-        (
-            "uint",
-            if cfg!(target_pointer_width = "64") {
-                DType::UInt64
-            } else {
-                DType::UInt32
-            },
-        ),
-        (
-            "intp",
-            if cfg!(target_pointer_width = "64") {
-                DType::Int64
-            } else {
-                DType::Int32
-            },
-        ),
-        (
-            "uintp",
-            if cfg!(target_pointer_width = "64") {
-                DType::UInt64
-            } else {
-                DType::UInt32
-            },
-        ),
+        ("int_", pointer_int_dtype()),
+        ("uint", pointer_uint_dtype()),
+        ("intp", pointer_int_dtype()),
+        ("uintp", pointer_uint_dtype()),
         ("intc", DType::Int32),
         ("uintc", DType::UInt32),
-        (
-            "long",
-            if cfg!(target_os = "windows") {
-                DType::Int32
-            } else {
-                DType::Int64
-            },
-        ),
-        (
-            "ulong",
-            if cfg!(target_os = "windows") {
-                DType::UInt32
-            } else {
-                DType::UInt64
-            },
-        ),
+        ("long", c_long_dtype()),
+        ("ulong", c_ulong_dtype()),
         ("longlong", DType::Int64),
         ("ulonglong", DType::UInt64),
         ("float", DType::Float64),

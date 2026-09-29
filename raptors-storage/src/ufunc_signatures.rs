@@ -272,19 +272,33 @@ pub fn signatures(name: &str) -> Vec<String> {
     };
     signatures
         .iter()
-        .map(|signature| target_signature(signature))
+        .map(|signature| target_signature(name, signature))
         .collect()
 }
 
-fn target_signature(signature: &str) -> String {
-    if !cfg!(target_os = "windows") {
-        return signature.to_owned();
-    }
-    windows_signature(signature)
+#[cfg(target_os = "windows")]
+fn target_signature(name: &str, signature: &str) -> String {
+    windows_signature(name, signature)
 }
 
-fn windows_signature(signature: &str) -> String {
+#[cfg(not(target_os = "windows"))]
+fn target_signature(_name: &str, signature: &str) -> String {
     signature.to_owned()
+}
+
+#[cfg(any(target_os = "windows", test))]
+fn windows_signature(name: &str, signature: &str) -> String {
+    if name != "ldexp" {
+        return signature.to_owned();
+    }
+    signature
+        .chars()
+        .map(|code| match code {
+            'l' => 'q',
+            'L' => 'Q',
+            _ => code,
+        })
+        .collect()
 }
 
 #[cfg(test)]
@@ -292,10 +306,14 @@ mod tests {
     use super::windows_signature;
 
     #[test]
-    fn windows_typecodes_preserve_numpy_aliases() {
+    fn windows_int64_exponent_loops_use_longlong_typecodes() {
         assert_eq!(
-            windows_signature("ii->iII->IlL->lLqq->qQQ->Q"),
-            "ii->iII->IlL->lLqq->qQQ->Q"
+            windows_signature("ldexp", "ei->e fi->f el->e fl->f di->d dl->d"),
+            "ei->e fi->f eq->e fq->f di->d dq->d"
+        );
+        assert_eq!(
+            windows_signature("add", "ii->i ll->l qq->q"),
+            "ii->i ll->l qq->q"
         );
     }
 }

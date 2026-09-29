@@ -1,6 +1,6 @@
 # Release 0.3: numeric ufunc execution plan
 
-**Status:** implementation in progress. The preview path registers the 101-name numeric ufunc surface, resolves pinned numeric loops, and implements elementwise calls, methods, operators, and floating-error controls. The local suite passes on Darwin arm64 with CPython 3.14: 9,238 Python tests, including 8,464 ufunc differential cases and all 7,335 valid binary numeric dtype pairs, plus 1,553 Rust workspace and doc-test cases across 58 test binaries. Pytest-xdist ran the Python suite with 12 workers in 6.08 seconds. Hosted wheel qualification remains pending. The oracle remains NumPy 2.5.3 at source commit `dd88c0c19b54ad9ed3533224221285bf0873249a`.
+**Status:** implementation in progress. The preview path registers the 101-name numeric ufunc surface, resolves pinned numeric loops, and implements elementwise calls, methods, operators, and floating-error controls. The local suite passes on Darwin arm64 with CPython 3.14: 9,238 Python tests, including 8,464 ufunc differential cases and all 7,335 valid binary numeric dtype pairs, plus 1,554 Rust workspace and doc-test cases across 58 test binaries. One Windows-specific typecode check is skipped on Darwin and runs in the hosted Windows wheel jobs. Pytest-xdist ran the Python suite with 12 workers in 7.73 seconds. Hosted wheel qualification remains pending. The oracle remains NumPy 2.5.3 at source commit `dd88c0c19b54ad9ed3533224221285bf0873249a`.
 
 ## Release boundary
 

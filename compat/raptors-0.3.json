@@ -2712,18 +2712,18 @@
     "python_preview_suite": {
       "status": "passed_locally",
       "passed": 9238,
-      "skipped": 0,
+      "skipped": 1,
       "command": "./raptors-python/run_tests.sh"
     },
     "python_xdist": {
       "status": "passed_locally",
       "workers": 12,
-      "pytest_seconds": 6.08,
+      "pytest_seconds": 7.73,
       "command": "./raptors-python/run_tests.sh"
     },
     "rust_workspace_tests": {
       "status": "passed_locally",
-      "test_cases": 1553,
+      "test_cases": 1554,
       "test_binaries": 58,
       "command": "cargo test --offline --locked --manifest-path Cargo.toml --workspace -- --test-threads=1"
     },
@@ -2737,7 +2737,7 @@
     },
     "miri": {
       "status": "passed_locally",
-      "passed": 12,
+      "passed": 13,
       "command": "RAPTORS_SKIP_NATIVE_LONGDOUBLE=1 cargo +nightly miri test --offline --locked -p raptors-storage"
     },
     "benchmark": {

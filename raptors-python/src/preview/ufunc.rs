@@ -890,8 +890,16 @@ fn exact_subnormal_result(name: &str, inputs: &[Scalar], output: &Scalar, imag: 
             // NumPy's Windows wheels report underflow for the least
             // subnormal result from ldexp even when it is exactly
             // representable. Match that platform-specific flag behavior.
-            !(cfg!(target_os = "windows") && output.is_subnormal())
-                && exact_ldexp_matches(value, exponent, result)
+            exact_ldexp_matches(value, exponent, result) && {
+                #[cfg(target_os = "windows")]
+                {
+                    !output.is_subnormal()
+                }
+                #[cfg(not(target_os = "windows"))]
+                {
+                    true
+                }
+            }
         }
         ("positive" | "conjugate" | "conj", [value]) => {
             value.as_f64().is_ok_and(|value| value == result)
@@ -1228,10 +1236,16 @@ fn dtype_from_loop_code(code: char) -> Option<DType> {
         'H' => DType::UInt16,
         'i' => DType::Int32,
         'I' => DType::UInt32,
-        'l' if cfg!(target_os = "windows") => DType::Int32,
-        'L' if cfg!(target_os = "windows") => DType::UInt32,
-        'l' | 'q' => DType::Int64,
-        'L' | 'Q' => DType::UInt64,
+        #[cfg(target_os = "windows")]
+        'l' => DType::Int32,
+        #[cfg(not(target_os = "windows"))]
+        'l' => DType::Int64,
+        'q' => DType::Int64,
+        #[cfg(target_os = "windows")]
+        'L' => DType::UInt32,
+        #[cfg(not(target_os = "windows"))]
+        'L' => DType::UInt64,
+        'Q' => DType::UInt64,
         'e' => DType::Float16,
         'f' => DType::Float32,
         'd' => DType::Float64,
@@ -1648,7 +1662,8 @@ fn call(
 }
 
 fn inferred_output_alias(operands: &[Operand], output: DType) -> Option<ScalarAlias> {
-    if cfg!(target_os = "windows") {
+    #[cfg(target_os = "windows")]
+    {
         let aliases = operands
             .iter()
             .filter_map(|operand| operand.scalar_alias)
@@ -1656,17 +1671,13 @@ fn inferred_output_alias(operands: &[Operand], output: DType) -> Option<ScalarAl
             .collect::<Vec<_>>();
         match output {
             DType::Int32 => {
-                if aliases.contains(&ScalarAlias::Long)
-                    || aliases.is_empty() && operands.iter().any(|operand| operand.dtype == output)
-                {
+                if aliases.contains(&ScalarAlias::Long) {
                     return Some(ScalarAlias::Long);
                 }
                 return Some(ScalarAlias::IntC);
             }
             DType::UInt32 => {
-                if aliases.contains(&ScalarAlias::ULong)
-                    || aliases.is_empty() && operands.iter().any(|operand| operand.dtype == output)
-                {
+                if aliases.contains(&ScalarAlias::ULong) {
                     return Some(ScalarAlias::ULong);
                 }
                 return Some(ScalarAlias::UIntC);

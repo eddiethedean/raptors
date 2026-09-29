@@ -576,6 +576,18 @@ def test_c_integer_dtype_codes_survive_arrays_scalars_and_promotion(code, consta
     assert raptors.promote_types(code, code).char == np.promote_types(code, code).char
 
 
+def test_fixed_width_int32_uses_c_int_typecode_on_windows():
+    if sys.platform != "win32":
+        pytest.skip("Windows distinguishes C int from C long typecodes")
+
+    expected_int = np.dtype("int32")
+    expected_uint = np.dtype("uint32")
+    assert raptors.DType("int32").char == expected_int.char == "i"
+    assert raptors.DType("uint32").char == expected_uint.char == "I"
+    assert raptors.DType("long").char == np.dtype("long").char == "l"
+    assert raptors.DType("ulong").char == np.dtype("ulong").char == "L"
+
+
 def test_integer_promotion_uses_numpy_c_int_descriptor_when_needed():
     expected = np.promote_types(np.dtype("int8"), np.dtype("uint16"))
     actual = raptors.promote_types("int8", "uint16")

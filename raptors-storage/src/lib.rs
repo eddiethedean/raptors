@@ -82,13 +82,15 @@ impl DType {
             Self::UInt8 => 'B',
             Self::Int16 => 'h',
             Self::UInt16 => 'H',
-            Self::Int32 if cfg!(target_os = "windows") => 'l',
             Self::Int32 => 'i',
-            Self::UInt32 if cfg!(target_os = "windows") => 'L',
             Self::UInt32 => 'I',
-            Self::Int64 if cfg!(target_os = "windows") => 'q',
+            #[cfg(target_os = "windows")]
+            Self::Int64 => 'q',
+            #[cfg(not(target_os = "windows"))]
             Self::Int64 => 'l',
-            Self::UInt64 if cfg!(target_os = "windows") => 'Q',
+            #[cfg(target_os = "windows")]
+            Self::UInt64 => 'Q',
+            #[cfg(not(target_os = "windows"))]
             Self::UInt64 => 'L',
             Self::Float16 => 'e',
             Self::Float32 => 'f',
@@ -918,16 +920,24 @@ pub enum ByteOrder {
 impl ByteOrder {
     pub const fn normalized(self) -> Self {
         match self {
-            Self::Little if cfg!(target_endian = "little") => Self::Native,
-            Self::Big if cfg!(target_endian = "big") => Self::Native,
+            #[cfg(target_endian = "little")]
+            Self::Little => Self::Native,
+            #[cfg(target_endian = "big")]
+            Self::Big => Self::Native,
             other => other,
         }
     }
     pub const fn is_native(self) -> bool {
         match self {
             Self::NotApplicable | Self::Native => true,
-            Self::Little => cfg!(target_endian = "little"),
-            Self::Big => cfg!(target_endian = "big"),
+            #[cfg(target_endian = "little")]
+            Self::Little => true,
+            #[cfg(target_endian = "big")]
+            Self::Little => false,
+            #[cfg(target_endian = "little")]
+            Self::Big => false,
+            #[cfg(target_endian = "big")]
+            Self::Big => true,
         }
     }
     pub const fn symbol(self, dtype: DType) -> &'static str {
@@ -1171,7 +1181,16 @@ fn is_big_endian(order: ByteOrder) -> bool {
     match order {
         ByteOrder::Big => true,
         ByteOrder::Little => false,
-        ByteOrder::Native | ByteOrder::NotApplicable => cfg!(target_endian = "big"),
+        ByteOrder::Native | ByteOrder::NotApplicable => {
+            #[cfg(target_endian = "big")]
+            {
+                true
+            }
+            #[cfg(target_endian = "little")]
+            {
+                false
+            }
+        }
     }
 }
 
@@ -1244,7 +1263,7 @@ fn encode_long_double(value: &str, bytes: &mut [u8], order: ByteOrder) -> Result
     }
     if native_longdouble::has_extended_native() {
         let mut encoded = native_longdouble::encode(value).ok_or(StorageError::InvalidScalar)?;
-        if is_big_endian(order) != cfg!(target_endian = "big") {
+        if is_big_endian(order) != is_big_endian(ByteOrder::Native) {
             encoded.reverse();
         }
         bytes.copy_from_slice(&encoded);
@@ -1312,7 +1331,7 @@ fn decode_long_double(bytes: &[u8], order: ByteOrder) -> Result<String, StorageE
     if native_longdouble::has_extended_native() {
         let mut native = [0_u8; 16];
         native.copy_from_slice(bytes);
-        if is_big_endian(order) != cfg!(target_endian = "big") {
+        if is_big_endian(order) != is_big_endian(ByteOrder::Native) {
             native.reverse();
         }
         return native_longdouble::decode(&native).ok_or(StorageError::InvalidScalar);
@@ -3372,6 +3391,12 @@ mod tests {
     }
 
     #[test]
+    fn c_integer_typecodes_are_platform_independent() {
+        assert_eq!(DType::Int32.char(), 'i');
+        assert_eq!(DType::UInt32.char(), 'I');
+    }
+
+    #[test]
     fn extended_longdouble_loops_keep_platform_precision() {
         if DType::LongDouble.itemsize() <= DType::Float64.itemsize() {
             return;
@@ -3383,6 +3408,15 @@ mod tests {
             .iter()
             .all(|dtype| matches!(dtype, DType::LongDouble | DType::ComplexLongDouble)));
         assert_eq!(outputs, vec![DType::ComplexLongDouble]);
+    }
+
+    #[cfg(target_os = "windows")]
+    #[test]
+    fn windows_ldexp_uses_double_loop_for_longdouble_and_c_int() {
+        let (inputs, outputs) =
+            super::ufunc::resolve_loop("ldexp", &[DType::LongDouble, DType::Int32]).unwrap();
+        assert_eq!(inputs, vec![DType::Float64, DType::Int32]);
+        assert_eq!(outputs, vec![DType::Float64]);
     }
 
     fn array(values: &[i64]) -> View {
