@@ -7,6 +7,8 @@
 use std::fmt;
 use std::sync::{Arc, RwLock};
 
+pub mod ufunc;
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum DType {
     Bool,
@@ -1374,6 +1376,48 @@ pub struct View {
     allocation_len: usize,
 }
 
+/// A write-through advanced-index selection. Unlike [`View::index`], this
+/// handle preserves the mapping to the original array so sequential updates
+/// observe earlier writes when indices repeat.
+#[derive(Clone, Debug)]
+pub struct IndexedView {
+    parent: View,
+    shape: Vec<usize>,
+    offsets: Vec<usize>,
+}
+
+impl IndexedView {
+    pub fn shape(&self) -> &[usize] {
+        &self.shape
+    }
+
+    pub fn read_at(&self, coordinates: &[usize]) -> Result<Scalar, StorageError> {
+        let linear = linear_for_shape(&self.shape, coordinates)?;
+        let offset = *self
+            .offsets
+            .get(linear)
+            .ok_or(StorageError::InvalidLayout)?;
+        self.parent
+            .storage
+            .read()
+            .map_err(|_| StorageError::LockPoisoned)?
+            .read_as(offset, self.parent.dtype, self.parent.byte_order)
+    }
+
+    pub fn write_at(&self, coordinates: &[usize], value: Scalar) -> Result<(), StorageError> {
+        let linear = linear_for_shape(&self.shape, coordinates)?;
+        let offset = *self
+            .offsets
+            .get(linear)
+            .ok_or(StorageError::InvalidLayout)?;
+        self.parent
+            .storage
+            .write()
+            .map_err(|_| StorageError::LockPoisoned)?
+            .write_as(offset, self.parent.dtype, self.parent.byte_order, value)
+    }
+}
+
 impl View {
     pub fn zeros(dtype: DType, shape: Vec<usize>) -> Result<Self, StorageError> {
         Self::allocated(dtype, shape)
@@ -2017,6 +2061,17 @@ impl View {
         };
         view.validate_layout()?;
         Ok(view)
+    }
+
+    /// Resolve an advanced index once and return a selection that reads and
+    /// writes through to the source allocation in logical iteration order.
+    pub fn advanced_index_view(&self, indices: &[IndexItem]) -> Result<IndexedView, StorageError> {
+        let layout = self.advanced_offsets(indices)?;
+        Ok(IndexedView {
+            parent: self.clone(),
+            shape: layout.output_shape,
+            offsets: layout.offsets,
+        })
     }
 
     pub fn read_at(&self, coordinates: &[usize]) -> Result<Scalar, StorageError> {

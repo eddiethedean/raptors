@@ -24,7 +24,7 @@ jobs:
       - uses: Swatinem/rust-cache@v2
 
       - name: Check preview formatting
-        run: rustfmt --edition 2021 --check raptors-storage/src/lib.rs raptors-python/src/preview.rs raptors-python/src/preview_lib.rs raptors-python/build.rs
+        run: rustfmt --edition 2021 --check raptors-storage/src/lib.rs raptors-storage/src/ufunc.rs raptors-storage/src/ufunc_loop_resolver.rs raptors-storage/src/ufunc_signatures.rs raptors-python/src/preview.rs raptors-python/src/preview/ufunc.rs raptors-python/src/preview_lib.rs raptors-python/build.rs
 
       - name: Keep raw-pointer code out of preview storage
         run: |

@@ -1,4 +1,5 @@
 //! Bindings for the NumPy-independent 0.2 numeric array foundation.
+mod ufunc;
 use pyo3::basic::CompareOp;
 use pyo3::exceptions::{
     PyIndexError, PyKeyError, PyMemoryError, PyOverflowError, PyRuntimeError, PyRuntimeWarning,
@@ -264,7 +265,8 @@ fn dtypes_equivalent(left: DType, right: DType) -> bool {
     )
 }
 
-#[pyclass(name = "Array", frozen, module = "raptors")]
+#[pyclass(name = "Array", module = "raptors")]
+#[derive(Clone)]
 struct PyArray {
     inner: View,
     scalar_alias: Option<ScalarAlias>,
@@ -451,6 +453,178 @@ impl PyArray {
             inner: self.inner.copy().map_err(map_storage_error)?,
             scalar_alias: self.scalar_alias,
         })
+    }
+    fn __add__(&self, py: Python<'_>, other: &Bound<'_, PyAny>) -> PyResult<Py<PyAny>> {
+        ufunc::operator_call(py, self, other, "add", false, false)
+    }
+    fn __radd__(&self, py: Python<'_>, other: &Bound<'_, PyAny>) -> PyResult<Py<PyAny>> {
+        ufunc::operator_call(py, self, other, "add", true, false)
+    }
+    fn __sub__(&self, py: Python<'_>, other: &Bound<'_, PyAny>) -> PyResult<Py<PyAny>> {
+        ufunc::operator_call(py, self, other, "subtract", false, false)
+    }
+    fn __rsub__(&self, py: Python<'_>, other: &Bound<'_, PyAny>) -> PyResult<Py<PyAny>> {
+        ufunc::operator_call(py, self, other, "subtract", true, false)
+    }
+    fn __mul__(&self, py: Python<'_>, other: &Bound<'_, PyAny>) -> PyResult<Py<PyAny>> {
+        ufunc::operator_call(py, self, other, "multiply", false, false)
+    }
+    fn __rmul__(&self, py: Python<'_>, other: &Bound<'_, PyAny>) -> PyResult<Py<PyAny>> {
+        ufunc::operator_call(py, self, other, "multiply", true, false)
+    }
+    fn __truediv__(&self, py: Python<'_>, other: &Bound<'_, PyAny>) -> PyResult<Py<PyAny>> {
+        ufunc::operator_call(py, self, other, "true_divide", false, false)
+    }
+    fn __rtruediv__(&self, py: Python<'_>, other: &Bound<'_, PyAny>) -> PyResult<Py<PyAny>> {
+        ufunc::operator_call(py, self, other, "true_divide", true, false)
+    }
+    fn __floordiv__(&self, py: Python<'_>, other: &Bound<'_, PyAny>) -> PyResult<Py<PyAny>> {
+        ufunc::operator_call(py, self, other, "floor_divide", false, false)
+    }
+    fn __rfloordiv__(&self, py: Python<'_>, other: &Bound<'_, PyAny>) -> PyResult<Py<PyAny>> {
+        ufunc::operator_call(py, self, other, "floor_divide", true, false)
+    }
+    fn __mod__(&self, py: Python<'_>, other: &Bound<'_, PyAny>) -> PyResult<Py<PyAny>> {
+        ufunc::operator_call(py, self, other, "remainder", false, false)
+    }
+    fn __rmod__(&self, py: Python<'_>, other: &Bound<'_, PyAny>) -> PyResult<Py<PyAny>> {
+        ufunc::operator_call(py, self, other, "remainder", true, false)
+    }
+    fn __pow__(
+        &self,
+        py: Python<'_>,
+        other: &Bound<'_, PyAny>,
+        modulo: Option<&Bound<'_, PyAny>>,
+    ) -> PyResult<Py<PyAny>> {
+        if modulo.is_some_and(|value| !value.is_none()) {
+            return Err(PyTypeError::new_err(
+                "modular power is not supported for arrays",
+            ));
+        }
+        ufunc::operator_call(py, self, other, "power", false, false)
+    }
+    fn __iadd__(&self, py: Python<'_>, other: &Bound<'_, PyAny>) -> PyResult<()> {
+        ufunc::operator_call(py, self, other, "add", false, true).map(drop)
+    }
+    fn __isub__(&self, py: Python<'_>, other: &Bound<'_, PyAny>) -> PyResult<()> {
+        ufunc::operator_call(py, self, other, "subtract", false, true).map(drop)
+    }
+    fn __imul__(&self, py: Python<'_>, other: &Bound<'_, PyAny>) -> PyResult<()> {
+        ufunc::operator_call(py, self, other, "multiply", false, true).map(drop)
+    }
+    fn __itruediv__(&self, py: Python<'_>, other: &Bound<'_, PyAny>) -> PyResult<()> {
+        ufunc::operator_call(py, self, other, "true_divide", false, true).map(drop)
+    }
+    fn __ifloordiv__(&self, py: Python<'_>, other: &Bound<'_, PyAny>) -> PyResult<()> {
+        ufunc::operator_call(py, self, other, "floor_divide", false, true).map(drop)
+    }
+    fn __imod__(&self, py: Python<'_>, other: &Bound<'_, PyAny>) -> PyResult<()> {
+        ufunc::operator_call(py, self, other, "remainder", false, true).map(drop)
+    }
+    fn __ipow__(
+        &self,
+        py: Python<'_>,
+        other: &Bound<'_, PyAny>,
+        modulo: Option<&Bound<'_, PyAny>>,
+    ) -> PyResult<()> {
+        if modulo.is_some_and(|value| !value.is_none()) {
+            return Err(PyTypeError::new_err(
+                "modular power is not supported for arrays",
+            ));
+        }
+        ufunc::operator_call(py, self, other, "power", false, true).map(drop)
+    }
+    fn __iand__(&self, py: Python<'_>, other: &Bound<'_, PyAny>) -> PyResult<()> {
+        ufunc::operator_call(py, self, other, "bitwise_and", false, true).map(drop)
+    }
+    fn __ior__(&self, py: Python<'_>, other: &Bound<'_, PyAny>) -> PyResult<()> {
+        ufunc::operator_call(py, self, other, "bitwise_or", false, true).map(drop)
+    }
+    fn __ixor__(&self, py: Python<'_>, other: &Bound<'_, PyAny>) -> PyResult<()> {
+        ufunc::operator_call(py, self, other, "bitwise_xor", false, true).map(drop)
+    }
+    fn __ilshift__(&self, py: Python<'_>, other: &Bound<'_, PyAny>) -> PyResult<()> {
+        ufunc::operator_call(py, self, other, "left_shift", false, true).map(drop)
+    }
+    fn __irshift__(&self, py: Python<'_>, other: &Bound<'_, PyAny>) -> PyResult<()> {
+        ufunc::operator_call(py, self, other, "right_shift", false, true).map(drop)
+    }
+    fn __rpow__(
+        &self,
+        py: Python<'_>,
+        other: &Bound<'_, PyAny>,
+        modulo: Option<&Bound<'_, PyAny>>,
+    ) -> PyResult<Py<PyAny>> {
+        if modulo.is_some_and(|value| !value.is_none()) {
+            return Err(PyTypeError::new_err(
+                "modular power is not supported for arrays",
+            ));
+        }
+        ufunc::operator_call(py, self, other, "power", true, false)
+    }
+    fn __divmod__(&self, py: Python<'_>, other: &Bound<'_, PyAny>) -> PyResult<Py<PyAny>> {
+        ufunc::divmod_operator_call(py, self, other, false)
+    }
+    fn __rdivmod__(&self, py: Python<'_>, other: &Bound<'_, PyAny>) -> PyResult<Py<PyAny>> {
+        ufunc::divmod_operator_call(py, self, other, true)
+    }
+    fn __and__(&self, py: Python<'_>, other: &Bound<'_, PyAny>) -> PyResult<Py<PyAny>> {
+        ufunc::operator_call(py, self, other, "bitwise_and", false, false)
+    }
+    fn __rand__(&self, py: Python<'_>, other: &Bound<'_, PyAny>) -> PyResult<Py<PyAny>> {
+        ufunc::operator_call(py, self, other, "bitwise_and", true, false)
+    }
+    fn __or__(&self, py: Python<'_>, other: &Bound<'_, PyAny>) -> PyResult<Py<PyAny>> {
+        ufunc::operator_call(py, self, other, "bitwise_or", false, false)
+    }
+    fn __ror__(&self, py: Python<'_>, other: &Bound<'_, PyAny>) -> PyResult<Py<PyAny>> {
+        ufunc::operator_call(py, self, other, "bitwise_or", true, false)
+    }
+    fn __xor__(&self, py: Python<'_>, other: &Bound<'_, PyAny>) -> PyResult<Py<PyAny>> {
+        ufunc::operator_call(py, self, other, "bitwise_xor", false, false)
+    }
+    fn __rxor__(&self, py: Python<'_>, other: &Bound<'_, PyAny>) -> PyResult<Py<PyAny>> {
+        ufunc::operator_call(py, self, other, "bitwise_xor", true, false)
+    }
+    fn __lshift__(&self, py: Python<'_>, other: &Bound<'_, PyAny>) -> PyResult<Py<PyAny>> {
+        ufunc::operator_call(py, self, other, "left_shift", false, false)
+    }
+    fn __rlshift__(&self, py: Python<'_>, other: &Bound<'_, PyAny>) -> PyResult<Py<PyAny>> {
+        ufunc::operator_call(py, self, other, "left_shift", true, false)
+    }
+    fn __rshift__(&self, py: Python<'_>, other: &Bound<'_, PyAny>) -> PyResult<Py<PyAny>> {
+        ufunc::operator_call(py, self, other, "right_shift", false, false)
+    }
+    fn __rrshift__(&self, py: Python<'_>, other: &Bound<'_, PyAny>) -> PyResult<Py<PyAny>> {
+        ufunc::operator_call(py, self, other, "right_shift", true, false)
+    }
+    fn __neg__(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
+        ufunc::unary_operator_call(py, self, "negative")
+    }
+    fn __pos__(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
+        ufunc::unary_operator_call(py, self, "positive")
+    }
+    fn __abs__(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
+        ufunc::unary_operator_call(py, self, "absolute")
+    }
+    fn __invert__(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
+        ufunc::unary_operator_call(py, self, "invert")
+    }
+    fn __richcmp__(
+        &self,
+        py: Python<'_>,
+        other: &Bound<'_, PyAny>,
+        op: CompareOp,
+    ) -> PyResult<Py<PyAny>> {
+        let name = match op {
+            CompareOp::Eq => "equal",
+            CompareOp::Ne => "not_equal",
+            CompareOp::Lt => "less",
+            CompareOp::Le => "less_equal",
+            CompareOp::Gt => "greater",
+            CompareOp::Ge => "greater_equal",
+        };
+        ufunc::operator_call(py, self, other, name, false, false)
     }
     fn __len__(&self) -> PyResult<usize> {
         self.inner
@@ -1889,6 +2063,21 @@ fn parse_dtype_spec(value: &Bound<'_, PyAny>) -> PyResult<(DType, ByteOrder, Opt
             return Ok((dtype, default_byte_order(dtype), None));
         }
     }
+    // Accept dtype objects and numeric scalar type objects by inspecting
+    // their ordinary dtype metadata. This keeps dtype parsing independent of
+    // NumPy while supporting objects such as numpy.dtype('>i4') and
+    // numpy.float64 when callers use NumPy as an optional oracle.
+    for attribute in ["str", "name", "__name__"] {
+        let Ok(candidate) = value.getattr(attribute) else {
+            continue;
+        };
+        let Ok(candidate) = candidate.extract::<String>() else {
+            continue;
+        };
+        if let Some((inner, byte_order)) = dtype_from_spec(&candidate) {
+            return Ok((inner, byte_order, dtype_alias_for_spec(&candidate, inner)));
+        }
+    }
     Err(PyTypeError::new_err(
         "dtype must be a raptors DType, a built-in numeric type, or a supported dtype name",
     ))
@@ -2572,6 +2761,7 @@ pub(super) fn register(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(zeros, module)?)?;
     module.add_function(wrap_pyfunction!(empty, module)?)?;
     module.add_function(wrap_pyfunction!(promote_types, module)?)?;
+    ufunc::register(module)?;
     Ok(())
 }
 

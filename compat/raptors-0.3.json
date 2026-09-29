@@ -1,0 +1,2752 @@
+{
+  "schema_version": 1,
+  "release": "0.3",
+  "package_version": "0.3.0",
+  "status": "implementation_in_progress",
+  "reference": {
+    "distribution": "numpy",
+    "version": "2.5.3",
+    "source_tag": "v2.5.3",
+    "source_commit": "dd88c0c19b54ad9ed3533224221285bf0873249a",
+    "metadata_platform": "macOS arm64"
+  },
+  "scope": {
+    "module": "raptors",
+    "top_level_public_ufunc_names": [
+      {
+        "name": "abs",
+        "object_name": "absolute",
+        "signature": "(x, /, out=None, *, where=True, casting='same_kind', order='K', dtype=None, subok=True, signature=None)"
+      },
+      {
+        "name": "absolute",
+        "object_name": "absolute",
+        "signature": "(x, /, out=None, *, where=True, casting='same_kind', order='K', dtype=None, subok=True, signature=None)"
+      },
+      {
+        "name": "acos",
+        "object_name": "arccos",
+        "signature": "(x, /, out=None, *, where=True, casting='same_kind', order='K', dtype=None, subok=True, signature=None)"
+      },
+      {
+        "name": "acosh",
+        "object_name": "arccosh",
+        "signature": "(x, /, out=None, *, where=True, casting='same_kind', order='K', dtype=None, subok=True, signature=None)"
+      },
+      {
+        "name": "add",
+        "object_name": "add",
+        "signature": "(x1, x2, /, out=None, *, where=True, casting='same_kind', order='K', dtype=None, subok=True, signature=None)"
+      },
+      {
+        "name": "arccos",
+        "object_name": "arccos",
+        "signature": "(x, /, out=None, *, where=True, casting='same_kind', order='K', dtype=None, subok=True, signature=None)"
+      },
+      {
+        "name": "arccosh",
+        "object_name": "arccosh",
+        "signature": "(x, /, out=None, *, where=True, casting='same_kind', order='K', dtype=None, subok=True, signature=None)"
+      },
+      {
+        "name": "arcsin",
+        "object_name": "arcsin",
+        "signature": "(x, /, out=None, *, where=True, casting='same_kind', order='K', dtype=None, subok=True, signature=None)"
+      },
+      {
+        "name": "arcsinh",
+        "object_name": "arcsinh",
+        "signature": "(x, /, out=None, *, where=True, casting='same_kind', order='K', dtype=None, subok=True, signature=None)"
+      },
+      {
+        "name": "arctan",
+        "object_name": "arctan",
+        "signature": "(x, /, out=None, *, where=True, casting='same_kind', order='K', dtype=None, subok=True, signature=None)"
+      },
+      {
+        "name": "arctan2",
+        "object_name": "arctan2",
+        "signature": "(x1, x2, /, out=None, *, where=True, casting='same_kind', order='K', dtype=None, subok=True, signature=None)"
+      },
+      {
+        "name": "arctanh",
+        "object_name": "arctanh",
+        "signature": "(x, /, out=None, *, where=True, casting='same_kind', order='K', dtype=None, subok=True, signature=None)"
+      },
+      {
+        "name": "asin",
+        "object_name": "arcsin",
+        "signature": "(x, /, out=None, *, where=True, casting='same_kind', order='K', dtype=None, subok=True, signature=None)"
+      },
+      {
+        "name": "asinh",
+        "object_name": "arcsinh",
+        "signature": "(x, /, out=None, *, where=True, casting='same_kind', order='K', dtype=None, subok=True, signature=None)"
+      },
+      {
+        "name": "atan",
+        "object_name": "arctan",
+        "signature": "(x, /, out=None, *, where=True, casting='same_kind', order='K', dtype=None, subok=True, signature=None)"
+      },
+      {
+        "name": "atan2",
+        "object_name": "arctan2",
+        "signature": "(x1, x2, /, out=None, *, where=True, casting='same_kind', order='K', dtype=None, subok=True, signature=None)"
+      },
+      {
+        "name": "atanh",
+        "object_name": "arctanh",
+        "signature": "(x, /, out=None, *, where=True, casting='same_kind', order='K', dtype=None, subok=True, signature=None)"
+      },
+      {
+        "name": "bitwise_and",
+        "object_name": "bitwise_and",
+        "signature": "(x1, x2, /, out=None, *, where=True, casting='same_kind', order='K', dtype=None, subok=True, signature=None)"
+      },
+      {
+        "name": "bitwise_count",
+        "object_name": "bitwise_count",
+        "signature": "(x, /, out=None, *, where=True, casting='same_kind', order='K', dtype=None, subok=True, signature=None)"
+      },
+      {
+        "name": "bitwise_invert",
+        "object_name": "invert",
+        "signature": "(x, /, out=None, *, where=True, casting='same_kind', order='K', dtype=None, subok=True, signature=None)"
+      },
+      {
+        "name": "bitwise_left_shift",
+        "object_name": "left_shift",
+        "signature": "(x1, x2, /, out=None, *, where=True, casting='same_kind', order='K', dtype=None, subok=True, signature=None)"
+      },
+      {
+        "name": "bitwise_not",
+        "object_name": "invert",
+        "signature": "(x, /, out=None, *, where=True, casting='same_kind', order='K', dtype=None, subok=True, signature=None)"
+      },
+      {
+        "name": "bitwise_or",
+        "object_name": "bitwise_or",
+        "signature": "(x1, x2, /, out=None, *, where=True, casting='same_kind', order='K', dtype=None, subok=True, signature=None)"
+      },
+      {
+        "name": "bitwise_right_shift",
+        "object_name": "right_shift",
+        "signature": "(x1, x2, /, out=None, *, where=True, casting='same_kind', order='K', dtype=None, subok=True, signature=None)"
+      },
+      {
+        "name": "bitwise_xor",
+        "object_name": "bitwise_xor",
+        "signature": "(x1, x2, /, out=None, *, where=True, casting='same_kind', order='K', dtype=None, subok=True, signature=None)"
+      },
+      {
+        "name": "cbrt",
+        "object_name": "cbrt",
+        "signature": "(x, /, out=None, *, where=True, casting='same_kind', order='K', dtype=None, subok=True, signature=None)"
+      },
+      {
+        "name": "ceil",
+        "object_name": "ceil",
+        "signature": "(x, /, out=None, *, where=True, casting='same_kind', order='K', dtype=None, subok=True, signature=None)"
+      },
+      {
+        "name": "conj",
+        "object_name": "conjugate",
+        "signature": "(x, /, out=None, *, where=True, casting='same_kind', order='K', dtype=None, subok=True, signature=None)"
+      },
+      {
+        "name": "conjugate",
+        "object_name": "conjugate",
+        "signature": "(x, /, out=None, *, where=True, casting='same_kind', order='K', dtype=None, subok=True, signature=None)"
+      },
+      {
+        "name": "copysign",
+        "object_name": "copysign",
+        "signature": "(x1, x2, /, out=None, *, where=True, casting='same_kind', order='K', dtype=None, subok=True, signature=None)"
+      },
+      {
+        "name": "cos",
+        "object_name": "cos",
+        "signature": "(x, /, out=None, *, where=True, casting='same_kind', order='K', dtype=None, subok=True, signature=None)"
+      },
+      {
+        "name": "cosh",
+        "object_name": "cosh",
+        "signature": "(x, /, out=None, *, where=True, casting='same_kind', order='K', dtype=None, subok=True, signature=None)"
+      },
+      {
+        "name": "deg2rad",
+        "object_name": "deg2rad",
+        "signature": "(x, /, out=None, *, where=True, casting='same_kind', order='K', dtype=None, subok=True, signature=None)"
+      },
+      {
+        "name": "degrees",
+        "object_name": "degrees",
+        "signature": "(x, /, out=None, *, where=True, casting='same_kind', order='K', dtype=None, subok=True, signature=None)"
+      },
+      {
+        "name": "divide",
+        "object_name": "divide",
+        "signature": "(x1, x2, /, out=None, *, where=True, casting='same_kind', order='K', dtype=None, subok=True, signature=None)"
+      },
+      {
+        "name": "divmod",
+        "object_name": "divmod",
+        "signature": "(x1, x2, /, out=(None, None), *, where=True, casting='same_kind', order='K', dtype=None, subok=True, signature=None)"
+      },
+      {
+        "name": "equal",
+        "object_name": "equal",
+        "signature": "(x1, x2, /, out=None, *, where=True, casting='same_kind', order='K', dtype=None, subok=True, signature=None)"
+      },
+      {
+        "name": "exp",
+        "object_name": "exp",
+        "signature": "(x, /, out=None, *, where=True, casting='same_kind', order='K', dtype=None, subok=True, signature=None)"
+      },
+      {
+        "name": "exp2",
+        "object_name": "exp2",
+        "signature": "(x, /, out=None, *, where=True, casting='same_kind', order='K', dtype=None, subok=True, signature=None)"
+      },
+      {
+        "name": "expm1",
+        "object_name": "expm1",
+        "signature": "(x, /, out=None, *, where=True, casting='same_kind', order='K', dtype=None, subok=True, signature=None)"
+      },
+      {
+        "name": "fabs",
+        "object_name": "fabs",
+        "signature": "(x, /, out=None, *, where=True, casting='same_kind', order='K', dtype=None, subok=True, signature=None)"
+      },
+      {
+        "name": "float_power",
+        "object_name": "float_power",
+        "signature": "(x1, x2, /, out=None, *, where=True, casting='same_kind', order='K', dtype=None, subok=True, signature=None)"
+      },
+      {
+        "name": "floor",
+        "object_name": "floor",
+        "signature": "(x, /, out=None, *, where=True, casting='same_kind', order='K', dtype=None, subok=True, signature=None)"
+      },
+      {
+        "name": "floor_divide",
+        "object_name": "floor_divide",
+        "signature": "(x1, x2, /, out=None, *, where=True, casting='same_kind', order='K', dtype=None, subok=True, signature=None)"
+      },
+      {
+        "name": "fmax",
+        "object_name": "fmax",
+        "signature": "(x1, x2, /, out=None, *, where=True, casting='same_kind', order='K', dtype=None, subok=True, signature=None)"
+      },
+      {
+        "name": "fmin",
+        "object_name": "fmin",
+        "signature": "(x1, x2, /, out=None, *, where=True, casting='same_kind', order='K', dtype=None, subok=True, signature=None)"
+      },
+      {
+        "name": "fmod",
+        "object_name": "fmod",
+        "signature": "(x1, x2, /, out=None, *, where=True, casting='same_kind', order='K', dtype=None, subok=True, signature=None)"
+      },
+      {
+        "name": "frexp",
+        "object_name": "frexp",
+        "signature": "(x, /, out=(None, None), *, where=True, casting='same_kind', order='K', dtype=None, subok=True, signature=None)"
+      },
+      {
+        "name": "gcd",
+        "object_name": "gcd",
+        "signature": "(x1, x2, /, out=None, *, where=True, casting='same_kind', order='K', dtype=None, subok=True, signature=None)"
+      },
+      {
+        "name": "greater",
+        "object_name": "greater",
+        "signature": "(x1, x2, /, out=None, *, where=True, casting='same_kind', order='K', dtype=None, subok=True, signature=None)"
+      },
+      {
+        "name": "greater_equal",
+        "object_name": "greater_equal",
+        "signature": "(x1, x2, /, out=None, *, where=True, casting='same_kind', order='K', dtype=None, subok=True, signature=None)"
+      },
+      {
+        "name": "heaviside",
+        "object_name": "heaviside",
+        "signature": "(x1, x2, /, out=None, *, where=True, casting='same_kind', order='K', dtype=None, subok=True, signature=None)"
+      },
+      {
+        "name": "hypot",
+        "object_name": "hypot",
+        "signature": "(x1, x2, /, out=None, *, where=True, casting='same_kind', order='K', dtype=None, subok=True, signature=None)"
+      },
+      {
+        "name": "invert",
+        "object_name": "invert",
+        "signature": "(x, /, out=None, *, where=True, casting='same_kind', order='K', dtype=None, subok=True, signature=None)"
+      },
+      {
+        "name": "isfinite",
+        "object_name": "isfinite",
+        "signature": "(x, /, out=None, *, where=True, casting='same_kind', order='K', dtype=None, subok=True, signature=None)"
+      },
+      {
+        "name": "isinf",
+        "object_name": "isinf",
+        "signature": "(x, /, out=None, *, where=True, casting='same_kind', order='K', dtype=None, subok=True, signature=None)"
+      },
+      {
+        "name": "isnan",
+        "object_name": "isnan",
+        "signature": "(x, /, out=None, *, where=True, casting='same_kind', order='K', dtype=None, subok=True, signature=None)"
+      },
+      {
+        "name": "lcm",
+        "object_name": "lcm",
+        "signature": "(x1, x2, /, out=None, *, where=True, casting='same_kind', order='K', dtype=None, subok=True, signature=None)"
+      },
+      {
+        "name": "ldexp",
+        "object_name": "ldexp",
+        "signature": "(x1, x2, /, out=None, *, where=True, casting='same_kind', order='K', dtype=None, subok=True, signature=None)"
+      },
+      {
+        "name": "left_shift",
+        "object_name": "left_shift",
+        "signature": "(x1, x2, /, out=None, *, where=True, casting='same_kind', order='K', dtype=None, subok=True, signature=None)"
+      },
+      {
+        "name": "less",
+        "object_name": "less",
+        "signature": "(x1, x2, /, out=None, *, where=True, casting='same_kind', order='K', dtype=None, subok=True, signature=None)"
+      },
+      {
+        "name": "less_equal",
+        "object_name": "less_equal",
+        "signature": "(x1, x2, /, out=None, *, where=True, casting='same_kind', order='K', dtype=None, subok=True, signature=None)"
+      },
+      {
+        "name": "log",
+        "object_name": "log",
+        "signature": "(x, /, out=None, *, where=True, casting='same_kind', order='K', dtype=None, subok=True, signature=None)"
+      },
+      {
+        "name": "log10",
+        "object_name": "log10",
+        "signature": "(x, /, out=None, *, where=True, casting='same_kind', order='K', dtype=None, subok=True, signature=None)"
+      },
+      {
+        "name": "log1p",
+        "object_name": "log1p",
+        "signature": "(x, /, out=None, *, where=True, casting='same_kind', order='K', dtype=None, subok=True, signature=None)"
+      },
+      {
+        "name": "log2",
+        "object_name": "log2",
+        "signature": "(x, /, out=None, *, where=True, casting='same_kind', order='K', dtype=None, subok=True, signature=None)"
+      },
+      {
+        "name": "logaddexp",
+        "object_name": "logaddexp",
+        "signature": "(x1, x2, /, out=None, *, where=True, casting='same_kind', order='K', dtype=None, subok=True, signature=None)"
+      },
+      {
+        "name": "logaddexp2",
+        "object_name": "logaddexp2",
+        "signature": "(x1, x2, /, out=None, *, where=True, casting='same_kind', order='K', dtype=None, subok=True, signature=None)"
+      },
+      {
+        "name": "logical_and",
+        "object_name": "logical_and",
+        "signature": "(x1, x2, /, out=None, *, where=True, casting='same_kind', order='K', dtype=None, subok=True, signature=None)"
+      },
+      {
+        "name": "logical_not",
+        "object_name": "logical_not",
+        "signature": "(x, /, out=None, *, where=True, casting='same_kind', order='K', dtype=None, subok=True, signature=None)"
+      },
+      {
+        "name": "logical_or",
+        "object_name": "logical_or",
+        "signature": "(x1, x2, /, out=None, *, where=True, casting='same_kind', order='K', dtype=None, subok=True, signature=None)"
+      },
+      {
+        "name": "logical_xor",
+        "object_name": "logical_xor",
+        "signature": "(x1, x2, /, out=None, *, where=True, casting='same_kind', order='K', dtype=None, subok=True, signature=None)"
+      },
+      {
+        "name": "maximum",
+        "object_name": "maximum",
+        "signature": "(x1, x2, /, out=None, *, where=True, casting='same_kind', order='K', dtype=None, subok=True, signature=None)"
+      },
+      {
+        "name": "minimum",
+        "object_name": "minimum",
+        "signature": "(x1, x2, /, out=None, *, where=True, casting='same_kind', order='K', dtype=None, subok=True, signature=None)"
+      },
+      {
+        "name": "mod",
+        "object_name": "remainder",
+        "signature": "(x1, x2, /, out=None, *, where=True, casting='same_kind', order='K', dtype=None, subok=True, signature=None)"
+      },
+      {
+        "name": "modf",
+        "object_name": "modf",
+        "signature": "(x, /, out=(None, None), *, where=True, casting='same_kind', order='K', dtype=None, subok=True, signature=None)"
+      },
+      {
+        "name": "multiply",
+        "object_name": "multiply",
+        "signature": "(x1, x2, /, out=None, *, where=True, casting='same_kind', order='K', dtype=None, subok=True, signature=None)"
+      },
+      {
+        "name": "negative",
+        "object_name": "negative",
+        "signature": "(x, /, out=None, *, where=True, casting='same_kind', order='K', dtype=None, subok=True, signature=None)"
+      },
+      {
+        "name": "nextafter",
+        "object_name": "nextafter",
+        "signature": "(x1, x2, /, out=None, *, where=True, casting='same_kind', order='K', dtype=None, subok=True, signature=None)"
+      },
+      {
+        "name": "not_equal",
+        "object_name": "not_equal",
+        "signature": "(x1, x2, /, out=None, *, where=True, casting='same_kind', order='K', dtype=None, subok=True, signature=None)"
+      },
+      {
+        "name": "positive",
+        "object_name": "positive",
+        "signature": "(x, /, out=None, *, where=True, casting='same_kind', order='K', dtype=None, subok=True, signature=None)"
+      },
+      {
+        "name": "pow",
+        "object_name": "power",
+        "signature": "(x1, x2, /, out=None, *, where=True, casting='same_kind', order='K', dtype=None, subok=True, signature=None)"
+      },
+      {
+        "name": "power",
+        "object_name": "power",
+        "signature": "(x1, x2, /, out=None, *, where=True, casting='same_kind', order='K', dtype=None, subok=True, signature=None)"
+      },
+      {
+        "name": "rad2deg",
+        "object_name": "rad2deg",
+        "signature": "(x, /, out=None, *, where=True, casting='same_kind', order='K', dtype=None, subok=True, signature=None)"
+      },
+      {
+        "name": "radians",
+        "object_name": "radians",
+        "signature": "(x, /, out=None, *, where=True, casting='same_kind', order='K', dtype=None, subok=True, signature=None)"
+      },
+      {
+        "name": "reciprocal",
+        "object_name": "reciprocal",
+        "signature": "(x, /, out=None, *, where=True, casting='same_kind', order='K', dtype=None, subok=True, signature=None)"
+      },
+      {
+        "name": "remainder",
+        "object_name": "remainder",
+        "signature": "(x1, x2, /, out=None, *, where=True, casting='same_kind', order='K', dtype=None, subok=True, signature=None)"
+      },
+      {
+        "name": "right_shift",
+        "object_name": "right_shift",
+        "signature": "(x1, x2, /, out=None, *, where=True, casting='same_kind', order='K', dtype=None, subok=True, signature=None)"
+      },
+      {
+        "name": "rint",
+        "object_name": "rint",
+        "signature": "(x, /, out=None, *, where=True, casting='same_kind', order='K', dtype=None, subok=True, signature=None)"
+      },
+      {
+        "name": "sign",
+        "object_name": "sign",
+        "signature": "(x, /, out=None, *, where=True, casting='same_kind', order='K', dtype=None, subok=True, signature=None)"
+      },
+      {
+        "name": "signbit",
+        "object_name": "signbit",
+        "signature": "(x, /, out=None, *, where=True, casting='same_kind', order='K', dtype=None, subok=True, signature=None)"
+      },
+      {
+        "name": "sin",
+        "object_name": "sin",
+        "signature": "(x, /, out=None, *, where=True, casting='same_kind', order='K', dtype=None, subok=True, signature=None)"
+      },
+      {
+        "name": "sinh",
+        "object_name": "sinh",
+        "signature": "(x, /, out=None, *, where=True, casting='same_kind', order='K', dtype=None, subok=True, signature=None)"
+      },
+      {
+        "name": "spacing",
+        "object_name": "spacing",
+        "signature": "(x, /, out=None, *, where=True, casting='same_kind', order='K', dtype=None, subok=True, signature=None)"
+      },
+      {
+        "name": "sqrt",
+        "object_name": "sqrt",
+        "signature": "(x, /, out=None, *, where=True, casting='same_kind', order='K', dtype=None, subok=True, signature=None)"
+      },
+      {
+        "name": "square",
+        "object_name": "square",
+        "signature": "(x, /, out=None, *, where=True, casting='same_kind', order='K', dtype=None, subok=True, signature=None)"
+      },
+      {
+        "name": "subtract",
+        "object_name": "subtract",
+        "signature": "(x1, x2, /, out=None, *, where=True, casting='same_kind', order='K', dtype=None, subok=True, signature=None)"
+      },
+      {
+        "name": "tan",
+        "object_name": "tan",
+        "signature": "(x, /, out=None, *, where=True, casting='same_kind', order='K', dtype=None, subok=True, signature=None)"
+      },
+      {
+        "name": "tanh",
+        "object_name": "tanh",
+        "signature": "(x, /, out=None, *, where=True, casting='same_kind', order='K', dtype=None, subok=True, signature=None)"
+      },
+      {
+        "name": "true_divide",
+        "object_name": "divide",
+        "signature": "(x1, x2, /, out=None, *, where=True, casting='same_kind', order='K', dtype=None, subok=True, signature=None)"
+      },
+      {
+        "name": "trunc",
+        "object_name": "trunc",
+        "signature": "(x, /, out=None, *, where=True, casting='same_kind', order='K', dtype=None, subok=True, signature=None)"
+      }
+    ],
+    "public_name_count": 101,
+    "canonical_object_count": 85,
+    "ufunc_objects": [
+      {
+        "name": "absolute",
+        "public_names": [
+          "abs",
+          "absolute"
+        ],
+        "nin": 1,
+        "nout": 1,
+        "nargs": 2,
+        "identity": null,
+        "signature": null,
+        "numeric_types": [
+          "?->?",
+          "b->b",
+          "B->B",
+          "h->h",
+          "H->H",
+          "i->i",
+          "I->I",
+          "l->l",
+          "L->L",
+          "q->q",
+          "Q->Q",
+          "e->e",
+          "f->f",
+          "d->d",
+          "g->g",
+          "F->f",
+          "D->d",
+          "G->g"
+        ]
+      },
+      {
+        "name": "add",
+        "public_names": [
+          "add"
+        ],
+        "nin": 2,
+        "nout": 1,
+        "nargs": 3,
+        "identity": 0,
+        "signature": null,
+        "numeric_types": [
+          "??->?",
+          "bb->b",
+          "BB->B",
+          "hh->h",
+          "HH->H",
+          "ii->i",
+          "II->I",
+          "ll->l",
+          "LL->L",
+          "qq->q",
+          "QQ->Q",
+          "ee->e",
+          "ff->f",
+          "dd->d",
+          "gg->g",
+          "FF->F",
+          "DD->D",
+          "GG->G"
+        ]
+      },
+      {
+        "name": "arccos",
+        "public_names": [
+          "acos",
+          "arccos"
+        ],
+        "nin": 1,
+        "nout": 1,
+        "nargs": 2,
+        "identity": null,
+        "signature": null,
+        "numeric_types": [
+          "e->e",
+          "f->f",
+          "d->d",
+          "e->e",
+          "f->f",
+          "d->d",
+          "g->g",
+          "F->F",
+          "D->D",
+          "G->G"
+        ]
+      },
+      {
+        "name": "arccosh",
+        "public_names": [
+          "acosh",
+          "arccosh"
+        ],
+        "nin": 1,
+        "nout": 1,
+        "nargs": 2,
+        "identity": null,
+        "signature": null,
+        "numeric_types": [
+          "e->e",
+          "f->f",
+          "d->d",
+          "e->e",
+          "f->f",
+          "d->d",
+          "g->g",
+          "F->F",
+          "D->D",
+          "G->G"
+        ]
+      },
+      {
+        "name": "arcsin",
+        "public_names": [
+          "arcsin",
+          "asin"
+        ],
+        "nin": 1,
+        "nout": 1,
+        "nargs": 2,
+        "identity": null,
+        "signature": null,
+        "numeric_types": [
+          "e->e",
+          "f->f",
+          "d->d",
+          "e->e",
+          "f->f",
+          "d->d",
+          "g->g",
+          "F->F",
+          "D->D",
+          "G->G"
+        ]
+      },
+      {
+        "name": "arcsinh",
+        "public_names": [
+          "arcsinh",
+          "asinh"
+        ],
+        "nin": 1,
+        "nout": 1,
+        "nargs": 2,
+        "identity": null,
+        "signature": null,
+        "numeric_types": [
+          "e->e",
+          "f->f",
+          "d->d",
+          "e->e",
+          "f->f",
+          "d->d",
+          "g->g",
+          "F->F",
+          "D->D",
+          "G->G"
+        ]
+      },
+      {
+        "name": "arctan",
+        "public_names": [
+          "arctan",
+          "atan"
+        ],
+        "nin": 1,
+        "nout": 1,
+        "nargs": 2,
+        "identity": null,
+        "signature": null,
+        "numeric_types": [
+          "e->e",
+          "f->f",
+          "d->d",
+          "e->e",
+          "f->f",
+          "d->d",
+          "g->g",
+          "F->F",
+          "D->D",
+          "G->G"
+        ]
+      },
+      {
+        "name": "arctan2",
+        "public_names": [
+          "arctan2",
+          "atan2"
+        ],
+        "nin": 2,
+        "nout": 1,
+        "nargs": 3,
+        "identity": null,
+        "signature": null,
+        "numeric_types": [
+          "ee->e",
+          "ff->f",
+          "dd->d",
+          "gg->g"
+        ]
+      },
+      {
+        "name": "arctanh",
+        "public_names": [
+          "arctanh",
+          "atanh"
+        ],
+        "nin": 1,
+        "nout": 1,
+        "nargs": 2,
+        "identity": null,
+        "signature": null,
+        "numeric_types": [
+          "e->e",
+          "f->f",
+          "d->d",
+          "e->e",
+          "f->f",
+          "d->d",
+          "g->g",
+          "F->F",
+          "D->D",
+          "G->G"
+        ]
+      },
+      {
+        "name": "bitwise_and",
+        "public_names": [
+          "bitwise_and"
+        ],
+        "nin": 2,
+        "nout": 1,
+        "nargs": 3,
+        "identity": -1,
+        "signature": null,
+        "numeric_types": [
+          "??->?",
+          "bb->b",
+          "BB->B",
+          "hh->h",
+          "HH->H",
+          "ii->i",
+          "II->I",
+          "ll->l",
+          "LL->L",
+          "qq->q",
+          "QQ->Q"
+        ]
+      },
+      {
+        "name": "bitwise_count",
+        "public_names": [
+          "bitwise_count"
+        ],
+        "nin": 1,
+        "nout": 1,
+        "nargs": 2,
+        "identity": null,
+        "signature": null,
+        "numeric_types": [
+          "b->B",
+          "B->B",
+          "h->B",
+          "H->B",
+          "i->B",
+          "I->B",
+          "l->B",
+          "L->B",
+          "q->B",
+          "Q->B"
+        ]
+      },
+      {
+        "name": "bitwise_or",
+        "public_names": [
+          "bitwise_or"
+        ],
+        "nin": 2,
+        "nout": 1,
+        "nargs": 3,
+        "identity": 0,
+        "signature": null,
+        "numeric_types": [
+          "??->?",
+          "bb->b",
+          "BB->B",
+          "hh->h",
+          "HH->H",
+          "ii->i",
+          "II->I",
+          "ll->l",
+          "LL->L",
+          "qq->q",
+          "QQ->Q"
+        ]
+      },
+      {
+        "name": "bitwise_xor",
+        "public_names": [
+          "bitwise_xor"
+        ],
+        "nin": 2,
+        "nout": 1,
+        "nargs": 3,
+        "identity": 0,
+        "signature": null,
+        "numeric_types": [
+          "??->?",
+          "bb->b",
+          "BB->B",
+          "hh->h",
+          "HH->H",
+          "ii->i",
+          "II->I",
+          "ll->l",
+          "LL->L",
+          "qq->q",
+          "QQ->Q"
+        ]
+      },
+      {
+        "name": "cbrt",
+        "public_names": [
+          "cbrt"
+        ],
+        "nin": 1,
+        "nout": 1,
+        "nargs": 2,
+        "identity": null,
+        "signature": null,
+        "numeric_types": [
+          "e->e",
+          "f->f",
+          "d->d",
+          "e->e",
+          "f->f",
+          "d->d",
+          "g->g"
+        ]
+      },
+      {
+        "name": "ceil",
+        "public_names": [
+          "ceil"
+        ],
+        "nin": 1,
+        "nout": 1,
+        "nargs": 2,
+        "identity": null,
+        "signature": null,
+        "numeric_types": [
+          "?->?",
+          "b->b",
+          "B->B",
+          "h->h",
+          "H->H",
+          "i->i",
+          "I->I",
+          "l->l",
+          "L->L",
+          "q->q",
+          "Q->Q",
+          "e->e",
+          "f->f",
+          "d->d",
+          "f->f",
+          "d->d",
+          "g->g"
+        ]
+      },
+      {
+        "name": "conjugate",
+        "public_names": [
+          "conj",
+          "conjugate"
+        ],
+        "nin": 1,
+        "nout": 1,
+        "nargs": 2,
+        "identity": null,
+        "signature": null,
+        "numeric_types": [
+          "b->b",
+          "B->B",
+          "h->h",
+          "H->H",
+          "i->i",
+          "I->I",
+          "l->l",
+          "L->L",
+          "q->q",
+          "Q->Q",
+          "e->e",
+          "f->f",
+          "d->d",
+          "g->g",
+          "F->F",
+          "D->D",
+          "G->G"
+        ]
+      },
+      {
+        "name": "copysign",
+        "public_names": [
+          "copysign"
+        ],
+        "nin": 2,
+        "nout": 1,
+        "nargs": 3,
+        "identity": null,
+        "signature": null,
+        "numeric_types": [
+          "ee->e",
+          "ff->f",
+          "dd->d",
+          "gg->g"
+        ]
+      },
+      {
+        "name": "cos",
+        "public_names": [
+          "cos"
+        ],
+        "nin": 1,
+        "nout": 1,
+        "nargs": 2,
+        "identity": null,
+        "signature": null,
+        "numeric_types": [
+          "e->e",
+          "f->f",
+          "d->d",
+          "g->g",
+          "F->F",
+          "D->D",
+          "G->G"
+        ]
+      },
+      {
+        "name": "cosh",
+        "public_names": [
+          "cosh"
+        ],
+        "nin": 1,
+        "nout": 1,
+        "nargs": 2,
+        "identity": null,
+        "signature": null,
+        "numeric_types": [
+          "e->e",
+          "f->f",
+          "d->d",
+          "e->e",
+          "f->f",
+          "d->d",
+          "g->g",
+          "F->F",
+          "D->D",
+          "G->G"
+        ]
+      },
+      {
+        "name": "deg2rad",
+        "public_names": [
+          "deg2rad"
+        ],
+        "nin": 1,
+        "nout": 1,
+        "nargs": 2,
+        "identity": null,
+        "signature": null,
+        "numeric_types": [
+          "e->e",
+          "f->f",
+          "d->d",
+          "g->g"
+        ]
+      },
+      {
+        "name": "degrees",
+        "public_names": [
+          "degrees"
+        ],
+        "nin": 1,
+        "nout": 1,
+        "nargs": 2,
+        "identity": null,
+        "signature": null,
+        "numeric_types": [
+          "e->e",
+          "f->f",
+          "d->d",
+          "g->g"
+        ]
+      },
+      {
+        "name": "divide",
+        "public_names": [
+          "divide",
+          "true_divide"
+        ],
+        "nin": 2,
+        "nout": 1,
+        "nargs": 3,
+        "identity": null,
+        "signature": null,
+        "numeric_types": [
+          "ee->e",
+          "ff->f",
+          "dd->d",
+          "gg->g",
+          "FF->F",
+          "DD->D",
+          "GG->G"
+        ]
+      },
+      {
+        "name": "divmod",
+        "public_names": [
+          "divmod"
+        ],
+        "nin": 2,
+        "nout": 2,
+        "nargs": 4,
+        "identity": null,
+        "signature": null,
+        "numeric_types": [
+          "bb->bb",
+          "BB->BB",
+          "hh->hh",
+          "HH->HH",
+          "ii->ii",
+          "II->II",
+          "ll->ll",
+          "LL->LL",
+          "qq->qq",
+          "QQ->QQ",
+          "ee->ee",
+          "ff->ff",
+          "dd->dd",
+          "gg->gg"
+        ]
+      },
+      {
+        "name": "equal",
+        "public_names": [
+          "equal"
+        ],
+        "nin": 2,
+        "nout": 1,
+        "nargs": 3,
+        "identity": null,
+        "signature": null,
+        "numeric_types": [
+          "??->?",
+          "bb->?",
+          "BB->?",
+          "hh->?",
+          "HH->?",
+          "ii->?",
+          "II->?",
+          "ll->?",
+          "LL->?",
+          "qq->?",
+          "QQ->?",
+          "qQ->?",
+          "Qq->?",
+          "ee->?",
+          "ff->?",
+          "dd->?",
+          "gg->?",
+          "FF->?",
+          "DD->?",
+          "GG->?"
+        ]
+      },
+      {
+        "name": "exp",
+        "public_names": [
+          "exp"
+        ],
+        "nin": 1,
+        "nout": 1,
+        "nargs": 2,
+        "identity": null,
+        "signature": null,
+        "numeric_types": [
+          "e->e",
+          "f->f",
+          "d->d",
+          "f->f",
+          "d->d",
+          "g->g",
+          "F->F",
+          "D->D",
+          "G->G"
+        ]
+      },
+      {
+        "name": "exp2",
+        "public_names": [
+          "exp2"
+        ],
+        "nin": 1,
+        "nout": 1,
+        "nargs": 2,
+        "identity": null,
+        "signature": null,
+        "numeric_types": [
+          "e->e",
+          "f->f",
+          "d->d",
+          "e->e",
+          "f->f",
+          "d->d",
+          "g->g",
+          "F->F",
+          "D->D",
+          "G->G"
+        ]
+      },
+      {
+        "name": "expm1",
+        "public_names": [
+          "expm1"
+        ],
+        "nin": 1,
+        "nout": 1,
+        "nargs": 2,
+        "identity": null,
+        "signature": null,
+        "numeric_types": [
+          "e->e",
+          "f->f",
+          "d->d",
+          "e->e",
+          "f->f",
+          "d->d",
+          "g->g",
+          "F->F",
+          "D->D",
+          "G->G"
+        ]
+      },
+      {
+        "name": "fabs",
+        "public_names": [
+          "fabs"
+        ],
+        "nin": 1,
+        "nout": 1,
+        "nargs": 2,
+        "identity": null,
+        "signature": null,
+        "numeric_types": [
+          "e->e",
+          "f->f",
+          "d->d",
+          "g->g"
+        ]
+      },
+      {
+        "name": "float_power",
+        "public_names": [
+          "float_power"
+        ],
+        "nin": 2,
+        "nout": 1,
+        "nargs": 3,
+        "identity": null,
+        "signature": null,
+        "numeric_types": [
+          "dd->d",
+          "gg->g",
+          "DD->D",
+          "GG->G"
+        ]
+      },
+      {
+        "name": "floor",
+        "public_names": [
+          "floor"
+        ],
+        "nin": 1,
+        "nout": 1,
+        "nargs": 2,
+        "identity": null,
+        "signature": null,
+        "numeric_types": [
+          "?->?",
+          "b->b",
+          "B->B",
+          "h->h",
+          "H->H",
+          "i->i",
+          "I->I",
+          "l->l",
+          "L->L",
+          "q->q",
+          "Q->Q",
+          "e->e",
+          "f->f",
+          "d->d",
+          "f->f",
+          "d->d",
+          "g->g"
+        ]
+      },
+      {
+        "name": "floor_divide",
+        "public_names": [
+          "floor_divide"
+        ],
+        "nin": 2,
+        "nout": 1,
+        "nargs": 3,
+        "identity": null,
+        "signature": null,
+        "numeric_types": [
+          "bb->b",
+          "BB->B",
+          "hh->h",
+          "HH->H",
+          "ii->i",
+          "II->I",
+          "ll->l",
+          "LL->L",
+          "qq->q",
+          "QQ->Q",
+          "ee->e",
+          "ff->f",
+          "dd->d",
+          "gg->g"
+        ]
+      },
+      {
+        "name": "fmax",
+        "public_names": [
+          "fmax"
+        ],
+        "nin": 2,
+        "nout": 1,
+        "nargs": 3,
+        "identity": null,
+        "signature": null,
+        "numeric_types": [
+          "??->?",
+          "bb->b",
+          "BB->B",
+          "hh->h",
+          "HH->H",
+          "ii->i",
+          "II->I",
+          "ll->l",
+          "LL->L",
+          "qq->q",
+          "QQ->Q",
+          "ee->e",
+          "ff->f",
+          "dd->d",
+          "gg->g",
+          "FF->F",
+          "DD->D",
+          "GG->G"
+        ]
+      },
+      {
+        "name": "fmin",
+        "public_names": [
+          "fmin"
+        ],
+        "nin": 2,
+        "nout": 1,
+        "nargs": 3,
+        "identity": null,
+        "signature": null,
+        "numeric_types": [
+          "??->?",
+          "bb->b",
+          "BB->B",
+          "hh->h",
+          "HH->H",
+          "ii->i",
+          "II->I",
+          "ll->l",
+          "LL->L",
+          "qq->q",
+          "QQ->Q",
+          "ee->e",
+          "ff->f",
+          "dd->d",
+          "gg->g",
+          "FF->F",
+          "DD->D",
+          "GG->G"
+        ]
+      },
+      {
+        "name": "fmod",
+        "public_names": [
+          "fmod"
+        ],
+        "nin": 2,
+        "nout": 1,
+        "nargs": 3,
+        "identity": null,
+        "signature": null,
+        "numeric_types": [
+          "bb->b",
+          "BB->B",
+          "hh->h",
+          "HH->H",
+          "ii->i",
+          "II->I",
+          "ll->l",
+          "LL->L",
+          "qq->q",
+          "QQ->Q",
+          "ee->e",
+          "ff->f",
+          "dd->d",
+          "gg->g"
+        ]
+      },
+      {
+        "name": "frexp",
+        "public_names": [
+          "frexp"
+        ],
+        "nin": 1,
+        "nout": 2,
+        "nargs": 3,
+        "identity": null,
+        "signature": null,
+        "numeric_types": [
+          "e->ei",
+          "f->fi",
+          "d->di",
+          "g->gi"
+        ]
+      },
+      {
+        "name": "gcd",
+        "public_names": [
+          "gcd"
+        ],
+        "nin": 2,
+        "nout": 1,
+        "nargs": 3,
+        "identity": 0,
+        "signature": null,
+        "numeric_types": [
+          "bb->b",
+          "BB->B",
+          "hh->h",
+          "HH->H",
+          "ii->i",
+          "II->I",
+          "ll->l",
+          "LL->L",
+          "qq->q",
+          "QQ->Q"
+        ]
+      },
+      {
+        "name": "greater",
+        "public_names": [
+          "greater"
+        ],
+        "nin": 2,
+        "nout": 1,
+        "nargs": 3,
+        "identity": null,
+        "signature": null,
+        "numeric_types": [
+          "??->?",
+          "bb->?",
+          "BB->?",
+          "hh->?",
+          "HH->?",
+          "ii->?",
+          "II->?",
+          "ll->?",
+          "LL->?",
+          "qq->?",
+          "QQ->?",
+          "qQ->?",
+          "Qq->?",
+          "ee->?",
+          "ff->?",
+          "dd->?",
+          "gg->?",
+          "FF->?",
+          "DD->?",
+          "GG->?"
+        ]
+      },
+      {
+        "name": "greater_equal",
+        "public_names": [
+          "greater_equal"
+        ],
+        "nin": 2,
+        "nout": 1,
+        "nargs": 3,
+        "identity": null,
+        "signature": null,
+        "numeric_types": [
+          "??->?",
+          "bb->?",
+          "BB->?",
+          "hh->?",
+          "HH->?",
+          "ii->?",
+          "II->?",
+          "ll->?",
+          "LL->?",
+          "qq->?",
+          "QQ->?",
+          "qQ->?",
+          "Qq->?",
+          "ee->?",
+          "ff->?",
+          "dd->?",
+          "gg->?",
+          "FF->?",
+          "DD->?",
+          "GG->?"
+        ]
+      },
+      {
+        "name": "heaviside",
+        "public_names": [
+          "heaviside"
+        ],
+        "nin": 2,
+        "nout": 1,
+        "nargs": 3,
+        "identity": null,
+        "signature": null,
+        "numeric_types": [
+          "ee->e",
+          "ff->f",
+          "dd->d",
+          "gg->g"
+        ]
+      },
+      {
+        "name": "hypot",
+        "public_names": [
+          "hypot"
+        ],
+        "nin": 2,
+        "nout": 1,
+        "nargs": 3,
+        "identity": 0,
+        "signature": null,
+        "numeric_types": [
+          "ee->e",
+          "ff->f",
+          "dd->d",
+          "gg->g"
+        ]
+      },
+      {
+        "name": "invert",
+        "public_names": [
+          "bitwise_invert",
+          "bitwise_not",
+          "invert"
+        ],
+        "nin": 1,
+        "nout": 1,
+        "nargs": 2,
+        "identity": null,
+        "signature": null,
+        "numeric_types": [
+          "?->?",
+          "b->b",
+          "B->B",
+          "h->h",
+          "H->H",
+          "i->i",
+          "I->I",
+          "l->l",
+          "L->L",
+          "q->q",
+          "Q->Q"
+        ]
+      },
+      {
+        "name": "isfinite",
+        "public_names": [
+          "isfinite"
+        ],
+        "nin": 1,
+        "nout": 1,
+        "nargs": 2,
+        "identity": null,
+        "signature": null,
+        "numeric_types": [
+          "?->?",
+          "b->?",
+          "B->?",
+          "h->?",
+          "H->?",
+          "i->?",
+          "I->?",
+          "l->?",
+          "L->?",
+          "q->?",
+          "Q->?",
+          "e->?",
+          "f->?",
+          "d->?",
+          "g->?",
+          "F->?",
+          "D->?",
+          "G->?"
+        ]
+      },
+      {
+        "name": "isinf",
+        "public_names": [
+          "isinf"
+        ],
+        "nin": 1,
+        "nout": 1,
+        "nargs": 2,
+        "identity": null,
+        "signature": null,
+        "numeric_types": [
+          "?->?",
+          "b->?",
+          "B->?",
+          "h->?",
+          "H->?",
+          "i->?",
+          "I->?",
+          "l->?",
+          "L->?",
+          "q->?",
+          "Q->?",
+          "e->?",
+          "f->?",
+          "d->?",
+          "g->?",
+          "F->?",
+          "D->?",
+          "G->?"
+        ]
+      },
+      {
+        "name": "isnan",
+        "public_names": [
+          "isnan"
+        ],
+        "nin": 1,
+        "nout": 1,
+        "nargs": 2,
+        "identity": null,
+        "signature": null,
+        "numeric_types": [
+          "?->?",
+          "b->?",
+          "B->?",
+          "h->?",
+          "H->?",
+          "i->?",
+          "I->?",
+          "l->?",
+          "L->?",
+          "q->?",
+          "Q->?",
+          "e->?",
+          "f->?",
+          "d->?",
+          "g->?",
+          "F->?",
+          "D->?",
+          "G->?"
+        ]
+      },
+      {
+        "name": "lcm",
+        "public_names": [
+          "lcm"
+        ],
+        "nin": 2,
+        "nout": 1,
+        "nargs": 3,
+        "identity": null,
+        "signature": null,
+        "numeric_types": [
+          "bb->b",
+          "BB->B",
+          "hh->h",
+          "HH->H",
+          "ii->i",
+          "II->I",
+          "ll->l",
+          "LL->L",
+          "qq->q",
+          "QQ->Q"
+        ]
+      },
+      {
+        "name": "ldexp",
+        "public_names": [
+          "ldexp"
+        ],
+        "nin": 2,
+        "nout": 1,
+        "nargs": 3,
+        "identity": null,
+        "signature": null,
+        "numeric_types": [
+          "ei->e",
+          "fi->f",
+          "el->e",
+          "fl->f",
+          "di->d",
+          "dl->d",
+          "gi->g",
+          "gl->g"
+        ]
+      },
+      {
+        "name": "left_shift",
+        "public_names": [
+          "bitwise_left_shift",
+          "left_shift"
+        ],
+        "nin": 2,
+        "nout": 1,
+        "nargs": 3,
+        "identity": null,
+        "signature": null,
+        "numeric_types": [
+          "bb->b",
+          "BB->B",
+          "hh->h",
+          "HH->H",
+          "ii->i",
+          "II->I",
+          "ll->l",
+          "LL->L",
+          "qq->q",
+          "QQ->Q"
+        ]
+      },
+      {
+        "name": "less",
+        "public_names": [
+          "less"
+        ],
+        "nin": 2,
+        "nout": 1,
+        "nargs": 3,
+        "identity": null,
+        "signature": null,
+        "numeric_types": [
+          "??->?",
+          "bb->?",
+          "BB->?",
+          "hh->?",
+          "HH->?",
+          "ii->?",
+          "II->?",
+          "ll->?",
+          "LL->?",
+          "qq->?",
+          "QQ->?",
+          "qQ->?",
+          "Qq->?",
+          "ee->?",
+          "ff->?",
+          "dd->?",
+          "gg->?",
+          "FF->?",
+          "DD->?",
+          "GG->?"
+        ]
+      },
+      {
+        "name": "less_equal",
+        "public_names": [
+          "less_equal"
+        ],
+        "nin": 2,
+        "nout": 1,
+        "nargs": 3,
+        "identity": null,
+        "signature": null,
+        "numeric_types": [
+          "??->?",
+          "bb->?",
+          "BB->?",
+          "hh->?",
+          "HH->?",
+          "ii->?",
+          "II->?",
+          "ll->?",
+          "LL->?",
+          "qq->?",
+          "QQ->?",
+          "qQ->?",
+          "Qq->?",
+          "ee->?",
+          "ff->?",
+          "dd->?",
+          "gg->?",
+          "FF->?",
+          "DD->?",
+          "GG->?"
+        ]
+      },
+      {
+        "name": "log",
+        "public_names": [
+          "log"
+        ],
+        "nin": 1,
+        "nout": 1,
+        "nargs": 2,
+        "identity": null,
+        "signature": null,
+        "numeric_types": [
+          "e->e",
+          "f->f",
+          "d->d",
+          "f->f",
+          "d->d",
+          "g->g",
+          "F->F",
+          "D->D",
+          "G->G"
+        ]
+      },
+      {
+        "name": "log10",
+        "public_names": [
+          "log10"
+        ],
+        "nin": 1,
+        "nout": 1,
+        "nargs": 2,
+        "identity": null,
+        "signature": null,
+        "numeric_types": [
+          "e->e",
+          "f->f",
+          "d->d",
+          "e->e",
+          "f->f",
+          "d->d",
+          "g->g",
+          "F->F",
+          "D->D",
+          "G->G"
+        ]
+      },
+      {
+        "name": "log1p",
+        "public_names": [
+          "log1p"
+        ],
+        "nin": 1,
+        "nout": 1,
+        "nargs": 2,
+        "identity": null,
+        "signature": null,
+        "numeric_types": [
+          "e->e",
+          "f->f",
+          "d->d",
+          "e->e",
+          "f->f",
+          "d->d",
+          "g->g",
+          "F->F",
+          "D->D",
+          "G->G"
+        ]
+      },
+      {
+        "name": "log2",
+        "public_names": [
+          "log2"
+        ],
+        "nin": 1,
+        "nout": 1,
+        "nargs": 2,
+        "identity": null,
+        "signature": null,
+        "numeric_types": [
+          "e->e",
+          "f->f",
+          "d->d",
+          "e->e",
+          "f->f",
+          "d->d",
+          "g->g",
+          "F->F",
+          "D->D",
+          "G->G"
+        ]
+      },
+      {
+        "name": "logaddexp",
+        "public_names": [
+          "logaddexp"
+        ],
+        "nin": 2,
+        "nout": 1,
+        "nargs": 3,
+        "identity": "-inf",
+        "signature": null,
+        "numeric_types": [
+          "ee->e",
+          "ff->f",
+          "dd->d",
+          "gg->g"
+        ]
+      },
+      {
+        "name": "logaddexp2",
+        "public_names": [
+          "logaddexp2"
+        ],
+        "nin": 2,
+        "nout": 1,
+        "nargs": 3,
+        "identity": "-inf",
+        "signature": null,
+        "numeric_types": [
+          "ee->e",
+          "ff->f",
+          "dd->d",
+          "gg->g"
+        ]
+      },
+      {
+        "name": "logical_and",
+        "public_names": [
+          "logical_and"
+        ],
+        "nin": 2,
+        "nout": 1,
+        "nargs": 3,
+        "identity": true,
+        "signature": null,
+        "numeric_types": [
+          "??->?",
+          "bb->?",
+          "BB->?",
+          "hh->?",
+          "HH->?",
+          "ii->?",
+          "II->?",
+          "ll->?",
+          "LL->?",
+          "qq->?",
+          "QQ->?",
+          "ee->?",
+          "ff->?",
+          "dd->?",
+          "gg->?",
+          "FF->?",
+          "DD->?",
+          "GG->?"
+        ]
+      },
+      {
+        "name": "logical_not",
+        "public_names": [
+          "logical_not"
+        ],
+        "nin": 1,
+        "nout": 1,
+        "nargs": 2,
+        "identity": null,
+        "signature": null,
+        "numeric_types": [
+          "?->?",
+          "b->?",
+          "B->?",
+          "h->?",
+          "H->?",
+          "i->?",
+          "I->?",
+          "l->?",
+          "L->?",
+          "q->?",
+          "Q->?",
+          "e->?",
+          "f->?",
+          "d->?",
+          "g->?",
+          "F->?",
+          "D->?",
+          "G->?"
+        ]
+      },
+      {
+        "name": "logical_or",
+        "public_names": [
+          "logical_or"
+        ],
+        "nin": 2,
+        "nout": 1,
+        "nargs": 3,
+        "identity": false,
+        "signature": null,
+        "numeric_types": [
+          "??->?",
+          "bb->?",
+          "BB->?",
+          "hh->?",
+          "HH->?",
+          "ii->?",
+          "II->?",
+          "ll->?",
+          "LL->?",
+          "qq->?",
+          "QQ->?",
+          "ee->?",
+          "ff->?",
+          "dd->?",
+          "gg->?",
+          "FF->?",
+          "DD->?",
+          "GG->?"
+        ]
+      },
+      {
+        "name": "logical_xor",
+        "public_names": [
+          "logical_xor"
+        ],
+        "nin": 2,
+        "nout": 1,
+        "nargs": 3,
+        "identity": false,
+        "signature": null,
+        "numeric_types": [
+          "??->?",
+          "bb->?",
+          "BB->?",
+          "hh->?",
+          "HH->?",
+          "ii->?",
+          "II->?",
+          "ll->?",
+          "LL->?",
+          "qq->?",
+          "QQ->?",
+          "ee->?",
+          "ff->?",
+          "dd->?",
+          "gg->?",
+          "FF->?",
+          "DD->?",
+          "GG->?"
+        ]
+      },
+      {
+        "name": "maximum",
+        "public_names": [
+          "maximum"
+        ],
+        "nin": 2,
+        "nout": 1,
+        "nargs": 3,
+        "identity": null,
+        "signature": null,
+        "numeric_types": [
+          "??->?",
+          "bb->b",
+          "BB->B",
+          "hh->h",
+          "HH->H",
+          "ii->i",
+          "II->I",
+          "ll->l",
+          "LL->L",
+          "qq->q",
+          "QQ->Q",
+          "ee->e",
+          "ff->f",
+          "dd->d",
+          "gg->g",
+          "FF->F",
+          "DD->D",
+          "GG->G"
+        ]
+      },
+      {
+        "name": "minimum",
+        "public_names": [
+          "minimum"
+        ],
+        "nin": 2,
+        "nout": 1,
+        "nargs": 3,
+        "identity": null,
+        "signature": null,
+        "numeric_types": [
+          "??->?",
+          "bb->b",
+          "BB->B",
+          "hh->h",
+          "HH->H",
+          "ii->i",
+          "II->I",
+          "ll->l",
+          "LL->L",
+          "qq->q",
+          "QQ->Q",
+          "ee->e",
+          "ff->f",
+          "dd->d",
+          "gg->g",
+          "FF->F",
+          "DD->D",
+          "GG->G"
+        ]
+      },
+      {
+        "name": "modf",
+        "public_names": [
+          "modf"
+        ],
+        "nin": 1,
+        "nout": 2,
+        "nargs": 3,
+        "identity": null,
+        "signature": null,
+        "numeric_types": [
+          "e->ee",
+          "f->ff",
+          "d->dd",
+          "g->gg"
+        ]
+      },
+      {
+        "name": "multiply",
+        "public_names": [
+          "multiply"
+        ],
+        "nin": 2,
+        "nout": 1,
+        "nargs": 3,
+        "identity": 1,
+        "signature": null,
+        "numeric_types": [
+          "??->?",
+          "bb->b",
+          "BB->B",
+          "hh->h",
+          "HH->H",
+          "ii->i",
+          "II->I",
+          "ll->l",
+          "LL->L",
+          "qq->q",
+          "QQ->Q",
+          "ee->e",
+          "ff->f",
+          "dd->d",
+          "gg->g",
+          "FF->F",
+          "DD->D",
+          "GG->G"
+        ]
+      },
+      {
+        "name": "negative",
+        "public_names": [
+          "negative"
+        ],
+        "nin": 1,
+        "nout": 1,
+        "nargs": 2,
+        "identity": null,
+        "signature": null,
+        "numeric_types": [
+          "b->b",
+          "B->B",
+          "h->h",
+          "H->H",
+          "i->i",
+          "I->I",
+          "l->l",
+          "L->L",
+          "q->q",
+          "Q->Q",
+          "e->e",
+          "f->f",
+          "d->d",
+          "g->g",
+          "F->F",
+          "D->D",
+          "G->G"
+        ]
+      },
+      {
+        "name": "nextafter",
+        "public_names": [
+          "nextafter"
+        ],
+        "nin": 2,
+        "nout": 1,
+        "nargs": 3,
+        "identity": null,
+        "signature": null,
+        "numeric_types": [
+          "ee->e",
+          "ff->f",
+          "dd->d",
+          "gg->g"
+        ]
+      },
+      {
+        "name": "not_equal",
+        "public_names": [
+          "not_equal"
+        ],
+        "nin": 2,
+        "nout": 1,
+        "nargs": 3,
+        "identity": null,
+        "signature": null,
+        "numeric_types": [
+          "??->?",
+          "bb->?",
+          "BB->?",
+          "hh->?",
+          "HH->?",
+          "ii->?",
+          "II->?",
+          "ll->?",
+          "LL->?",
+          "qq->?",
+          "QQ->?",
+          "qQ->?",
+          "Qq->?",
+          "ee->?",
+          "ff->?",
+          "dd->?",
+          "gg->?",
+          "FF->?",
+          "DD->?",
+          "GG->?"
+        ]
+      },
+      {
+        "name": "positive",
+        "public_names": [
+          "positive"
+        ],
+        "nin": 1,
+        "nout": 1,
+        "nargs": 2,
+        "identity": null,
+        "signature": null,
+        "numeric_types": [
+          "b->b",
+          "B->B",
+          "h->h",
+          "H->H",
+          "i->i",
+          "I->I",
+          "l->l",
+          "L->L",
+          "q->q",
+          "Q->Q",
+          "e->e",
+          "f->f",
+          "d->d",
+          "g->g",
+          "F->F",
+          "D->D",
+          "G->G"
+        ]
+      },
+      {
+        "name": "power",
+        "public_names": [
+          "pow",
+          "power"
+        ],
+        "nin": 2,
+        "nout": 1,
+        "nargs": 3,
+        "identity": null,
+        "signature": null,
+        "numeric_types": [
+          "bb->b",
+          "BB->B",
+          "hh->h",
+          "HH->H",
+          "ii->i",
+          "II->I",
+          "ll->l",
+          "LL->L",
+          "qq->q",
+          "QQ->Q",
+          "ee->e",
+          "ff->f",
+          "dd->d",
+          "ee->e",
+          "ff->f",
+          "dd->d",
+          "gg->g",
+          "FF->F",
+          "DD->D",
+          "GG->G"
+        ]
+      },
+      {
+        "name": "rad2deg",
+        "public_names": [
+          "rad2deg"
+        ],
+        "nin": 1,
+        "nout": 1,
+        "nargs": 2,
+        "identity": null,
+        "signature": null,
+        "numeric_types": [
+          "e->e",
+          "f->f",
+          "d->d",
+          "g->g"
+        ]
+      },
+      {
+        "name": "radians",
+        "public_names": [
+          "radians"
+        ],
+        "nin": 1,
+        "nout": 1,
+        "nargs": 2,
+        "identity": null,
+        "signature": null,
+        "numeric_types": [
+          "e->e",
+          "f->f",
+          "d->d",
+          "g->g"
+        ]
+      },
+      {
+        "name": "reciprocal",
+        "public_names": [
+          "reciprocal"
+        ],
+        "nin": 1,
+        "nout": 1,
+        "nargs": 2,
+        "identity": null,
+        "signature": null,
+        "numeric_types": [
+          "b->b",
+          "B->B",
+          "h->h",
+          "H->H",
+          "i->i",
+          "I->I",
+          "l->l",
+          "L->L",
+          "q->q",
+          "Q->Q",
+          "e->e",
+          "f->f",
+          "d->d",
+          "g->g",
+          "F->F",
+          "D->D",
+          "G->G"
+        ]
+      },
+      {
+        "name": "remainder",
+        "public_names": [
+          "mod",
+          "remainder"
+        ],
+        "nin": 2,
+        "nout": 1,
+        "nargs": 3,
+        "identity": null,
+        "signature": null,
+        "numeric_types": [
+          "bb->b",
+          "BB->B",
+          "hh->h",
+          "HH->H",
+          "ii->i",
+          "II->I",
+          "ll->l",
+          "LL->L",
+          "qq->q",
+          "QQ->Q",
+          "ee->e",
+          "ff->f",
+          "dd->d",
+          "gg->g"
+        ]
+      },
+      {
+        "name": "right_shift",
+        "public_names": [
+          "bitwise_right_shift",
+          "right_shift"
+        ],
+        "nin": 2,
+        "nout": 1,
+        "nargs": 3,
+        "identity": null,
+        "signature": null,
+        "numeric_types": [
+          "bb->b",
+          "BB->B",
+          "hh->h",
+          "HH->H",
+          "ii->i",
+          "II->I",
+          "ll->l",
+          "LL->L",
+          "qq->q",
+          "QQ->Q"
+        ]
+      },
+      {
+        "name": "rint",
+        "public_names": [
+          "rint"
+        ],
+        "nin": 1,
+        "nout": 1,
+        "nargs": 2,
+        "identity": null,
+        "signature": null,
+        "numeric_types": [
+          "e->e",
+          "f->f",
+          "d->d",
+          "f->f",
+          "d->d",
+          "g->g",
+          "F->F",
+          "D->D",
+          "G->G"
+        ]
+      },
+      {
+        "name": "sign",
+        "public_names": [
+          "sign"
+        ],
+        "nin": 1,
+        "nout": 1,
+        "nargs": 2,
+        "identity": null,
+        "signature": null,
+        "numeric_types": [
+          "b->b",
+          "B->B",
+          "h->h",
+          "H->H",
+          "i->i",
+          "I->I",
+          "l->l",
+          "L->L",
+          "q->q",
+          "Q->Q",
+          "e->e",
+          "f->f",
+          "d->d",
+          "g->g",
+          "F->F",
+          "D->D",
+          "G->G"
+        ]
+      },
+      {
+        "name": "signbit",
+        "public_names": [
+          "signbit"
+        ],
+        "nin": 1,
+        "nout": 1,
+        "nargs": 2,
+        "identity": null,
+        "signature": null,
+        "numeric_types": [
+          "e->?",
+          "f->?",
+          "d->?",
+          "g->?"
+        ]
+      },
+      {
+        "name": "sin",
+        "public_names": [
+          "sin"
+        ],
+        "nin": 1,
+        "nout": 1,
+        "nargs": 2,
+        "identity": null,
+        "signature": null,
+        "numeric_types": [
+          "e->e",
+          "f->f",
+          "d->d",
+          "g->g",
+          "F->F",
+          "D->D",
+          "G->G"
+        ]
+      },
+      {
+        "name": "sinh",
+        "public_names": [
+          "sinh"
+        ],
+        "nin": 1,
+        "nout": 1,
+        "nargs": 2,
+        "identity": null,
+        "signature": null,
+        "numeric_types": [
+          "e->e",
+          "f->f",
+          "d->d",
+          "e->e",
+          "f->f",
+          "d->d",
+          "g->g",
+          "F->F",
+          "D->D",
+          "G->G"
+        ]
+      },
+      {
+        "name": "spacing",
+        "public_names": [
+          "spacing"
+        ],
+        "nin": 1,
+        "nout": 1,
+        "nargs": 2,
+        "identity": null,
+        "signature": null,
+        "numeric_types": [
+          "e->e",
+          "f->f",
+          "d->d",
+          "g->g"
+        ]
+      },
+      {
+        "name": "sqrt",
+        "public_names": [
+          "sqrt"
+        ],
+        "nin": 1,
+        "nout": 1,
+        "nargs": 2,
+        "identity": null,
+        "signature": null,
+        "numeric_types": [
+          "e->e",
+          "f->f",
+          "d->d",
+          "f->f",
+          "d->d",
+          "g->g",
+          "F->F",
+          "D->D",
+          "G->G"
+        ]
+      },
+      {
+        "name": "square",
+        "public_names": [
+          "square"
+        ],
+        "nin": 1,
+        "nout": 1,
+        "nargs": 2,
+        "identity": null,
+        "signature": null,
+        "numeric_types": [
+          "b->b",
+          "B->B",
+          "h->h",
+          "H->H",
+          "i->i",
+          "I->I",
+          "l->l",
+          "L->L",
+          "q->q",
+          "Q->Q",
+          "e->e",
+          "f->f",
+          "d->d",
+          "g->g",
+          "F->F",
+          "D->D",
+          "G->G"
+        ]
+      },
+      {
+        "name": "subtract",
+        "public_names": [
+          "subtract"
+        ],
+        "nin": 2,
+        "nout": 1,
+        "nargs": 3,
+        "identity": null,
+        "signature": null,
+        "numeric_types": [
+          "bb->b",
+          "BB->B",
+          "hh->h",
+          "HH->H",
+          "ii->i",
+          "II->I",
+          "ll->l",
+          "LL->L",
+          "qq->q",
+          "QQ->Q",
+          "ee->e",
+          "ff->f",
+          "dd->d",
+          "gg->g",
+          "FF->F",
+          "DD->D",
+          "GG->G"
+        ]
+      },
+      {
+        "name": "tan",
+        "public_names": [
+          "tan"
+        ],
+        "nin": 1,
+        "nout": 1,
+        "nargs": 2,
+        "identity": null,
+        "signature": null,
+        "numeric_types": [
+          "e->e",
+          "f->f",
+          "d->d",
+          "e->e",
+          "f->f",
+          "d->d",
+          "g->g",
+          "F->F",
+          "D->D",
+          "G->G"
+        ]
+      },
+      {
+        "name": "tanh",
+        "public_names": [
+          "tanh"
+        ],
+        "nin": 1,
+        "nout": 1,
+        "nargs": 2,
+        "identity": null,
+        "signature": null,
+        "numeric_types": [
+          "e->e",
+          "f->f",
+          "d->d",
+          "e->e",
+          "f->f",
+          "d->d",
+          "g->g",
+          "F->F",
+          "D->D",
+          "G->G"
+        ]
+      },
+      {
+        "name": "trunc",
+        "public_names": [
+          "trunc"
+        ],
+        "nin": 1,
+        "nout": 1,
+        "nargs": 2,
+        "identity": null,
+        "signature": null,
+        "numeric_types": [
+          "?->?",
+          "b->b",
+          "B->B",
+          "h->h",
+          "H->H",
+          "i->i",
+          "I->I",
+          "l->l",
+          "L->L",
+          "q->q",
+          "Q->Q",
+          "e->e",
+          "f->f",
+          "d->d",
+          "f->f",
+          "d->d",
+          "g->g"
+        ]
+      }
+    ],
+    "dtype_kinds": [
+      "b",
+      "i",
+      "u",
+      "f",
+      "c"
+    ],
+    "call_controls": [
+      "out",
+      "where",
+      "dtype",
+      "casting",
+      "order",
+      "subok",
+      "signature",
+      "sig"
+    ],
+    "methods": [
+      "reduce",
+      "accumulate",
+      "reduceat",
+      "outer",
+      "at"
+    ],
+    "operators": [
+      "arithmetic",
+      "comparisons",
+      "bitwise",
+      "reflected",
+      "in-place",
+      "divmod"
+    ],
+    "floating_error_api": [
+      "geterr",
+      "seterr",
+      "errstate",
+      "geterrcall",
+      "seterrcall"
+    ],
+    "runtime_numpy_dependency": false
+  },
+  "known_gaps": [
+    "Longdouble and clongdouble scalar kernels currently compute through binary64 conversions on platforms where those formats are wider.",
+    "Fresh outputs with false where positions are zero-initialized internally; those positions remain outside the result-value contract.",
+    "Complex inverse-trig differential cases cover branch cuts, signed zero, small imaginary values, and large finite values; exact bit-for-bit equality across platform libm implementations is not promised.",
+    "Floating-error flag detection uses scalar result heuristics and still needs NumPy differential coverage for all error modes.",
+    "Combined dtype/signature, casting, where, out, and order cases are covered for single- and multi-output ufuncs; the full invalid-argument precedence matrix remains pending.",
+    "Raptors has no ndarray subclasses, so subok does not alter results; third-party dispatch remains outside the 0.3 input domain."
+  ],
+  "evidence": {
+    "generation_platform": "Darwin arm64",
+    "python": "3.14.3",
+    "numpy": "2.5.3",
+    "cargo_check": {
+      "status": "passed_locally",
+      "command": "cargo check --offline --locked -p raptors-python"
+    },
+    "differential_cases": {
+      "status": "passed",
+      "passed": 8420,
+      "skipped": 0,
+      "binary_dtype_pairs": 7335,
+      "command": "./raptors-python/run_tests.sh (test_ufunc_differential.py)"
+    },
+    "python_preview_suite": {
+      "status": "passed_locally",
+      "passed": 9194,
+      "skipped": 0,
+      "command": "./raptors-python/run_tests.sh"
+    },
+    "rust_workspace_tests": {
+      "status": "passed_locally",
+      "test_cases": 1547,
+      "test_binaries": 56,
+      "command": "cargo test --offline --locked --manifest-path Cargo.toml --workspace -- --test-threads=1"
+    },
+    "rustfmt": {
+      "status": "passed_locally",
+      "command": "rustfmt --edition 2021 --check raptors-storage/src/lib.rs raptors-storage/src/ufunc.rs raptors-storage/src/ufunc_loop_resolver.rs raptors-storage/src/ufunc_signatures.rs raptors-python/src/preview.rs raptors-python/src/preview/ufunc.rs raptors-python/src/preview_lib.rs raptors-python/build.rs"
+    },
+    "clippy": {
+      "status": "passed_locally",
+      "command": "cargo clippy --offline --locked -p raptors-storage -p raptors-python --all-targets -- -D warnings"
+    },
+    "miri": {
+      "status": "passed_locally",
+      "passed": 9,
+      "command": "cargo +nightly miri test --offline --locked -p raptors-storage"
+    },
+    "benchmark": {
+      "status": "passed_locally",
+      "observations": 20,
+      "path": "docs/benchmarks/raptors-0.3-baseline.json",
+      "command": "python scripts/bench_0_3.py --count 250000 --repeats 3"
+    },
+    "test_files": [
+      "raptors-python/tests/preview/test_ufunc_differential.py",
+      "raptors-python/tests/preview/test_differential.py",
+      "raptors-python/tests/preview/test_properties.py",
+      "raptors-python/tests/preview/test_harness.py"
+    ],
+    "release_gate": "pending"
+  }
+}

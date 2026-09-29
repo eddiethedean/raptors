@@ -76,6 +76,12 @@ SPECIALIZED_DTYPE_CLASSES = {
     "StringDType", "DateTime64DType", "TimeDelta64DType", "ObjectDType",
     "BytesDType", "StrDType", "VoidDType",
 }
+GENERALIZED_NUMERIC_UFUNCS = {"matmul", "matvec", "vecdot", "vecmat"}
+UFUNC_ERROR_STATE_API = {"errstate", "geterr", "seterr", "geterrcall", "seterrcall"}
+
+
+def in_module(path, module):
+    return path == module or path.startswith(module + ".")
 
 
 def api_kind(value):
@@ -93,6 +99,16 @@ def api_kind(value):
 def target_release(path, value, module_name):
     name = path.rsplit(".", 1)[-1]
     parent = path.rsplit(".", 1)[0] if "." in path else ""
+    if in_module(path, "numpy.matlib"):
+        return "0.8"
+    if in_module(path, "numpy.matrix"):
+        return "0.8"
+    if path == "numpy.ufunc" or (module_name == "numpy" and name in UFUNC_ERROR_STATE_API):
+        return "0.3"
+    if module_name == "numpy" and len(path.split(".")) <= 3 and path.split(".")[1] in GENERALIZED_NUMERIC_UFUNCS:
+        return "0.5"
+    if parent == "numpy.ndarray" and name == "__matmul__":
+        return "0.5"
     if name in PREVIEW_NAMES and module_name == "numpy":
         return "0.1"
     if name in {"__array_function__", "__array_ufunc__", "__array_namespace__", "__array_namespace_info__", "__array_priority__"}:
@@ -117,7 +133,7 @@ def target_release(path, value, module_name):
             return "0.7"
         return "0.8"
     if parent == "numpy.ufunc":
-        return "0.4" if name in REDUCTION_METHODS else "0.3"
+        return "0.3"
     if parent == "numpy.generic":
         if name in NUMERIC_OPERATOR_METHODS:
             return "0.3"
@@ -128,11 +144,11 @@ def target_release(path, value, module_name):
         return "0.2" if name in NUMERIC_FOUNDATION_SCALAR_MEMBERS else "0.8"
     if parent.startswith("numpy.") and parent.rsplit(".", 1)[-1] in SPECIALIZED_TYPES:
         return "0.7"
-    if path.startswith(("numpy.linalg", "numpy.fft", "numpy.polynomial", "numpy.random")):
+    if any(in_module(path, module) for module in ("numpy.linalg", "numpy.fft", "numpy.polynomial", "numpy.random")):
         return "0.5"
-    if path.startswith(("numpy.char", "numpy.strings", "numpy.ma", "numpy.rec")):
+    if any(in_module(path, module) for module in ("numpy.char", "numpy.strings", "numpy.ma", "numpy.rec")):
         return "0.7"
-    if path.startswith(("numpy.lib.format", "numpy.lib.npyio", "numpy.lib._iotools", "numpy.ctypeslib", "numpy.memmap")):
+    if any(in_module(path, module) for module in ("numpy.lib.format", "numpy.lib.npyio", "numpy.lib._iotools", "numpy.ctypeslib", "numpy.memmap")):
         return "0.6"
     if path.startswith("numpy.testing") or path.startswith("numpy.f2py") or path == "numpy.test":
         return "0.8"

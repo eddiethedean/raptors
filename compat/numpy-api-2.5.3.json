@@ -60942,7 +60942,7 @@
       "required_cases": [],
       "signature": "(*, call=<numpy._core._ufunc_config._unspecified object at <address>>, all=None, divide=None, over=None, under=None, invalid=None)",
       "status": "not_implemented",
-      "target_release": "0.4"
+      "target_release": "0.3"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -98192,7 +98192,7 @@
       "required_cases": [],
       "signature": "()",
       "status": "not_implemented",
-      "target_release": "0.4"
+      "target_release": "0.3"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -98212,7 +98212,7 @@
       "required_cases": [],
       "signature": "()",
       "status": "not_implemented",
-      "target_release": "0.4"
+      "target_release": "0.3"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -163667,7 +163667,7 @@
       "required_cases": [],
       "signature": "(n, mask_func, k=0)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.4"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -163685,7 +163685,7 @@
       "required_cases": [],
       "signature": null,
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -163703,7 +163703,7 @@
       "required_cases": [],
       "signature": null,
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -163721,7 +163721,7 @@
       "required_cases": [],
       "signature": null,
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -163741,7 +163741,7 @@
       "required_cases": [],
       "signature": "(x, /, out=None, *, where=True, casting='same_kind', order='K', dtype=None, subok=True, signature=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -163761,7 +163761,7 @@
       "required_cases": [],
       "signature": "(x, /, out=None, *, where=True, casting='same_kind', order='K', dtype=None, subok=True, signature=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -163781,7 +163781,7 @@
       "required_cases": [],
       "signature": "(x, /, out=None, *, where=True, casting='same_kind', order='K', dtype=None, subok=True, signature=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -163801,7 +163801,7 @@
       "required_cases": [],
       "signature": "(x, /, out=None, *, where=True, casting='same_kind', order='K', dtype=None, subok=True, signature=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -163821,7 +163821,7 @@
       "required_cases": [],
       "signature": "(x1, x2, /, out=None, *, where=True, casting='same_kind', order='K', dtype=None, subok=True, signature=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -163841,7 +163841,7 @@
       "required_cases": [],
       "signature": "(a, axis=None, out=None, keepdims=<no value>, *, where=<no value>)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -163861,7 +163861,7 @@
       "required_cases": [],
       "signature": "(a, b, rtol=1e-05, atol=1e-08, equal_nan=False)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -163881,7 +163881,7 @@
       "required_cases": [],
       "signature": "(a, axis=None, out=None, keepdims=<no value>, initial=<no value>, where=<no value>)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -163901,7 +163901,7 @@
       "required_cases": [],
       "signature": "(a, axis=None, out=None, keepdims=<no value>, initial=<no value>, where=<no value>)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -163921,7 +163921,7 @@
       "required_cases": [],
       "signature": "(z, deg=False)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -163941,7 +163941,7 @@
       "required_cases": [],
       "signature": "(a, axis=None, out=None, keepdims=<no value>, *, where=<no value>)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -163961,7 +163961,7 @@
       "required_cases": [],
       "signature": "(arr, values, axis=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -163981,7 +163981,7 @@
       "required_cases": [],
       "signature": "(func1d, axis, arr, *args, **kwargs)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -164001,7 +164001,7 @@
       "required_cases": [],
       "signature": "(func, a, axes)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -164021,7 +164021,7 @@
       "required_cases": [],
       "signature": "(start_or_stop, /, stop=None, step=1, *, dtype=None, device=None, like=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -164041,7 +164041,7 @@
       "required_cases": [],
       "signature": "(x, /, out=None, *, where=True, casting='same_kind', order='K', dtype=None, subok=True, signature=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -164061,7 +164061,7 @@
       "required_cases": [],
       "signature": "(x, /, out=None, *, where=True, casting='same_kind', order='K', dtype=None, subok=True, signature=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -164081,7 +164081,7 @@
       "required_cases": [],
       "signature": "(x, /, out=None, *, where=True, casting='same_kind', order='K', dtype=None, subok=True, signature=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -164101,7 +164101,7 @@
       "required_cases": [],
       "signature": "(x, /, out=None, *, where=True, casting='same_kind', order='K', dtype=None, subok=True, signature=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -164121,7 +164121,7 @@
       "required_cases": [],
       "signature": "(x, /, out=None, *, where=True, casting='same_kind', order='K', dtype=None, subok=True, signature=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -164141,7 +164141,7 @@
       "required_cases": [],
       "signature": "(x1, x2, /, out=None, *, where=True, casting='same_kind', order='K', dtype=None, subok=True, signature=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -164161,7 +164161,7 @@
       "required_cases": [],
       "signature": "(x, /, out=None, *, where=True, casting='same_kind', order='K', dtype=None, subok=True, signature=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -164181,7 +164181,7 @@
       "required_cases": [],
       "signature": "(a, axis=None, out=None, *, keepdims=<no value>)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -164201,7 +164201,7 @@
       "required_cases": [],
       "signature": "(a, axis=None, out=None, *, keepdims=<no value>)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -164221,7 +164221,7 @@
       "required_cases": [],
       "signature": "(a, kth, axis=-1, kind='introselect', order=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -164241,7 +164241,7 @@
       "required_cases": [],
       "signature": "(a, axis=-1, kind=None, order=None, *, stable=None, descending=<no value>)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -164261,7 +164261,7 @@
       "required_cases": [],
       "signature": "(a)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -164281,7 +164281,7 @@
       "required_cases": [],
       "signature": "(a, decimals=0, out=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -164301,7 +164301,7 @@
       "required_cases": [],
       "signature": "(object, dtype=None, *, copy=True, order='K', subok=False, ndmin=0, ndmax=0, like=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -164321,7 +164321,7 @@
       "required_cases": [],
       "signature": "(a, max_line_width=None, precision=None, suppress_small=None, separator=' ', prefix='', *, formatter=None, threshold=None, edgeitems=None, sign=None, floatmode=None, suffix='', legacy=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -164341,7 +164341,7 @@
       "required_cases": [],
       "signature": "(a1, a2, equal_nan=False)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -164361,7 +164361,7 @@
       "required_cases": [],
       "signature": "(a1, a2)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -164381,7 +164381,7 @@
       "required_cases": [],
       "signature": "(arr, max_line_width=None, precision=None, suppress_small=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -164401,7 +164401,7 @@
       "required_cases": [],
       "signature": "(ary, indices_or_sections, axis=0)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -164421,7 +164421,7 @@
       "required_cases": [],
       "signature": "(a, max_line_width=None, precision=None, suppress_small=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -164441,7 +164441,7 @@
       "required_cases": [],
       "signature": "(a, dtype=None, order=None, *, device=None, copy=None, like=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -164461,7 +164461,7 @@
       "required_cases": [],
       "signature": "(a, dtype=None, order=None, *, device=None, copy=None, like=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -164481,7 +164481,7 @@
       "required_cases": [],
       "signature": "(a, dtype=None, order=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -164501,7 +164501,7 @@
       "required_cases": [],
       "signature": "(a, dtype=None, *, like=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -164521,7 +164521,7 @@
       "required_cases": [],
       "signature": "(a, dtype=None, *, like=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -164541,7 +164541,7 @@
       "required_cases": [],
       "signature": "(x, /, out=None, *, where=True, casting='same_kind', order='K', dtype=None, subok=True, signature=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -164561,7 +164561,7 @@
       "required_cases": [],
       "signature": "(x, /, out=None, *, where=True, casting='same_kind', order='K', dtype=None, subok=True, signature=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -164581,7 +164581,7 @@
       "required_cases": [],
       "signature": "(data, dtype=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -164601,7 +164601,7 @@
       "required_cases": [],
       "signature": "(x, dtype, /, *, copy=True, device=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -164621,7 +164621,7 @@
       "required_cases": [],
       "signature": "(x, /, out=None, *, where=True, casting='same_kind', order='K', dtype=None, subok=True, signature=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -164641,7 +164641,7 @@
       "required_cases": [],
       "signature": "(x1, x2, /, out=None, *, where=True, casting='same_kind', order='K', dtype=None, subok=True, signature=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -164661,7 +164661,7 @@
       "required_cases": [],
       "signature": "(x, /, out=None, *, where=True, casting='same_kind', order='K', dtype=None, subok=True, signature=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -164681,7 +164681,7 @@
       "required_cases": [],
       "signature": "(*arys)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -164701,7 +164701,7 @@
       "required_cases": [],
       "signature": "(*arys)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -164721,7 +164721,7 @@
       "required_cases": [],
       "signature": "(*arys)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -164741,7 +164741,7 @@
       "required_cases": [],
       "signature": "(a, axis=None, weights=None, returned=False, *, keepdims=<no value>)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -164761,7 +164761,7 @@
       "required_cases": [],
       "signature": "(M)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -164781,7 +164781,7 @@
       "required_cases": [],
       "signature": "(number, base=2, padding=0)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -164801,7 +164801,7 @@
       "required_cases": [],
       "signature": "(num, width=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -164821,7 +164821,7 @@
       "required_cases": [],
       "signature": "(x, /, weights=None, minlength=0)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -164841,7 +164841,7 @@
       "required_cases": [],
       "signature": "(x1, x2, /, out=None, *, where=True, casting='same_kind', order='K', dtype=None, subok=True, signature=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -164861,7 +164861,7 @@
       "required_cases": [],
       "signature": "(x, /, out=None, *, where=True, casting='same_kind', order='K', dtype=None, subok=True, signature=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -164881,7 +164881,7 @@
       "required_cases": [],
       "signature": "(x, /, out=None, *, where=True, casting='same_kind', order='K', dtype=None, subok=True, signature=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -164901,7 +164901,7 @@
       "required_cases": [],
       "signature": "(x1, x2, /, out=None, *, where=True, casting='same_kind', order='K', dtype=None, subok=True, signature=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -164921,7 +164921,7 @@
       "required_cases": [],
       "signature": "(x, /, out=None, *, where=True, casting='same_kind', order='K', dtype=None, subok=True, signature=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -164941,7 +164941,7 @@
       "required_cases": [],
       "signature": "(x1, x2, /, out=None, *, where=True, casting='same_kind', order='K', dtype=None, subok=True, signature=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -164961,7 +164961,7 @@
       "required_cases": [],
       "signature": "(x1, x2, /, out=None, *, where=True, casting='same_kind', order='K', dtype=None, subok=True, signature=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -164981,7 +164981,7 @@
       "required_cases": [],
       "signature": "(x1, x2, /, out=None, *, where=True, casting='same_kind', order='K', dtype=None, subok=True, signature=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -165001,7 +165001,7 @@
       "required_cases": [],
       "signature": "(M)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -165021,7 +165021,7 @@
       "required_cases": [],
       "signature": "(arrays)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -165041,7 +165041,7 @@
       "required_cases": [],
       "signature": "(obj, ldict=None, gdict=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -165060,7 +165060,7 @@
       "required_cases": [],
       "signature": "(value=False, /)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -165079,7 +165079,7 @@
       "required_cases": [],
       "signature": "(value=False, /)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -165098,7 +165098,7 @@
       "required_cases": [],
       "signature": "(*arrays)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -165118,7 +165118,7 @@
       "required_cases": [],
       "signature": "(*args, subok=False)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -165138,7 +165138,7 @@
       "required_cases": [],
       "signature": "(*args)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -165158,7 +165158,7 @@
       "required_cases": [],
       "signature": "(array, shape, subok=False)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -165178,7 +165178,7 @@
       "required_cases": [],
       "signature": "(begindates, enddates, weekmask='1111100', holidays=(), busdaycal=None, out=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -165198,7 +165198,7 @@
       "required_cases": [],
       "signature": "(dates, offsets, roll='raise', weekmask='1111100', holidays=None, busdaycal=None, out=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -165217,7 +165217,7 @@
       "required_cases": [],
       "signature": "(weekmask='1111100', holidays=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -165236,7 +165236,7 @@
       "required_cases": [],
       "signature": "(value=0, /)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -165255,7 +165255,7 @@
       "required_cases": [],
       "signature": "(value='', /, *args, **kwargs)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -165273,7 +165273,7 @@
       "required_cases": [],
       "signature": null,
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -165293,7 +165293,7 @@
       "required_cases": [],
       "signature": "(from_, to, casting='safe')",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -165313,7 +165313,7 @@
       "required_cases": [],
       "signature": "(x, /, out=None, *, where=True, casting='same_kind', order='K', dtype=None, subok=True, signature=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -165332,7 +165332,7 @@
       "required_cases": [],
       "signature": "(real=0, imag=0, /)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -165352,7 +165352,7 @@
       "required_cases": [],
       "signature": "(x, /, out=None, *, where=True, casting='same_kind', order='K', dtype=None, subok=True, signature=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -165370,7 +165370,7 @@
       "required_cases": [],
       "signature": null,
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -165389,7 +165389,7 @@
       "required_cases": [],
       "signature": "()",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -165409,7 +165409,7 @@
       "required_cases": [],
       "signature": "(a, choices, out=None, mode='raise')",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -165429,7 +165429,7 @@
       "required_cases": [],
       "signature": "(a, a_min=<no value>, a_max=<no value>, out=None, *, min=<no value>, max=<no value>, **kwargs)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -165448,7 +165448,7 @@
       "required_cases": [],
       "signature": "(real=0, imag=0, /)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -165468,7 +165468,7 @@
       "required_cases": [],
       "signature": "(tup)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -165488,7 +165488,7 @@
       "required_cases": [],
       "signature": "(*arrays)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -165507,7 +165507,7 @@
       "required_cases": [],
       "signature": "(real=0, imag=0, /)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -165526,7 +165526,7 @@
       "required_cases": [],
       "signature": "(real=0, imag=0, /)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -165545,7 +165545,7 @@
       "required_cases": [],
       "signature": "()",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -165565,7 +165565,7 @@
       "required_cases": [],
       "signature": "(condition, a, axis=None, out=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -165585,7 +165585,7 @@
       "required_cases": [],
       "signature": "(arrays, /, axis=0, out=None, *, dtype=None, casting='same_kind')",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -165605,7 +165605,7 @@
       "required_cases": [],
       "signature": "(arrays, /, axis=0, out=None, *, dtype=None, casting='same_kind')",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -165625,7 +165625,7 @@
       "required_cases": [],
       "signature": "(x, /, out=None, *, where=True, casting='same_kind', order='K', dtype=None, subok=True, signature=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -165645,7 +165645,7 @@
       "required_cases": [],
       "signature": "(x, /, out=None, *, where=True, casting='same_kind', order='K', dtype=None, subok=True, signature=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -165665,7 +165665,7 @@
       "required_cases": [],
       "signature": "(a, v, mode='full')",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -165685,7 +165685,7 @@
       "required_cases": [],
       "signature": "(a, order='K', subok=False)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -165705,7 +165705,7 @@
       "required_cases": [],
       "signature": "(x1, x2, /, out=None, *, where=True, casting='same_kind', order='K', dtype=None, subok=True, signature=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -165725,7 +165725,7 @@
       "required_cases": [],
       "signature": "(dst, src, casting='same_kind', where=True)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -165743,7 +165743,7 @@
       "required_cases": [],
       "signature": null,
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -165763,7 +165763,7 @@
       "required_cases": [],
       "signature": "(x, y=None, rowvar=True, *, dtype=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -165783,7 +165783,7 @@
       "required_cases": [],
       "signature": "(a, v, mode='valid')",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -165803,7 +165803,7 @@
       "required_cases": [],
       "signature": "(x, /, out=None, *, where=True, casting='same_kind', order='K', dtype=None, subok=True, signature=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -165823,7 +165823,7 @@
       "required_cases": [],
       "signature": "(x, /, out=None, *, where=True, casting='same_kind', order='K', dtype=None, subok=True, signature=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -165843,7 +165843,7 @@
       "required_cases": [],
       "signature": "(a, axis=None, *, keepdims=False)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -165863,7 +165863,7 @@
       "required_cases": [],
       "signature": "(m, y=None, rowvar=True, bias=False, ddof=None, fweights=None, aweights=None, *, dtype=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -165883,7 +165883,7 @@
       "required_cases": [],
       "signature": "(a, b, axisa=-1, axisb=-1, axisc=-1, axis=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -165902,7 +165902,7 @@
       "required_cases": [],
       "signature": "(real=0, imag=0, /)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -165920,7 +165920,7 @@
       "required_cases": [],
       "signature": null,
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -165940,7 +165940,7 @@
       "required_cases": [],
       "signature": "(a, axis=None, dtype=None, out=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -165960,7 +165960,7 @@
       "required_cases": [],
       "signature": "(a, axis=None, dtype=None, out=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -165980,7 +165980,7 @@
       "required_cases": [],
       "signature": "(x, /, *, axis=None, dtype=None, out=None, include_initial=False)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -166000,7 +166000,7 @@
       "required_cases": [],
       "signature": "(x, /, *, axis=None, dtype=None, out=None, include_initial=False)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -166019,7 +166019,7 @@
       "required_cases": [],
       "signature": "(value=None, /, *args)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -166039,7 +166039,7 @@
       "required_cases": [],
       "signature": "(arr, unit=None, timezone='naive', casting='same_kind')",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -166059,7 +166059,7 @@
       "required_cases": [],
       "signature": "(dtype, /)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -166079,7 +166079,7 @@
       "required_cases": [],
       "signature": "(x, /, out=None, *, where=True, casting='same_kind', order='K', dtype=None, subok=True, signature=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -166099,7 +166099,7 @@
       "required_cases": [],
       "signature": "(x, /, out=None, *, where=True, casting='same_kind', order='K', dtype=None, subok=True, signature=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -166119,7 +166119,7 @@
       "required_cases": [],
       "signature": "(arr, obj, axis=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -166139,7 +166139,7 @@
       "required_cases": [],
       "signature": "(v, k=0)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -166159,7 +166159,7 @@
       "required_cases": [],
       "signature": "(n, ndim=2)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -166179,7 +166179,7 @@
       "required_cases": [],
       "signature": "(arr)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -166199,7 +166199,7 @@
       "required_cases": [],
       "signature": "(v, k=0)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -166219,7 +166219,7 @@
       "required_cases": [],
       "signature": "(a, offset=0, axis1=0, axis2=1)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -166239,7 +166239,7 @@
       "required_cases": [],
       "signature": "(a, n=1, axis=-1, prepend=<no value>, append=<no value>)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -166259,7 +166259,7 @@
       "required_cases": [],
       "signature": "(x, bins, right=False)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -166279,7 +166279,7 @@
       "required_cases": [],
       "signature": "(x1, x2, /, out=None, *, where=True, casting='same_kind', order='K', dtype=None, subok=True, signature=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -166299,7 +166299,7 @@
       "required_cases": [],
       "signature": "(x1, x2, /, out=(None, None), *, where=True, casting='same_kind', order='K', dtype=None, subok=True, signature=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -166319,7 +166319,7 @@
       "required_cases": [],
       "signature": "(a, b, out=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -166338,7 +166338,7 @@
       "required_cases": [],
       "signature": "(value=0, /)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -166358,7 +166358,7 @@
       "required_cases": [],
       "signature": "(ary, indices_or_sections)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -166378,7 +166378,7 @@
       "required_cases": [],
       "signature": "(tup)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -166397,7 +166397,7 @@
       "required_cases": [],
       "signature": "(dtype, align=False, copy=False, **kwargs)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -166415,7 +166415,7 @@
       "required_cases": [],
       "signature": null,
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -166433,7 +166433,7 @@
       "required_cases": [],
       "signature": null,
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -166453,7 +166453,7 @@
       "required_cases": [],
       "signature": "(ary, to_end=None, to_begin=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -166473,7 +166473,7 @@
       "required_cases": [],
       "signature": "(*operands, out=None, optimize=False, **kwargs)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -166493,7 +166493,7 @@
       "required_cases": [],
       "signature": "(*operands, optimize='greedy', einsum_call=False)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -166511,7 +166511,7 @@
       "required_cases": [],
       "signature": null,
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -166531,7 +166531,7 @@
       "required_cases": [],
       "signature": "(shape, dtype=None, order='C')",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -166551,7 +166551,7 @@
       "required_cases": [],
       "signature": "(prototype, /, dtype=None, order='K', subok=True, shape=None, *, device=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -166571,7 +166571,7 @@
       "required_cases": [],
       "signature": "(x1, x2, /, out=None, *, where=True, casting='same_kind', order='K', dtype=None, subok=True, signature=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -166590,7 +166590,7 @@
       "required_cases": [],
       "signature": "(*, call=<numpy._core._ufunc_config._unspecified object at <address>>, all=None, divide=None, over=None, under=None, invalid=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -166608,7 +166608,7 @@
       "required_cases": [],
       "signature": null,
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -166626,7 +166626,7 @@
       "required_cases": [],
       "signature": null,
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -166646,7 +166646,7 @@
       "required_cases": [],
       "signature": "(x, /, out=None, *, where=True, casting='same_kind', order='K', dtype=None, subok=True, signature=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -166666,7 +166666,7 @@
       "required_cases": [],
       "signature": "(x, /, out=None, *, where=True, casting='same_kind', order='K', dtype=None, subok=True, signature=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -166686,7 +166686,7 @@
       "required_cases": [],
       "signature": "(a, axis)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -166706,7 +166706,7 @@
       "required_cases": [],
       "signature": "(x, /, out=None, *, where=True, casting='same_kind', order='K', dtype=None, subok=True, signature=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -166726,7 +166726,7 @@
       "required_cases": [],
       "signature": "(condition, arr)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -166746,7 +166746,7 @@
       "required_cases": [],
       "signature": "(n, M=None, k=0, dtype=<class 'float'>, order='C')",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -166764,7 +166764,7 @@
       "required_cases": [],
       "signature": null,
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -166784,7 +166784,7 @@
       "required_cases": [],
       "signature": "(x, /, out=None, *, where=True, casting='same_kind', order='K', dtype=None, subok=True, signature=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -166802,7 +166802,7 @@
       "required_cases": [],
       "signature": null,
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -166822,7 +166822,7 @@
       "required_cases": [],
       "signature": "(a, val, wrap=False)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -166841,7 +166841,7 @@
       "required_cases": [],
       "signature": "(dtype)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -166861,7 +166861,7 @@
       "required_cases": [],
       "signature": "(x, out=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -166880,7 +166880,7 @@
       "required_cases": [],
       "signature": "()",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -166900,7 +166900,7 @@
       "required_cases": [],
       "signature": "(a)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -166919,7 +166919,7 @@
       "required_cases": [],
       "signature": "()",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -166939,7 +166939,7 @@
       "required_cases": [],
       "signature": "(m, axis=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -166959,7 +166959,7 @@
       "required_cases": [],
       "signature": "(m)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -166979,7 +166979,7 @@
       "required_cases": [],
       "signature": "(m)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -166998,7 +166998,7 @@
       "required_cases": [],
       "signature": "(value=0, /)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -167017,7 +167017,7 @@
       "required_cases": [],
       "signature": "(value=0, /)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -167036,7 +167036,7 @@
       "required_cases": [],
       "signature": "(value=0, /)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -167056,7 +167056,7 @@
       "required_cases": [],
       "signature": "(x1, x2, /, out=None, *, where=True, casting='same_kind', order='K', dtype=None, subok=True, signature=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -167075,7 +167075,7 @@
       "required_cases": [],
       "signature": "()",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -167095,7 +167095,7 @@
       "required_cases": [],
       "signature": "(x, /, out=None, *, where=True, casting='same_kind', order='K', dtype=None, subok=True, signature=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -167115,7 +167115,7 @@
       "required_cases": [],
       "signature": "(x1, x2, /, out=None, *, where=True, casting='same_kind', order='K', dtype=None, subok=True, signature=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -167135,7 +167135,7 @@
       "required_cases": [],
       "signature": "(x1, x2, /, out=None, *, where=True, casting='same_kind', order='K', dtype=None, subok=True, signature=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -167155,7 +167155,7 @@
       "required_cases": [],
       "signature": "(x1, x2, /, out=None, *, where=True, casting='same_kind', order='K', dtype=None, subok=True, signature=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -167175,7 +167175,7 @@
       "required_cases": [],
       "signature": "(x1, x2, /, out=None, *, where=True, casting='same_kind', order='K', dtype=None, subok=True, signature=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -167195,7 +167195,7 @@
       "required_cases": [],
       "signature": "(x, precision=None, unique=True, fractional=True, trim='k', sign=False, pad_left=None, pad_right=None, min_digits=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -167215,7 +167215,7 @@
       "required_cases": [],
       "signature": "(x, precision=None, unique=True, trim='k', sign=False, pad_left=None, exp_digits=None, min_digits=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -167235,7 +167235,7 @@
       "required_cases": [],
       "signature": "(x, /, out=(None, None), *, where=True, casting='same_kind', order='K', dtype=None, subok=True, signature=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -167255,7 +167255,7 @@
       "required_cases": [],
       "signature": "(x, /, *, device=None, copy=None)",
       "status": "not_implemented",
-      "target_release": "0.6"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -167275,7 +167275,7 @@
       "required_cases": [],
       "signature": "(buffer, dtype=None, count=-1, offset=0, *, like=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -167295,7 +167295,7 @@
       "required_cases": [],
       "signature": "(file, dtype=None, count=-1, sep='', offset=0, *, like=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -167315,7 +167315,7 @@
       "required_cases": [],
       "signature": "(function, shape, *, dtype=<class 'float'>, like=None, **kwargs)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -167335,7 +167335,7 @@
       "required_cases": [],
       "signature": "(iter, dtype, count=-1, *, like=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -167355,7 +167355,7 @@
       "required_cases": [],
       "signature": "(func, /, nin, nout, **kwargs)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -167375,7 +167375,7 @@
       "required_cases": [],
       "signature": "(file, regexp, dtype, encoding=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -167395,7 +167395,7 @@
       "required_cases": [],
       "signature": "(string, dtype=None, count=-1, *, sep, like=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -167415,7 +167415,7 @@
       "required_cases": [],
       "signature": "(shape, fill_value, dtype=None, order='C', *, device=None, like=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -167435,7 +167435,7 @@
       "required_cases": [],
       "signature": "(a, fill_value, dtype=None, order='K', subok=True, shape=None, *, device=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -167455,7 +167455,7 @@
       "required_cases": [],
       "signature": "(x1, x2, /, out=None, *, where=True, casting='same_kind', order='K', dtype=None, subok=True, signature=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -167474,7 +167474,7 @@
       "required_cases": [],
       "signature": "()",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -167494,7 +167494,7 @@
       "required_cases": [],
       "signature": "(fname, dtype=<class 'float'>, comments='#', delimiter=None, skip_header=0, skip_footer=0, converters=None, missing_values=None, filling_values=None, usecols=None, names=None, excludelist=None, deletechars=\" !#$%&'()*+,-./:;<=>?@[\\\\]^{|}~\", replace_space='_', autostrip=False, case_sensitive=True, defaultfmt='f%i', unpack=None, usemask=False, loose=True, invalid_raise=True, max_rows=None, encoding=None, *, ndmin=0, like=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -167514,7 +167514,7 @@
       "required_cases": [],
       "signature": "(start, stop, num=50, endpoint=True, dtype=None, axis=0)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -167534,7 +167534,7 @@
       "required_cases": [],
       "signature": "()",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -167554,7 +167554,7 @@
       "required_cases": [],
       "signature": "()",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -167574,7 +167574,7 @@
       "required_cases": [],
       "signature": "()",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -167594,7 +167594,7 @@
       "required_cases": [],
       "signature": "()",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -167614,7 +167614,7 @@
       "required_cases": [],
       "signature": "()",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -167634,7 +167634,7 @@
       "required_cases": [],
       "signature": "(f, *varargs, axis=None, edge_order=1)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -167654,7 +167654,7 @@
       "required_cases": [],
       "signature": "(x1, x2, /, out=None, *, where=True, casting='same_kind', order='K', dtype=None, subok=True, signature=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -167674,7 +167674,7 @@
       "required_cases": [],
       "signature": "(x1, x2, /, out=None, *, where=True, casting='same_kind', order='K', dtype=None, subok=True, signature=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -167693,7 +167693,7 @@
       "required_cases": [],
       "signature": "(value=0, /)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -167713,7 +167713,7 @@
       "required_cases": [],
       "signature": "(M)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -167733,7 +167733,7 @@
       "required_cases": [],
       "signature": "(M)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -167753,7 +167753,7 @@
       "required_cases": [],
       "signature": "(x1, x2, /, out=None, *, where=True, casting='same_kind', order='K', dtype=None, subok=True, signature=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -167773,7 +167773,7 @@
       "required_cases": [],
       "signature": "(a, bins=10, range=None, density=None, weights=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -167793,7 +167793,7 @@
       "required_cases": [],
       "signature": "(x, y, bins=10, range=None, density=None, weights=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -167813,7 +167813,7 @@
       "required_cases": [],
       "signature": "(a, bins=10, range=None, weights=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -167833,7 +167833,7 @@
       "required_cases": [],
       "signature": "(sample, bins=10, range=None, density=None, weights=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -167853,7 +167853,7 @@
       "required_cases": [],
       "signature": "(ary, indices_or_sections)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -167873,7 +167873,7 @@
       "required_cases": [],
       "signature": "(tup, *, dtype=None, casting='same_kind')",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -167893,7 +167893,7 @@
       "required_cases": [],
       "signature": "(x1, x2, /, out=None, *, where=True, casting='same_kind', order='K', dtype=None, subok=True, signature=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -167913,7 +167913,7 @@
       "required_cases": [],
       "signature": "(x)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -167933,7 +167933,7 @@
       "required_cases": [],
       "signature": "(n, dtype=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -167952,7 +167952,7 @@
       "required_cases": [],
       "signature": "(int_type)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -167972,7 +167972,7 @@
       "required_cases": [],
       "signature": "(val)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -167990,7 +167990,7 @@
       "required_cases": [],
       "signature": null,
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -168010,7 +168010,7 @@
       "required_cases": [],
       "signature": "(dimensions, dtype=<class 'int'>, sparse=False)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -168029,7 +168029,7 @@
       "required_cases": [],
       "signature": "()",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -168047,7 +168047,7 @@
       "required_cases": [],
       "signature": null,
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -168067,7 +168067,7 @@
       "required_cases": [],
       "signature": "(object=None, maxwidth=76, output=None, toplevel='numpy')",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -168087,7 +168087,7 @@
       "required_cases": [],
       "signature": "(a, b, /)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -168107,7 +168107,7 @@
       "required_cases": [],
       "signature": "(arr, obj, values, axis=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -168126,7 +168126,7 @@
       "required_cases": [],
       "signature": "(value=0, /)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -168145,7 +168145,7 @@
       "required_cases": [],
       "signature": "(value=0, /)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -168164,7 +168164,7 @@
       "required_cases": [],
       "signature": "(value=0, /)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -168183,7 +168183,7 @@
       "required_cases": [],
       "signature": "(value=0, /)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -168202,7 +168202,7 @@
       "required_cases": [],
       "signature": "(value=0, /)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -168221,7 +168221,7 @@
       "required_cases": [],
       "signature": "(value=0, /)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -168240,7 +168240,7 @@
       "required_cases": [],
       "signature": "()",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -168260,7 +168260,7 @@
       "required_cases": [],
       "signature": "(x, xp, fp, left=None, right=None, period=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -168280,7 +168280,7 @@
       "required_cases": [],
       "signature": "(ar1, ar2, assume_unique=False, return_indices=False)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -168299,7 +168299,7 @@
       "required_cases": [],
       "signature": "(value=0, /)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -168319,7 +168319,7 @@
       "required_cases": [],
       "signature": "(x, /, out=None, *, where=True, casting='same_kind', order='K', dtype=None, subok=True, signature=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -168339,7 +168339,7 @@
       "required_cases": [],
       "signature": "(dates, weekmask='1111100', holidays=None, busdaycal=None, out=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -168359,7 +168359,7 @@
       "required_cases": [],
       "signature": "(a, b, rtol=1e-05, atol=1e-08, equal_nan=False)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -168379,7 +168379,7 @@
       "required_cases": [],
       "signature": "(x)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -168399,7 +168399,7 @@
       "required_cases": [],
       "signature": "(x)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -168419,7 +168419,7 @@
       "required_cases": [],
       "signature": "(dtype, kind)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -168439,7 +168439,7 @@
       "required_cases": [],
       "signature": "(x, /, out=None, *, where=True, casting='same_kind', order='K', dtype=None, subok=True, signature=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -168459,7 +168459,7 @@
       "required_cases": [],
       "signature": "(a)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -168479,7 +168479,7 @@
       "required_cases": [],
       "signature": "(element, test_elements, assume_unique=False, invert=False, *, kind=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -168499,7 +168499,7 @@
       "required_cases": [],
       "signature": "(x, /, out=None, *, where=True, casting='same_kind', order='K', dtype=None, subok=True, signature=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -168519,7 +168519,7 @@
       "required_cases": [],
       "signature": "(x, /, out=None, *, where=True, casting='same_kind', order='K', dtype=None, subok=True, signature=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -168539,7 +168539,7 @@
       "required_cases": [],
       "signature": "(x, /, out=None, *, where=True, casting='same_kind', order='K', dtype=None, subok=True, signature=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -168559,7 +168559,7 @@
       "required_cases": [],
       "signature": "(x, out=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -168579,7 +168579,7 @@
       "required_cases": [],
       "signature": "(x, out=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -168599,7 +168599,7 @@
       "required_cases": [],
       "signature": "(x)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -168619,7 +168619,7 @@
       "required_cases": [],
       "signature": "(x)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -168639,7 +168639,7 @@
       "required_cases": [],
       "signature": "(element)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -168659,7 +168659,7 @@
       "required_cases": [],
       "signature": "(arg1, arg2)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -168679,7 +168679,7 @@
       "required_cases": [],
       "signature": "(y)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -168699,7 +168699,7 @@
       "required_cases": [],
       "signature": "(*args)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -168719,7 +168719,7 @@
       "required_cases": [],
       "signature": "(M, beta)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -168739,7 +168739,7 @@
       "required_cases": [],
       "signature": "(a, b)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -168759,7 +168759,7 @@
       "required_cases": [],
       "signature": "(x1, x2, /, out=None, *, where=True, casting='same_kind', order='K', dtype=None, subok=True, signature=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -168779,7 +168779,7 @@
       "required_cases": [],
       "signature": "(x1, x2, /, out=None, *, where=True, casting='same_kind', order='K', dtype=None, subok=True, signature=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -168799,7 +168799,7 @@
       "required_cases": [],
       "signature": "(x1, x2, /, out=None, *, where=True, casting='same_kind', order='K', dtype=None, subok=True, signature=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -168819,7 +168819,7 @@
       "required_cases": [],
       "signature": "(x1, x2, /, out=None, *, where=True, casting='same_kind', order='K', dtype=None, subok=True, signature=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -168839,7 +168839,7 @@
       "required_cases": [],
       "signature": "(x1, x2, /, out=None, *, where=True, casting='same_kind', order='K', dtype=None, subok=True, signature=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -168859,7 +168859,7 @@
       "required_cases": [],
       "signature": "(keys, axis=-1)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -168877,7 +168877,7 @@
       "required_cases": [],
       "signature": null,
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -168895,7 +168895,7 @@
       "required_cases": [],
       "signature": null,
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -168915,7 +168915,7 @@
       "required_cases": [],
       "signature": "(start, stop, num=50, endpoint=True, retstep=False, dtype=None, axis=0, *, device=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -168933,7 +168933,7 @@
       "required_cases": [],
       "signature": null,
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -168953,7 +168953,7 @@
       "required_cases": [],
       "signature": "(file, mmap_mode=None, allow_pickle=False, fix_imports=True, encoding='ASCII', *, max_header_size=10000)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -168973,7 +168973,7 @@
       "required_cases": [],
       "signature": "(fname, dtype=<class 'float'>, comments='#', delimiter=None, converters=None, skiprows=0, usecols=None, unpack=False, ndmin=0, encoding=None, max_rows=None, *, quotechar=None, like=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -168993,7 +168993,7 @@
       "required_cases": [],
       "signature": "(x, /, out=None, *, where=True, casting='same_kind', order='K', dtype=None, subok=True, signature=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -169013,7 +169013,7 @@
       "required_cases": [],
       "signature": "(x, /, out=None, *, where=True, casting='same_kind', order='K', dtype=None, subok=True, signature=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -169033,7 +169033,7 @@
       "required_cases": [],
       "signature": "(x, /, out=None, *, where=True, casting='same_kind', order='K', dtype=None, subok=True, signature=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -169053,7 +169053,7 @@
       "required_cases": [],
       "signature": "(x, /, out=None, *, where=True, casting='same_kind', order='K', dtype=None, subok=True, signature=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -169073,7 +169073,7 @@
       "required_cases": [],
       "signature": "(x1, x2, /, out=None, *, where=True, casting='same_kind', order='K', dtype=None, subok=True, signature=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -169093,7 +169093,7 @@
       "required_cases": [],
       "signature": "(x1, x2, /, out=None, *, where=True, casting='same_kind', order='K', dtype=None, subok=True, signature=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -169113,7 +169113,7 @@
       "required_cases": [],
       "signature": "(x1, x2, /, out=None, *, where=True, casting='same_kind', order='K', dtype=None, subok=True, signature=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -169133,7 +169133,7 @@
       "required_cases": [],
       "signature": "(x, /, out=None, *, where=True, casting='same_kind', order='K', dtype=None, subok=True, signature=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -169153,7 +169153,7 @@
       "required_cases": [],
       "signature": "(x1, x2, /, out=None, *, where=True, casting='same_kind', order='K', dtype=None, subok=True, signature=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -169173,7 +169173,7 @@
       "required_cases": [],
       "signature": "(x1, x2, /, out=None, *, where=True, casting='same_kind', order='K', dtype=None, subok=True, signature=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -169193,7 +169193,7 @@
       "required_cases": [],
       "signature": "(start, stop, num=50, endpoint=True, base=10.0, dtype=None, axis=0)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -169212,7 +169212,7 @@
       "required_cases": [],
       "signature": "(value=0, /)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -169231,7 +169231,7 @@
       "required_cases": [],
       "signature": "(value=0, /)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -169250,7 +169250,7 @@
       "required_cases": [],
       "signature": "(value=0, /)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -169268,7 +169268,7 @@
       "required_cases": [],
       "signature": null,
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -169288,7 +169288,7 @@
       "required_cases": [],
       "signature": "(n, mask_func, k=0)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -169308,7 +169308,7 @@
       "required_cases": [],
       "signature": "(x1, x2, /, out=None, *, axes=<no value>, axis=<no value>, keepdims=False, casting='same_kind', order='K', dtype=None, subok=True, signature=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -169327,7 +169327,7 @@
       "required_cases": [],
       "signature": "(data, dtype=None, copy=True)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -169347,7 +169347,7 @@
       "required_cases": [],
       "signature": "(x, /)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -169367,7 +169367,7 @@
       "required_cases": [],
       "signature": "(x1, x2, /, out=None, *, axes=<no value>, axis=<no value>, keepdims=False, casting='same_kind', order='K', dtype=None, subok=True, signature=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -169387,7 +169387,7 @@
       "required_cases": [],
       "signature": "(a, axis=None, out=None, keepdims=<no value>, initial=<no value>, where=<no value>)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -169407,7 +169407,7 @@
       "required_cases": [],
       "signature": "(x1, x2, /, out=None, *, where=True, casting='same_kind', order='K', dtype=None, subok=True, signature=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -169427,7 +169427,7 @@
       "required_cases": [],
       "signature": "(a, b, /, max_work=0)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -169447,7 +169447,7 @@
       "required_cases": [],
       "signature": "(a, axis=None, dtype=None, out=None, keepdims=<no value>, *, where=<no value>)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -169467,7 +169467,7 @@
       "required_cases": [],
       "signature": "(a, axis=None, out=None, overwrite_input=False, keepdims=False)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -169486,7 +169486,7 @@
       "required_cases": [],
       "signature": "(filename, dtype=<class 'numpy.uint8'>, mode='r+', offset=0, shape=None, order='C')",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -169506,7 +169506,7 @@
       "required_cases": [],
       "signature": "(*xi, copy=True, sparse=False, indexing='xy')",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -169524,7 +169524,7 @@
       "required_cases": [],
       "signature": null,
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -169544,7 +169544,7 @@
       "required_cases": [],
       "signature": "(a, axis=None, out=None, keepdims=<no value>, initial=<no value>, where=<no value>)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -169564,7 +169564,7 @@
       "required_cases": [],
       "signature": "(a, /)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -169584,7 +169584,7 @@
       "required_cases": [],
       "signature": "(x1, x2, /, out=None, *, where=True, casting='same_kind', order='K', dtype=None, subok=True, signature=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -169604,7 +169604,7 @@
       "required_cases": [],
       "signature": "(typechars, typeset='GDFgdf', default='d')",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -169624,7 +169624,7 @@
       "required_cases": [],
       "signature": "(x1, x2, /, out=None, *, where=True, casting='same_kind', order='K', dtype=None, subok=True, signature=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -169644,7 +169644,7 @@
       "required_cases": [],
       "signature": "(x, /, out=(None, None), *, where=True, casting='same_kind', order='K', dtype=None, subok=True, signature=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -169664,7 +169664,7 @@
       "required_cases": [],
       "signature": "(a, source, destination)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -169684,7 +169684,7 @@
       "required_cases": [],
       "signature": "(x1, x2, /, out=None, *, where=True, casting='same_kind', order='K', dtype=None, subok=True, signature=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -169702,7 +169702,7 @@
       "required_cases": [],
       "signature": null,
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -169722,7 +169722,7 @@
       "required_cases": [],
       "signature": "(x, copy=True, nan=0.0, posinf=None, neginf=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -169742,7 +169742,7 @@
       "required_cases": [],
       "signature": "(a, axis=None, out=None, *, keepdims=<no value>)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -169762,7 +169762,7 @@
       "required_cases": [],
       "signature": "(a, axis=None, out=None, *, keepdims=<no value>)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -169782,7 +169782,7 @@
       "required_cases": [],
       "signature": "(a, axis=None, dtype=None, out=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -169802,7 +169802,7 @@
       "required_cases": [],
       "signature": "(a, axis=None, dtype=None, out=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -169822,7 +169822,7 @@
       "required_cases": [],
       "signature": "(a, axis=None, out=None, keepdims=<no value>, initial=<no value>, where=<no value>)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -169842,7 +169842,7 @@
       "required_cases": [],
       "signature": "(a, axis=None, dtype=None, out=None, keepdims=<no value>, *, where=<no value>)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -169862,7 +169862,7 @@
       "required_cases": [],
       "signature": "(a, axis=None, out=None, overwrite_input=False, keepdims=<no value>)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -169882,7 +169882,7 @@
       "required_cases": [],
       "signature": "(a, axis=None, out=None, keepdims=<no value>, initial=<no value>, where=<no value>)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -169902,7 +169902,7 @@
       "required_cases": [],
       "signature": "(a, q, axis=None, out=None, overwrite_input=False, method='linear', keepdims=<no value>, *, weights=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -169922,7 +169922,7 @@
       "required_cases": [],
       "signature": "(a, axis=None, dtype=None, out=None, keepdims=<no value>, initial=<no value>, where=<no value>)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -169942,7 +169942,7 @@
       "required_cases": [],
       "signature": "(a, q, axis=None, out=None, overwrite_input=False, method='linear', keepdims=<no value>, *, weights=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -169962,7 +169962,7 @@
       "required_cases": [],
       "signature": "(a, axis=None, dtype=None, out=None, ddof=0, keepdims=<no value>, *, where=<no value>, mean=<no value>, correction=<no value>)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -169982,7 +169982,7 @@
       "required_cases": [],
       "signature": "(a, axis=None, dtype=None, out=None, keepdims=<no value>, initial=<no value>, where=<no value>)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -170002,7 +170002,7 @@
       "required_cases": [],
       "signature": "(a, axis=None, dtype=None, out=None, ddof=0, keepdims=<no value>, *, where=<no value>, mean=<no value>, correction=<no value>)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -170021,7 +170021,7 @@
       "required_cases": [],
       "signature": "(shape, dtype=None, buffer=None, offset=0, strides=None, order=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -170040,7 +170040,7 @@
       "required_cases": [],
       "signature": "(arr)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -170060,7 +170060,7 @@
       "required_cases": [],
       "signature": "(a)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -170079,7 +170079,7 @@
       "required_cases": [],
       "signature": "(*shape)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -170098,7 +170098,7 @@
       "required_cases": [],
       "signature": "(op, flags=None, op_flags=None, op_dtypes=None, order='K', casting='safe', op_axes=None, itershape=None, buffersize=0)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -170118,7 +170118,7 @@
       "required_cases": [],
       "signature": "(x, /, out=None, *, where=True, casting='same_kind', order='K', dtype=None, subok=True, signature=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -170138,7 +170138,7 @@
       "required_cases": [],
       "signature": "(op, axes, flags=None, op_flags=None, op_dtypes=None, order='K', casting='safe', buffersize=0)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -170156,7 +170156,7 @@
       "required_cases": [],
       "signature": null,
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -170176,7 +170176,7 @@
       "required_cases": [],
       "signature": "(x1, x2, /, out=None, *, where=True, casting='same_kind', order='K', dtype=None, subok=True, signature=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -170196,7 +170196,7 @@
       "required_cases": [],
       "signature": "(a)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -170216,7 +170216,7 @@
       "required_cases": [],
       "signature": "(x1, x2, /, out=None, *, where=True, casting='same_kind', order='K', dtype=None, subok=True, signature=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -170234,7 +170234,7 @@
       "required_cases": [],
       "signature": null,
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -170253,7 +170253,7 @@
       "required_cases": [],
       "signature": "()",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -170272,7 +170272,7 @@
       "required_cases": [],
       "signature": "(value=None, /)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -170290,7 +170290,7 @@
       "required_cases": [],
       "signature": null,
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -170310,7 +170310,7 @@
       "required_cases": [],
       "signature": "(shape, dtype=None, order='C')",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -170330,7 +170330,7 @@
       "required_cases": [],
       "signature": "(a, dtype=None, order='K', subok=True, shape=None, *, device=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -170350,7 +170350,7 @@
       "required_cases": [],
       "signature": "(a, b, out=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -170370,7 +170370,7 @@
       "required_cases": [],
       "signature": "(a, /, axis=None, bitorder='big')",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -170390,7 +170390,7 @@
       "required_cases": [],
       "signature": "(array, pad_width, mode='constant', **kwargs)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -170410,7 +170410,7 @@
       "required_cases": [],
       "signature": "(a, kth, axis=-1, kind='introselect', order=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -170430,7 +170430,7 @@
       "required_cases": [],
       "signature": "(a, q, axis=None, out=None, overwrite_input=False, method='linear', keepdims=False, *, weights=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -170450,7 +170450,7 @@
       "required_cases": [],
       "signature": "(a, axes=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -170468,7 +170468,7 @@
       "required_cases": [],
       "signature": null,
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -170488,7 +170488,7 @@
       "required_cases": [],
       "signature": "(x, condlist, funclist, *args, **kw)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -170508,7 +170508,7 @@
       "required_cases": [],
       "signature": "(arr, mask, vals)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -170528,7 +170528,7 @@
       "required_cases": [],
       "signature": "(seq_of_zeros)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -170547,7 +170547,7 @@
       "required_cases": [],
       "signature": "(c_or_r, r=False, variable=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -170567,7 +170567,7 @@
       "required_cases": [],
       "signature": "(a1, a2)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -170587,7 +170587,7 @@
       "required_cases": [],
       "signature": "(p, m=1)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -170607,7 +170607,7 @@
       "required_cases": [],
       "signature": "(u, v)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -170627,7 +170627,7 @@
       "required_cases": [],
       "signature": "(x, y, deg, rcond=None, full=False, w=None, cov=False)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -170647,7 +170647,7 @@
       "required_cases": [],
       "signature": "(p, m=1, k=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -170667,7 +170667,7 @@
       "required_cases": [],
       "signature": "(a1, a2)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -170685,7 +170685,7 @@
       "required_cases": [],
       "signature": null,
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -170705,7 +170705,7 @@
       "required_cases": [],
       "signature": "(a1, a2)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -170725,7 +170725,7 @@
       "required_cases": [],
       "signature": "(p, x)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -170745,7 +170745,7 @@
       "required_cases": [],
       "signature": "(x, /, out=None, *, where=True, casting='same_kind', order='K', dtype=None, subok=True, signature=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -170765,7 +170765,7 @@
       "required_cases": [],
       "signature": "(x1, x2, /, out=None, *, where=True, casting='same_kind', order='K', dtype=None, subok=True, signature=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -170785,7 +170785,7 @@
       "required_cases": [],
       "signature": "(x1, x2, /, out=None, *, where=True, casting='same_kind', order='K', dtype=None, subok=True, signature=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -170805,7 +170805,7 @@
       "required_cases": [],
       "signature": "(*args, **kwargs)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -170825,7 +170825,7 @@
       "required_cases": [],
       "signature": "(a, axis=None, dtype=None, out=None, keepdims=<no value>, initial=<no value>, where=<no value>)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -170845,7 +170845,7 @@
       "required_cases": [],
       "signature": "(type1, type2, /)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -170865,7 +170865,7 @@
       "required_cases": [],
       "signature": "(a, axis=None, out=None, keepdims=<no value>)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -170885,7 +170885,7 @@
       "required_cases": [],
       "signature": "(a, ind, v, mode='raise')",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -170905,7 +170905,7 @@
       "required_cases": [],
       "signature": "(arr, indices, values, axis)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -170925,7 +170925,7 @@
       "required_cases": [],
       "signature": "(a, /, mask, values)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -170945,7 +170945,7 @@
       "required_cases": [],
       "signature": "(a, q, axis=None, out=None, overwrite_input=False, method='linear', keepdims=False, *, weights=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -170963,7 +170963,7 @@
       "required_cases": [],
       "signature": null,
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -170983,7 +170983,7 @@
       "required_cases": [],
       "signature": "(x, /, out=None, *, where=True, casting='same_kind', order='K', dtype=None, subok=True, signature=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -171003,7 +171003,7 @@
       "required_cases": [],
       "signature": "(x, /, out=None, *, where=True, casting='same_kind', order='K', dtype=None, subok=True, signature=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -171023,7 +171023,7 @@
       "required_cases": [],
       "signature": "(*args)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -171043,7 +171043,7 @@
       "required_cases": [],
       "signature": "(*args)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -171061,7 +171061,7 @@
       "required_cases": [],
       "signature": null,
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -171081,7 +171081,7 @@
       "required_cases": [],
       "signature": "(a, order='C')",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -171101,7 +171101,7 @@
       "required_cases": [],
       "signature": "(multi_index, dims, mode='raise', order='C')",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -171121,7 +171121,7 @@
       "required_cases": [],
       "signature": "(val)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -171141,7 +171141,7 @@
       "required_cases": [],
       "signature": "(a, tol=100)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -171159,7 +171159,7 @@
       "required_cases": [],
       "signature": null,
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -171178,7 +171178,7 @@
       "required_cases": [],
       "signature": "(shape, dtype=None, buf=None, offset=0, strides=None, formats=None, names=None, titles=None, byteorder=None, aligned=False, order='C')",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -171198,7 +171198,7 @@
       "required_cases": [],
       "signature": "(x, /, out=None, *, where=True, casting='same_kind', order='K', dtype=None, subok=True, signature=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -171217,7 +171217,7 @@
       "required_cases": [],
       "signature": "(length_or_data, /, dtype=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -171237,7 +171237,7 @@
       "required_cases": [],
       "signature": "(x1, x2, /, out=None, *, where=True, casting='same_kind', order='K', dtype=None, subok=True, signature=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -171257,7 +171257,7 @@
       "required_cases": [],
       "signature": "(a, repeats, axis=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -171277,7 +171277,7 @@
       "required_cases": [],
       "signature": "(a, m, n)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -171297,7 +171297,7 @@
       "required_cases": [],
       "signature": "(a, dtype=None, requirements=None, *, like=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -171317,7 +171317,7 @@
       "required_cases": [],
       "signature": "(a, /, shape, order='C', *, copy=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -171337,7 +171337,7 @@
       "required_cases": [],
       "signature": "(a, new_shape)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -171357,7 +171357,7 @@
       "required_cases": [],
       "signature": "(*arrays_and_dtypes)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -171377,7 +171377,7 @@
       "required_cases": [],
       "signature": "(x1, x2, /, out=None, *, where=True, casting='same_kind', order='K', dtype=None, subok=True, signature=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -171397,7 +171397,7 @@
       "required_cases": [],
       "signature": "(x, /, out=None, *, where=True, casting='same_kind', order='K', dtype=None, subok=True, signature=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -171417,7 +171417,7 @@
       "required_cases": [],
       "signature": "(a, shift, axis=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -171437,7 +171437,7 @@
       "required_cases": [],
       "signature": "(a, axis, start=0)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -171457,7 +171457,7 @@
       "required_cases": [],
       "signature": "(p)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -171477,7 +171477,7 @@
       "required_cases": [],
       "signature": "(m, k=1, axes=(0, 1))",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -171497,7 +171497,7 @@
       "required_cases": [],
       "signature": "(a, decimals=0, out=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -171515,7 +171515,7 @@
       "required_cases": [],
       "signature": null,
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -171535,7 +171535,7 @@
       "required_cases": [],
       "signature": "(file, arr, allow_pickle=True)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -171555,7 +171555,7 @@
       "required_cases": [],
       "signature": "(fname, X, fmt='%.18e', delimiter=' ', newline='\\n', header='', footer='', comments='# ', encoding=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -171575,7 +171575,7 @@
       "required_cases": [],
       "signature": "(file, *args, allow_pickle=True, **kwds)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -171595,7 +171595,7 @@
       "required_cases": [],
       "signature": "(file, *args, allow_pickle=True, **kwds)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -171613,7 +171613,7 @@
       "required_cases": [],
       "signature": null,
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -171633,7 +171633,7 @@
       "required_cases": [],
       "signature": "(a, v, side='left', sorter=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -171653,7 +171653,7 @@
       "required_cases": [],
       "signature": "(condlist, choicelist, default=0)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -171673,7 +171673,7 @@
       "required_cases": [],
       "signature": "(precision=None, threshold=None, edgeitems=None, linewidth=None, suppress=None, nanstr=None, infstr=None, formatter=None, sign=None, floatmode=None, *, legacy=None, override_repr=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -171693,7 +171693,7 @@
       "required_cases": [],
       "signature": "(size)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -171713,7 +171713,7 @@
       "required_cases": [],
       "signature": "(ar1, ar2, assume_unique=False)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -171733,7 +171733,7 @@
       "required_cases": [],
       "signature": "(all=None, divide=None, over=None, under=None, invalid=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -171753,7 +171753,7 @@
       "required_cases": [],
       "signature": "(func)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -171773,7 +171773,7 @@
       "required_cases": [],
       "signature": "(ar1, ar2, assume_unique=False)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -171793,7 +171793,7 @@
       "required_cases": [],
       "signature": "(a)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -171813,7 +171813,7 @@
       "required_cases": [],
       "signature": "(a, b, /, max_work=-1)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -171832,7 +171832,7 @@
       "required_cases": [],
       "signature": "(value=0, /)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -171852,7 +171852,7 @@
       "required_cases": [],
       "signature": "(mode='stdout')",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -171872,7 +171872,7 @@
       "required_cases": [],
       "signature": "()",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -171892,7 +171892,7 @@
       "required_cases": [],
       "signature": "(x, /, out=None, *, where=True, casting='same_kind', order='K', dtype=None, subok=True, signature=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -171912,7 +171912,7 @@
       "required_cases": [],
       "signature": "(x, /, out=None, *, where=True, casting='same_kind', order='K', dtype=None, subok=True, signature=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -171931,7 +171931,7 @@
       "required_cases": [],
       "signature": "()",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -171951,7 +171951,7 @@
       "required_cases": [],
       "signature": "(x, /, out=None, *, where=True, casting='same_kind', order='K', dtype=None, subok=True, signature=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -171971,7 +171971,7 @@
       "required_cases": [],
       "signature": "(x)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -171990,7 +171990,7 @@
       "required_cases": [],
       "signature": "(value=0, /)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -172010,7 +172010,7 @@
       "required_cases": [],
       "signature": "(x, /, out=None, *, where=True, casting='same_kind', order='K', dtype=None, subok=True, signature=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -172030,7 +172030,7 @@
       "required_cases": [],
       "signature": "(a, axis=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -172050,7 +172050,7 @@
       "required_cases": [],
       "signature": "(a, axis=-1, kind=None, order=None, *, stable=None, descending=<no value>)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -172070,7 +172070,7 @@
       "required_cases": [],
       "signature": "(a)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -172090,7 +172090,7 @@
       "required_cases": [],
       "signature": "(x, /, out=None, *, where=True, casting='same_kind', order='K', dtype=None, subok=True, signature=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -172110,7 +172110,7 @@
       "required_cases": [],
       "signature": "(ary, indices_or_sections, axis=0)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -172130,7 +172130,7 @@
       "required_cases": [],
       "signature": "(x, /, out=None, *, where=True, casting='same_kind', order='K', dtype=None, subok=True, signature=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -172150,7 +172150,7 @@
       "required_cases": [],
       "signature": "(x, /, out=None, *, where=True, casting='same_kind', order='K', dtype=None, subok=True, signature=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -172170,7 +172170,7 @@
       "required_cases": [],
       "signature": "(a, axis=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -172190,7 +172190,7 @@
       "required_cases": [],
       "signature": "(arrays, axis=0, out=None, *, dtype=None, casting='same_kind')",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -172210,7 +172210,7 @@
       "required_cases": [],
       "signature": "(a, axis=None, dtype=None, out=None, ddof=0, keepdims=<no value>, *, where=<no value>, mean=<no value>, correction=<no value>)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -172229,7 +172229,7 @@
       "required_cases": [],
       "signature": "(value='', /, *args, **kwargs)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -172247,7 +172247,7 @@
       "required_cases": [],
       "signature": null,
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -172267,7 +172267,7 @@
       "required_cases": [],
       "signature": "(x1, x2, /, out=None, *, where=True, casting='same_kind', order='K', dtype=None, subok=True, signature=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -172287,7 +172287,7 @@
       "required_cases": [],
       "signature": "(a, axis=None, dtype=None, out=None, keepdims=<no value>, initial=<no value>, where=<no value>)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -172307,7 +172307,7 @@
       "required_cases": [],
       "signature": "(a, axis1, axis2)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -172327,7 +172327,7 @@
       "required_cases": [],
       "signature": "(a, indices, axis=None, out=None, mode='raise')",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -172347,7 +172347,7 @@
       "required_cases": [],
       "signature": "(arr, indices, axis=-1)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -172367,7 +172367,7 @@
       "required_cases": [],
       "signature": "(x, /, out=None, *, where=True, casting='same_kind', order='K', dtype=None, subok=True, signature=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -172387,7 +172387,7 @@
       "required_cases": [],
       "signature": "(x, /, out=None, *, where=True, casting='same_kind', order='K', dtype=None, subok=True, signature=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -172407,7 +172407,7 @@
       "required_cases": [],
       "signature": "(a, b, axes=2)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -172427,7 +172427,7 @@
       "required_cases": [],
       "signature": "(label='fast', verbose=1, extra_argv=None, doctests=False, coverage=False, durations=-1, tests=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -172445,7 +172445,7 @@
       "required_cases": [],
       "signature": null,
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -172465,7 +172465,7 @@
       "required_cases": [],
       "signature": "(A, reps)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -172484,7 +172484,7 @@
       "required_cases": [],
       "signature": "(value=0, /, *args)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -172504,7 +172504,7 @@
       "required_cases": [],
       "signature": "(a, offset=0, axis1=0, axis2=1, dtype=None, out=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -172524,7 +172524,7 @@
       "required_cases": [],
       "signature": "(a, axes=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -172544,7 +172544,7 @@
       "required_cases": [],
       "signature": "(y, x=None, dx=1.0, axis=-1)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -172564,7 +172564,7 @@
       "required_cases": [],
       "signature": "(N, M=None, k=0, dtype=<class 'float'>, *, like=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -172584,7 +172584,7 @@
       "required_cases": [],
       "signature": "(m, k=0)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -172604,7 +172604,7 @@
       "required_cases": [],
       "signature": "(n, k=0, m=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -172624,7 +172624,7 @@
       "required_cases": [],
       "signature": "(arr, k=0)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -172644,7 +172644,7 @@
       "required_cases": [],
       "signature": "(filt, trim='fb', axis=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -172664,7 +172664,7 @@
       "required_cases": [],
       "signature": "(m, k=0)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -172684,7 +172684,7 @@
       "required_cases": [],
       "signature": "(n, k=0, m=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -172704,7 +172704,7 @@
       "required_cases": [],
       "signature": "(arr, k=0)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -172724,7 +172724,7 @@
       "required_cases": [],
       "signature": "(x1, x2, /, out=None, *, where=True, casting='same_kind', order='K', dtype=None, subok=True, signature=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -172744,7 +172744,7 @@
       "required_cases": [],
       "signature": "(x, /, out=None, *, where=True, casting='same_kind', order='K', dtype=None, subok=True, signature=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -172762,7 +172762,7 @@
       "required_cases": [],
       "signature": null,
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -172782,7 +172782,7 @@
       "required_cases": [],
       "signature": "(char)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -172800,7 +172800,7 @@
       "required_cases": [],
       "signature": null,
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -172819,7 +172819,7 @@
       "required_cases": [],
       "signature": "(value=0, /)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -172838,7 +172838,7 @@
       "required_cases": [],
       "signature": "()",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -172857,7 +172857,7 @@
       "required_cases": [],
       "signature": "(value=0, /)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -172876,7 +172876,7 @@
       "required_cases": [],
       "signature": "(value=0, /)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -172895,7 +172895,7 @@
       "required_cases": [],
       "signature": "(value=0, /)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -172914,7 +172914,7 @@
       "required_cases": [],
       "signature": "(value=0, /)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -172933,7 +172933,7 @@
       "required_cases": [],
       "signature": "(value=0, /)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -172952,7 +172952,7 @@
       "required_cases": [],
       "signature": "(value=0, /)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -172971,7 +172971,7 @@
       "required_cases": [],
       "signature": "(value=0, /)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -172990,7 +172990,7 @@
       "required_cases": [],
       "signature": "(value=0, /)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -173009,7 +173009,7 @@
       "required_cases": [],
       "signature": "(value=0, /)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -173029,7 +173029,7 @@
       "required_cases": [],
       "signature": "(ar1, ar2)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -173049,7 +173049,7 @@
       "required_cases": [],
       "signature": "(ar, return_index=False, return_inverse=False, return_counts=False, axis=None, *, equal_nan=True, sorted=True)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -173069,7 +173069,7 @@
       "required_cases": [],
       "signature": "(x)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -173089,7 +173089,7 @@
       "required_cases": [],
       "signature": "(x)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -173109,7 +173109,7 @@
       "required_cases": [],
       "signature": "(x)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -173129,7 +173129,7 @@
       "required_cases": [],
       "signature": "(x)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -173149,7 +173149,7 @@
       "required_cases": [],
       "signature": "(a, /, axis=None, count=None, bitorder='big')",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -173169,7 +173169,7 @@
       "required_cases": [],
       "signature": "(indices, shape, order='C')",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -173188,7 +173188,7 @@
       "required_cases": [],
       "signature": "()",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -173208,7 +173208,7 @@
       "required_cases": [],
       "signature": "(x, /, *, axis=0)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -173228,7 +173228,7 @@
       "required_cases": [],
       "signature": "(p, discont=None, axis=-1, *, period=6.283185307179586)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -173247,7 +173247,7 @@
       "required_cases": [],
       "signature": "(value=0, /)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -173267,7 +173267,7 @@
       "required_cases": [],
       "signature": "(x, N=None, increasing=False)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -173287,7 +173287,7 @@
       "required_cases": [],
       "signature": "(a, axis=None, dtype=None, out=None, ddof=0, keepdims=<no value>, *, where=<no value>, mean=<no value>, correction=<no value>)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -173307,7 +173307,7 @@
       "required_cases": [],
       "signature": "(a, b, /)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -173327,7 +173327,7 @@
       "required_cases": [],
       "signature": "(x1, x2, /, out=None, *, axes=<no value>, axis=<no value>, keepdims=False, casting='same_kind', order='K', dtype=None, subok=True, signature=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -173347,7 +173347,7 @@
       "required_cases": [],
       "signature": "(x1, x2, /, out=None, *, axes=<no value>, axis=<no value>, keepdims=False, casting='same_kind', order='K', dtype=None, subok=True, signature=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -173366,7 +173366,7 @@
       "required_cases": [],
       "signature": "(pyfunc=<no value>, otypes=None, doc=None, excluded=None, cache=False, signature=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -173385,7 +173385,7 @@
       "required_cases": [],
       "signature": "(length_or_data, /, dtype=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -173405,7 +173405,7 @@
       "required_cases": [],
       "signature": "(ary, indices_or_sections)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -173425,7 +173425,7 @@
       "required_cases": [],
       "signature": "(tup, *, dtype=None, casting='same_kind')",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -173443,7 +173443,7 @@
       "required_cases": [],
       "signature": null,
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -173463,7 +173463,7 @@
       "required_cases": [],
       "signature": "(condition, x=None, y=None, /)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -173483,7 +173483,7 @@
       "required_cases": [],
       "signature": "(shape, dtype=None, order='C')",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -173503,7 +173503,7 @@
       "required_cases": [],
       "signature": "(a, dtype=None, order='K', subok=True, shape=None, *, device=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -173523,7 +173523,7 @@
       "required_cases": [],
       "signature": "(x1, x2, /, out=None, *, axes=<no value>, axis=<no value>, keepdims=False, casting='same_kind', order='K', dtype=None, subok=True, signature=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.5"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -173543,7 +173543,7 @@
       "required_cases": [],
       "signature": "(array, /, axis=0, dtype=None, out=None)",
       "status": "not_implemented",
-      "target_release": "0.3"
+      "target_release": "0.5"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -173563,7 +173563,7 @@
       "required_cases": [],
       "signature": "(a, indices, b=None, /)",
       "status": "not_implemented",
-      "target_release": "0.3"
+      "target_release": "0.5"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -173583,7 +173583,7 @@
       "required_cases": [],
       "signature": "(A, B, /, **kwargs)",
       "status": "not_implemented",
-      "target_release": "0.3"
+      "target_release": "0.5"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -173603,7 +173603,7 @@
       "required_cases": [],
       "signature": "(array, /, axis=0, dtype=None, out=None, **kwargs)",
       "status": "not_implemented",
-      "target_release": "0.3"
+      "target_release": "0.5"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -173623,7 +173623,7 @@
       "required_cases": [],
       "signature": "(array, /, indices, axis=0, dtype=None, out=None)",
       "status": "not_implemented",
-      "target_release": "0.3"
+      "target_release": "0.5"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -173642,7 +173642,7 @@
       "required_cases": [],
       "signature": "(data, dtype=None, copy=True)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -173660,7 +173660,7 @@
       "required_cases": [],
       "signature": null,
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -173678,7 +173678,7 @@
       "required_cases": [],
       "signature": null,
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -173696,7 +173696,7 @@
       "required_cases": [],
       "signature": null,
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -173714,7 +173714,7 @@
       "required_cases": [],
       "signature": null,
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -173732,7 +173732,7 @@
       "required_cases": [],
       "signature": null,
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -173752,7 +173752,7 @@
       "required_cases": [],
       "signature": "(self, /)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -173772,7 +173772,7 @@
       "required_cases": [],
       "signature": "(self, value, /)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -173792,7 +173792,7 @@
       "required_cases": [],
       "signature": "(self, value, /)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -173812,7 +173812,7 @@
       "required_cases": [],
       "signature": "(self, dtype=None, /, *, copy=None)",
       "status": "not_implemented",
-      "target_release": "0.6"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -173872,7 +173872,7 @@
       "required_cases": [],
       "signature": "(self, /)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -173892,7 +173892,7 @@
       "required_cases": [],
       "signature": "(self, value, /)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -173912,7 +173912,7 @@
       "required_cases": [],
       "signature": "(self, value, /)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -173932,7 +173932,7 @@
       "required_cases": [],
       "signature": "(self, value, /)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -173952,7 +173952,7 @@
       "required_cases": [],
       "signature": "(self, value, /)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -173972,7 +173972,7 @@
       "required_cases": [],
       "signature": "(self, index)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -173992,7 +173992,7 @@
       "required_cases": [],
       "signature": "(self, value, /)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -174010,7 +174010,7 @@
       "required_cases": [],
       "signature": null,
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -174030,7 +174030,7 @@
       "required_cases": [],
       "signature": "(self, /)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -174050,7 +174050,7 @@
       "required_cases": [],
       "signature": "(self, /)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -174070,7 +174070,7 @@
       "required_cases": [],
       "signature": "(self, value, /)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -174090,7 +174090,7 @@
       "required_cases": [],
       "signature": "(self, /)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -174110,7 +174110,7 @@
       "required_cases": [],
       "signature": "(self, value, /)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -174130,7 +174130,7 @@
       "required_cases": [],
       "signature": "(self, value, /)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -174150,7 +174150,7 @@
       "required_cases": [],
       "signature": "(self, value, /)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -174170,7 +174170,7 @@
       "required_cases": [],
       "signature": "(self, value, /)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -174190,7 +174190,7 @@
       "required_cases": [],
       "signature": "(self, other)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -174210,7 +174210,7 @@
       "required_cases": [],
       "signature": "(self, value, /)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -174230,7 +174230,7 @@
       "required_cases": [],
       "signature": "(self, /)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -174250,7 +174250,7 @@
       "required_cases": [],
       "signature": "(self, value, /)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -174270,7 +174270,7 @@
       "required_cases": [],
       "signature": "(self, /)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -174290,7 +174290,7 @@
       "required_cases": [],
       "signature": "(self, other)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -174310,7 +174310,7 @@
       "required_cases": [],
       "signature": "(self, /)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -174330,7 +174330,7 @@
       "required_cases": [],
       "signature": "(self, value, /)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -174350,7 +174350,7 @@
       "required_cases": [],
       "signature": "(self, key, value, /)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -174370,7 +174370,7 @@
       "required_cases": [],
       "signature": "(self, /)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -174390,7 +174390,7 @@
       "required_cases": [],
       "signature": "(self, value, /)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -174410,7 +174410,7 @@
       "required_cases": [],
       "signature": "(self, value, /)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -174430,7 +174430,7 @@
       "required_cases": [],
       "signature": "(self, value, /)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -174450,7 +174450,7 @@
       "required_cases": [],
       "signature": "(self, axis=None, out=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -174470,7 +174470,7 @@
       "required_cases": [],
       "signature": "(self, axis=None, out=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -174490,7 +174490,7 @@
       "required_cases": [],
       "signature": "(self, axis=None, out=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -174510,7 +174510,7 @@
       "required_cases": [],
       "signature": "(self, axis=None, out=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -174530,7 +174530,7 @@
       "required_cases": [],
       "signature": "(self, kth, /, axis=-1, kind='introselect', order=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -174550,7 +174550,7 @@
       "required_cases": [],
       "signature": "(self, /, axis=-1, kind=None, order=None, *, stable=None, descending=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -174570,7 +174570,7 @@
       "required_cases": [],
       "signature": "(self, /, dtype, order='K', casting='unsafe', subok=True, copy=True)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -174588,7 +174588,7 @@
       "required_cases": [],
       "signature": null,
       "status": "not_implemented",
-      "target_release": "0.6"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -174608,7 +174608,7 @@
       "required_cases": [],
       "signature": "(self, /, inplace=False)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -174628,7 +174628,7 @@
       "required_cases": [],
       "signature": "(self, /, choices, out=None, mode='raise')",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -174648,7 +174648,7 @@
       "required_cases": [],
       "signature": "(self, /, min=None, max=None, out=None, **kwargs)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -174668,7 +174668,7 @@
       "required_cases": [],
       "signature": "(self, /, condition, axis=None, out=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -174688,7 +174688,7 @@
       "required_cases": [],
       "signature": "(self, /)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -174708,7 +174708,7 @@
       "required_cases": [],
       "signature": "(self, /)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -174728,7 +174728,7 @@
       "required_cases": [],
       "signature": "(self, /, order='C')",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -174746,7 +174746,7 @@
       "required_cases": [],
       "signature": null,
       "status": "not_implemented",
-      "target_release": "0.6"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -174766,7 +174766,7 @@
       "required_cases": [],
       "signature": "(self, /, axis=None, dtype=None, out=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -174786,7 +174786,7 @@
       "required_cases": [],
       "signature": "(self, /, axis=None, dtype=None, out=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -174804,7 +174804,7 @@
       "required_cases": [],
       "signature": null,
       "status": "not_implemented",
-      "target_release": "0.6"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -174822,7 +174822,7 @@
       "required_cases": [],
       "signature": null,
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -174842,7 +174842,7 @@
       "required_cases": [],
       "signature": "(self, /, offset=0, axis1=0, axis2=1)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -174862,7 +174862,7 @@
       "required_cases": [],
       "signature": "(self, other, /, out=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -174880,7 +174880,7 @@
       "required_cases": [],
       "signature": null,
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -174900,7 +174900,7 @@
       "required_cases": [],
       "signature": "(self, /, file)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -174920,7 +174920,7 @@
       "required_cases": [],
       "signature": "(self, /)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -174940,7 +174940,7 @@
       "required_cases": [],
       "signature": "(self, /, value)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -174958,7 +174958,7 @@
       "required_cases": [],
       "signature": null,
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -174976,7 +174976,7 @@
       "required_cases": [],
       "signature": null,
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -174996,7 +174996,7 @@
       "required_cases": [],
       "signature": "(self, order='C')",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -175016,7 +175016,7 @@
       "required_cases": [],
       "signature": "(self)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -175036,7 +175036,7 @@
       "required_cases": [],
       "signature": "(self)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -175056,7 +175056,7 @@
       "required_cases": [],
       "signature": "(self)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -175076,7 +175076,7 @@
       "required_cases": [],
       "signature": "(self)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -175096,7 +175096,7 @@
       "required_cases": [],
       "signature": "(self)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -175116,7 +175116,7 @@
       "required_cases": [],
       "signature": "(self, /, dtype, offset=0)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -175134,7 +175134,7 @@
       "required_cases": [],
       "signature": null,
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -175154,7 +175154,7 @@
       "required_cases": [],
       "signature": "(self, /, *args)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -175172,7 +175172,7 @@
       "required_cases": [],
       "signature": null,
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -175190,7 +175190,7 @@
       "required_cases": [],
       "signature": null,
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -175210,7 +175210,7 @@
       "required_cases": [],
       "signature": "(self, axis=None, out=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -175230,7 +175230,7 @@
       "required_cases": [],
       "signature": "(self, axis=None, dtype=None, out=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -175250,7 +175250,7 @@
       "required_cases": [],
       "signature": "(self, axis=None, out=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -175268,7 +175268,7 @@
       "required_cases": [],
       "signature": null,
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -175286,7 +175286,7 @@
       "required_cases": [],
       "signature": null,
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -175306,7 +175306,7 @@
       "required_cases": [],
       "signature": "(self, /)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -175326,7 +175326,7 @@
       "required_cases": [],
       "signature": "(self, kth, /, axis=-1, kind='introselect', order=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -175346,7 +175346,7 @@
       "required_cases": [],
       "signature": "(self, axis=None, dtype=None, out=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -175366,7 +175366,7 @@
       "required_cases": [],
       "signature": "(self, axis=None, out=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -175386,7 +175386,7 @@
       "required_cases": [],
       "signature": "(self, indices, values, /, mode='raise')",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -175406,7 +175406,7 @@
       "required_cases": [],
       "signature": "(self, order='C')",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -175424,7 +175424,7 @@
       "required_cases": [],
       "signature": null,
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -175444,7 +175444,7 @@
       "required_cases": [],
       "signature": "(self, repeats, /, axis=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -175464,7 +175464,7 @@
       "required_cases": [],
       "signature": "(self, /, *shape, order='C', copy=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -175484,7 +175484,7 @@
       "required_cases": [],
       "signature": "(self, /, *new_shape, refcheck=True)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -175504,7 +175504,7 @@
       "required_cases": [],
       "signature": "(self, /, decimals=0, out=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -175524,7 +175524,7 @@
       "required_cases": [],
       "signature": "(self, v, /, side='left', sorter=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -175544,7 +175544,7 @@
       "required_cases": [],
       "signature": "(self, val, /, dtype, offset=0)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -175564,7 +175564,7 @@
       "required_cases": [],
       "signature": "(self, /, *, write=None, align=None, uic=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -175582,7 +175582,7 @@
       "required_cases": [],
       "signature": null,
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -175600,7 +175600,7 @@
       "required_cases": [],
       "signature": null,
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -175620,7 +175620,7 @@
       "required_cases": [],
       "signature": "(self, /, axis=-1, kind=None, order=None, *, stable=None, descending=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -175640,7 +175640,7 @@
       "required_cases": [],
       "signature": "(self, axis=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -175660,7 +175660,7 @@
       "required_cases": [],
       "signature": "(self, axis=None, dtype=None, out=None, ddof=0)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -175678,7 +175678,7 @@
       "required_cases": [],
       "signature": null,
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -175698,7 +175698,7 @@
       "required_cases": [],
       "signature": "(self, axis=None, dtype=None, out=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -175718,7 +175718,7 @@
       "required_cases": [],
       "signature": "(self, axis1, axis2, /)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -175738,7 +175738,7 @@
       "required_cases": [],
       "signature": "(self, indices, /, axis=None, out=None, mode='raise')",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -175758,7 +175758,7 @@
       "required_cases": [],
       "signature": "(self, device, /, *, stream=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -175778,7 +175778,7 @@
       "required_cases": [],
       "signature": "(self, /, order='C')",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -175798,7 +175798,7 @@
       "required_cases": [],
       "signature": "(self, fid, /, sep='', format='%s')",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -175818,7 +175818,7 @@
       "required_cases": [],
       "signature": "(self)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -175838,7 +175838,7 @@
       "required_cases": [],
       "signature": "(self, /, offset=0, axis1=0, axis2=1, dtype=None, out=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -175858,7 +175858,7 @@
       "required_cases": [],
       "signature": "(self, /, *axes)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -175878,7 +175878,7 @@
       "required_cases": [],
       "signature": "(self, axis=None, dtype=None, out=None, ddof=0)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -175898,7 +175898,7 @@
       "required_cases": [],
       "signature": "(self, /, *args, **kwargs)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.8"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -175918,7 +175918,7 @@
       "required_cases": [],
       "signature": "(x, /)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.4"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -175938,7 +175938,7 @@
       "required_cases": [],
       "signature": "(data, dtype=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.4"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -175958,7 +175958,7 @@
       "required_cases": [],
       "signature": "(obj, ldict=None, gdict=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.4"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -175976,7 +175976,7 @@
       "required_cases": [],
       "signature": null,
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.4"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -175994,7 +175994,7 @@
       "required_cases": [],
       "signature": null,
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.4"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -176014,7 +176014,7 @@
       "required_cases": [],
       "signature": "(data, dtype=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.4"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -176032,7 +176032,7 @@
       "required_cases": [],
       "signature": null,
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.4"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -176052,7 +176052,7 @@
       "required_cases": [],
       "signature": "(obj, ldict=None, gdict=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.4"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -176072,7 +176072,7 @@
       "required_cases": [],
       "signature": "(arrays, /, axis=0, out=None, *, dtype=None, casting='same_kind')",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.4"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -176092,7 +176092,7 @@
       "required_cases": [],
       "signature": "(element)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.4"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -176111,7 +176111,7 @@
       "required_cases": [],
       "signature": "(data, dtype=None, copy=True)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.4"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -176131,7 +176131,7 @@
       "required_cases": [],
       "signature": "(a, n)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.4"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -176151,7 +176151,7 @@
       "required_cases": [],
       "signature": "(module)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.4"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -176169,7 +176169,7 @@
       "required_cases": [],
       "signature": null,
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.4"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -176187,7 +176187,7 @@
       "required_cases": [],
       "signature": null,
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.4"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -176206,7 +176206,7 @@
       "required_cases": [],
       "signature": "(data, dtype=None, copy=True)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.4"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -176226,7 +176226,7 @@
       "required_cases": [],
       "signature": "(label='fast', verbose=1, extra_argv=None, doctests=False, coverage=False, durations=-1, tests=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.4"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -176244,7 +176244,7 @@
       "required_cases": [],
       "signature": null,
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.4"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -176264,7 +176264,7 @@
       "required_cases": [],
       "signature": "(x1, x2, /, out=None, *, axes=<no value>, axis=<no value>, keepdims=False, casting='same_kind', order='K', dtype=None, subok=True, signature=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.5"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -176284,7 +176284,7 @@
       "required_cases": [],
       "signature": "(array, /, axis=0, dtype=None, out=None)",
       "status": "not_implemented",
-      "target_release": "0.3"
+      "target_release": "0.5"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -176304,7 +176304,7 @@
       "required_cases": [],
       "signature": "(a, indices, b=None, /)",
       "status": "not_implemented",
-      "target_release": "0.3"
+      "target_release": "0.5"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -176324,7 +176324,7 @@
       "required_cases": [],
       "signature": "(A, B, /, **kwargs)",
       "status": "not_implemented",
-      "target_release": "0.3"
+      "target_release": "0.5"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -176344,7 +176344,7 @@
       "required_cases": [],
       "signature": "(array, /, axis=0, dtype=None, out=None, **kwargs)",
       "status": "not_implemented",
-      "target_release": "0.3"
+      "target_release": "0.5"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -176364,7 +176364,7 @@
       "required_cases": [],
       "signature": "(array, /, indices, axis=0, dtype=None, out=None)",
       "status": "not_implemented",
-      "target_release": "0.3"
+      "target_release": "0.5"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -176384,7 +176384,7 @@
       "required_cases": [],
       "signature": "(a, axis=None, out=None, keepdims=<no value>, initial=<no value>, where=<no value>)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.4"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -176404,7 +176404,7 @@
       "required_cases": [],
       "signature": "(x1, x2, /, out=None, *, where=True, casting='same_kind', order='K', dtype=None, subok=True, signature=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.3"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -176524,7 +176524,7 @@
       "required_cases": [],
       "signature": "(a, b, /, max_work=0)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.4"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -180038,7 +180038,7 @@
       "required_cases": [],
       "signature": "(self, value, /)",
       "status": "not_implemented",
-      "target_release": "0.3"
+      "target_release": "0.5"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -217280,7 +217280,7 @@
       "required_cases": [],
       "signature": "(x, /, out=None, *, where=True, casting='same_kind', order='K', dtype=None, subok=True, signature=None)",
       "status": "not_implemented",
-      "target_release": "0.7"
+      "target_release": "0.3"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -220105,7 +220105,7 @@
       "required_cases": [],
       "signature": "(all=None, divide=None, over=None, under=None, invalid=None)",
       "status": "not_implemented",
-      "target_release": "0.4"
+      "target_release": "0.3"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -220125,7 +220125,7 @@
       "required_cases": [],
       "signature": "(func)",
       "status": "not_implemented",
-      "target_release": "0.4"
+      "target_release": "0.3"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -239468,7 +239468,7 @@
       "required_cases": [],
       "signature": "()",
       "status": "not_implemented",
-      "target_release": "0.4"
+      "target_release": "0.3"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -239668,7 +239668,7 @@
       "required_cases": [],
       "signature": "(self, array, /, axis=0, dtype=None, out=None)",
       "status": "not_implemented",
-      "target_release": "0.4"
+      "target_release": "0.3"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -239688,7 +239688,7 @@
       "required_cases": [],
       "signature": "(self, a, indices, b=None, /)",
       "status": "not_implemented",
-      "target_release": "0.4"
+      "target_release": "0.3"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -239798,7 +239798,7 @@
       "required_cases": [],
       "signature": "(self, A, B, /, **kwargs)",
       "status": "not_implemented",
-      "target_release": "0.4"
+      "target_release": "0.3"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -239818,7 +239818,7 @@
       "required_cases": [],
       "signature": "(self, array, /, axis=0, dtype=None, out=None, **kwargs)",
       "status": "not_implemented",
-      "target_release": "0.4"
+      "target_release": "0.3"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -239838,7 +239838,7 @@
       "required_cases": [],
       "signature": "(self, array, /, indices, axis=0, dtype=None, out=None)",
       "status": "not_implemented",
-      "target_release": "0.4"
+      "target_release": "0.3"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -261547,7 +261547,7 @@
       "required_cases": [],
       "signature": "(x1, x2, /, out=None, *, axes=<no value>, axis=<no value>, keepdims=False, casting='same_kind', order='K', dtype=None, subok=True, signature=None)",
       "status": "not_implemented",
-      "target_release": "0.3"
+      "target_release": "0.5"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -261567,7 +261567,7 @@
       "required_cases": [],
       "signature": "(array, /, axis=0, dtype=None, out=None)",
       "status": "not_implemented",
-      "target_release": "0.3"
+      "target_release": "0.5"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -261587,7 +261587,7 @@
       "required_cases": [],
       "signature": "(a, indices, b=None, /)",
       "status": "not_implemented",
-      "target_release": "0.3"
+      "target_release": "0.5"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -261607,7 +261607,7 @@
       "required_cases": [],
       "signature": "(A, B, /, **kwargs)",
       "status": "not_implemented",
-      "target_release": "0.3"
+      "target_release": "0.5"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -261627,7 +261627,7 @@
       "required_cases": [],
       "signature": "(array, /, axis=0, dtype=None, out=None, **kwargs)",
       "status": "not_implemented",
-      "target_release": "0.3"
+      "target_release": "0.5"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -261647,7 +261647,7 @@
       "required_cases": [],
       "signature": "(array, /, indices, axis=0, dtype=None, out=None)",
       "status": "not_implemented",
-      "target_release": "0.3"
+      "target_release": "0.5"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -261667,7 +261667,7 @@
       "required_cases": [],
       "signature": "(x1, x2, /, out=None, *, axes=<no value>, axis=<no value>, keepdims=False, casting='same_kind', order='K', dtype=None, subok=True, signature=None)",
       "status": "not_implemented",
-      "target_release": "0.3"
+      "target_release": "0.5"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -261687,7 +261687,7 @@
       "required_cases": [],
       "signature": "(array, /, axis=0, dtype=None, out=None)",
       "status": "not_implemented",
-      "target_release": "0.3"
+      "target_release": "0.5"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -261707,7 +261707,7 @@
       "required_cases": [],
       "signature": "(a, indices, b=None, /)",
       "status": "not_implemented",
-      "target_release": "0.3"
+      "target_release": "0.5"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -261727,7 +261727,7 @@
       "required_cases": [],
       "signature": "(A, B, /, **kwargs)",
       "status": "not_implemented",
-      "target_release": "0.3"
+      "target_release": "0.5"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -261747,7 +261747,7 @@
       "required_cases": [],
       "signature": "(array, /, axis=0, dtype=None, out=None, **kwargs)",
       "status": "not_implemented",
-      "target_release": "0.3"
+      "target_release": "0.5"
     },
     {
       "case_plan_status": "planned_not_authored",
@@ -261767,7 +261767,7 @@
       "required_cases": [],
       "signature": "(array, /, indices, axis=0, dtype=None, out=None)",
       "status": "not_implemented",
-      "target_release": "0.3"
+      "target_release": "0.5"
     },
     {
       "case_plan_status": "planned_not_authored",

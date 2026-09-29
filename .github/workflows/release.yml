@@ -78,7 +78,7 @@ jobs:
               raise SystemExit(f"compatibility contract {contract_path} does not match package version {version}")
           status = contract.get("status")
           allowed_statuses = {"release_candidate", "published"} if tagged_version else {
-              "in_progress", "release_candidate", "published"
+              "in_progress", "implementation_in_progress", "release_candidate", "published"
           }
           if status not in allowed_statuses:
               raise SystemExit(f"contract status {status!r} is not eligible for {'tagged release' if tagged_version else 'build-only validation'}")
@@ -138,7 +138,7 @@ jobs:
       - uses: Swatinem/rust-cache@v2
 
       - name: Check preview formatting
-        run: rustfmt --edition 2021 --check raptors-storage/src/lib.rs raptors-python/src/preview.rs raptors-python/src/preview_lib.rs raptors-python/build.rs
+        run: rustfmt --edition 2021 --check raptors-storage/src/lib.rs raptors-storage/src/ufunc.rs raptors-storage/src/ufunc_loop_resolver.rs raptors-storage/src/ufunc_signatures.rs raptors-python/src/preview.rs raptors-python/src/preview/ufunc.rs raptors-python/src/preview_lib.rs raptors-python/build.rs
 
       - name: Keep raw-pointer code out of preview storage
         run: |

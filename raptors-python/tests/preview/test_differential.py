@@ -1368,9 +1368,8 @@ def test_view_keeps_allocation_alive_after_original_is_deleted():
     assert_array_matches(expected_view, actual_view)
 
 
-def test_unsupported_surface_is_absent_or_fails_clearly():
-    assert not hasattr(raptors, "add")
+def test_phase_03_ufuncs_work_while_later_matrix_operations_stay_absent():
+    assert not hasattr(raptors, "matmul")
     value = raptors.array([1, 2], dtype=raptors.int64)
     assert_array_matches(np.array([1, 2], dtype=np.int64).reshape((1, 2)), value.reshape((1, 2)))
-    with pytest.raises(TypeError):
-        _ = value + value
+    assert_array_matches(np.array([2, 4], dtype=np.int64), value + value)
