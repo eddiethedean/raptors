@@ -1203,6 +1203,99 @@ def test_reduce_empty_identity_initial_and_output_match_numpy():
     _assert_ufunc_result_matches(expected, actual, exact=True)
 
 
+@pytest.mark.parametrize(
+    "name",
+    [
+        "arctan2",
+        "copysign",
+        "divide",
+        "float_power",
+        "heaviside",
+        "hypot",
+        "ldexp",
+        "logaddexp",
+        "logaddexp2",
+        "nextafter",
+    ],
+)
+def test_reductions_use_resolved_loop_dtypes(name):
+    expected_values = np.array([2, 3, 1], dtype=np.int64)
+    actual_values = raptors.array([2, 3, 1], dtype=raptors.int64)
+    expected_ufunc = getattr(np, name)
+    actual_ufunc = getattr(raptors, name)
+
+    expected = expected_ufunc.reduce(expected_values)
+    actual = actual_ufunc.reduce(actual_values)
+    _assert_ufunc_result_matches(expected, actual)
+
+    if name != "ldexp":
+        expected = expected_ufunc.reduceat(expected_values, [0, 2])
+        actual = actual_ufunc.reduceat(
+            actual_values,
+            raptors.array([0, 2], dtype=raptors.int64),
+        )
+        _assert_ufunc_result_matches(expected, actual)
+
+
+@pytest.mark.parametrize("name", ["equal", "ldexp"])
+@pytest.mark.parametrize("method", ["accumulate", "reduceat"])
+def test_repeated_methods_reject_incompatible_loops(name, method):
+    expected_values = np.array([2, 3, 1], dtype=np.int64)
+    actual_values = raptors.array([2, 3, 1], dtype=raptors.int64)
+    expected_ufunc = getattr(np, name)
+    actual_ufunc = getattr(raptors, name)
+
+    with pytest.raises(TypeError):
+        if method == "reduceat":
+            expected_ufunc.reduceat(expected_values, [0, 2])
+        else:
+            expected_ufunc.accumulate(expected_values)
+    with pytest.raises(TypeError):
+        if method == "reduceat":
+            actual_ufunc.reduceat(
+                actual_values,
+                raptors.array([0, 2], dtype=raptors.int64),
+            )
+        else:
+            actual_ufunc.accumulate(actual_values)
+
+
+@pytest.mark.parametrize(
+    "name",
+    ["equal", "not_equal", "less", "less_equal", "greater", "greater_equal"],
+)
+@pytest.mark.parametrize(
+    "numpy_dtype,raptors_dtype",
+    [(np.int64, raptors.int64), (np.float64, raptors.float64)],
+)
+def test_comparison_reduce_rejects_non_boolean_loop_outputs(
+    name, numpy_dtype, raptors_dtype
+):
+    expected_values = np.array([1, 1, 2], dtype=numpy_dtype)
+    actual_values = raptors.array([1, 1, 2], dtype=raptors_dtype)
+
+    with pytest.raises(TypeError):
+        getattr(np, name).reduce(expected_values)
+    with pytest.raises(TypeError):
+        getattr(raptors, name).reduce(actual_values)
+
+    expected_bool = np.array([True, False, True], dtype=np.bool_)
+    actual_bool = raptors.array([True, False, True], dtype=raptors.bool_)
+    expected = getattr(np, name).reduce(expected_bool)
+    actual = getattr(raptors, name).reduce(actual_bool)
+    _assert_ufunc_result_matches(expected, actual, exact=True)
+
+
+@pytest.mark.parametrize("name", ["logaddexp", "logaddexp2"])
+def test_float_identity_reduces_empty_integer_input(name):
+    expected_values = np.empty((0,), dtype=np.int64)
+    actual_values = raptors.empty((0,), dtype=raptors.int64)
+
+    expected = getattr(np, name).reduce(expected_values)
+    actual = getattr(raptors, name).reduce(actual_values)
+    _assert_ufunc_result_matches(expected, actual, exact=True)
+
+
 def test_accumulate_reduceat_negative_axis_boundaries_and_empty_indices_match_numpy():
     expected_values = np.array([[1, 2, 3], [4, 5, 6]], dtype=np.int64)
     actual_values = raptors.array([[1, 2, 3], [4, 5, 6]], dtype=raptors.int64)
