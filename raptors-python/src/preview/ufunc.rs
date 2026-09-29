@@ -1851,15 +1851,12 @@ fn call(
         // prevents one output from changing when a later output is invalid.
         let mut result_objects = Vec::with_capacity(nout);
         for index in 0..nout {
-            if let (Some(view), Some(cast)) = (&out_views[index], &cast_values[index]) {
-                for (linear, value) in cast.iter().cloned().enumerate() {
-                    let coordinates = coordinates_for_shape(&shape, linear);
-                    if selected_elements[linear] {
-                        view.write_at(&coordinates, value)
-                            .map_err(map_storage_error)?;
-                    }
-                }
-                result_objects.push(out_items[index].clone().unbind());
+            if out_views[index].is_some() {
+                result_objects.push(Some(out_items[index].clone().unbind()));
+            } else if shape.is_empty() {
+                // NumPy returns a scalar for a 0-D result when the matching
+                // out entry is None, even when another output has an array.
+                result_objects.push(None);
             } else {
                 let view = make_output_view(
                     outputs[index],
@@ -1869,7 +1866,7 @@ fn call(
                     &operands,
                     None,
                 )?;
-                result_objects.push(
+                result_objects.push(Some(
                     Py::new(
                         py,
                         PyArray {
@@ -1878,10 +1875,36 @@ fn call(
                         },
                     )?
                     .into_any(),
-                );
+                ));
+            }
+        }
+        // NumPy's multi-output loops write all outputs for one element before
+        // moving to the next element. Keep that order when output views alias.
+        for linear in 0..size {
+            if !selected_elements[linear] {
+                continue;
+            }
+            let coordinates = coordinates_for_shape(&shape, linear);
+            for index in 0..nout {
+                if let (Some(view), Some(cast)) = (&out_views[index], &cast_values[index]) {
+                    view.write_at(&coordinates, cast[linear].clone())
+                        .map_err(map_storage_error)?;
+                }
             }
         }
         report_errors(py, name, error_flags)?;
+        let mut result_objects = result_objects
+            .into_iter()
+            .enumerate()
+            .map(|(index, object)| match object {
+                Some(object) => Ok(object),
+                None => scalar_to_python(
+                    py,
+                    values[index][0].clone(),
+                    inferred_output_alias(name, &operands, outputs[index]),
+                ),
+            })
+            .collect::<PyResult<Vec<_>>>()?;
         return if nout == 1 {
             Ok(result_objects.remove(0))
         } else {
@@ -1905,7 +1928,7 @@ fn call(
         });
     }
     report_errors(py, name, error_flags)?;
-    if !operands.iter().any(|x| x.is_array) {
+    if shape.is_empty() {
         let output_scalars = arrays
             .iter()
             .map(|array| array.inner.read_at(&[]).map_err(map_storage_error))
@@ -3389,6 +3412,12 @@ fn outer(
             out_views.push(Some(view));
             cast_values.push(Some(cast));
             result_objects.push(Some(item.clone().unbind()));
+        } else if shape.is_empty() {
+            // A missing 0-D output is a NumPy scalar, including with an
+            // explicit out tuple containing None.
+            out_views.push(None);
+            cast_values.push(None);
+            result_objects.push(None);
         } else {
             let view = make_output_view(
                 outputs[index],
@@ -3411,19 +3440,32 @@ fn outer(
             result_objects.push(Some(object));
         }
     }
-    for index in 0..nout {
-        if let (Some(view), Some(cast)) = (&out_views[index], &cast_values[index]) {
-            for (linear, value) in cast.iter().cloned().enumerate() {
-                let coordinates = coordinates_for_shape(&shape, linear);
-                if selected_elements[linear] {
-                    view.write_at(&coordinates, value)
-                        .map_err(map_storage_error)?;
-                }
+    // Match NumPy's output-by-output inner loop for aliased output views.
+    for linear in 0..size {
+        if !selected_elements[linear] {
+            continue;
+        }
+        let coordinates = coordinates_for_shape(&shape, linear);
+        for index in 0..nout {
+            if let (Some(view), Some(cast)) = (&out_views[index], &cast_values[index]) {
+                view.write_at(&coordinates, cast[linear].clone())
+                    .map_err(map_storage_error)?;
             }
         }
     }
     report_errors(py, name, error_flags)?;
-    let mut objects = result_objects.into_iter().flatten().collect::<Vec<_>>();
+    let mut objects = result_objects
+        .into_iter()
+        .enumerate()
+        .map(|(index, object)| match object {
+            Some(object) => Ok(object),
+            None => scalar_to_python(
+                py,
+                values[index][0].clone(),
+                inferred_output_alias(name, &operands, outputs[index]),
+            ),
+        })
+        .collect::<PyResult<Vec<_>>>()?;
     if nout == 1 {
         Ok(objects.remove(0))
     } else {

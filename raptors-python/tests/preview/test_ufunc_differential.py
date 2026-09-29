@@ -355,6 +355,48 @@ def test_multi_output_ufunc_out_tuple_and_positional_outputs_match_numpy():
     _assert_ufunc_result_matches(expected, actual, exact=True)
 
 
+def test_zero_dimensional_ufunc_calls_and_outer_return_scalars():
+    expected_value = np.array(1, dtype=np.int64)
+    actual_value = raptors.array(1, dtype=raptors.int64)
+    expected = np.add(expected_value, expected_value)
+    actual = raptors.add(actual_value, actual_value)
+    assert not isinstance(actual, raptors.Array)
+    _assert_ufunc_result_matches(expected, actual, exact=True)
+
+    expected = np.add.outer(expected_value, np.array(2, dtype=np.int64))
+    actual = raptors.add.outer(actual_value, raptors.array(2, dtype=raptors.int64))
+    assert not isinstance(actual, raptors.Array)
+    _assert_ufunc_result_matches(expected, actual, exact=True)
+
+    expected = np.modf(np.array(1.5, dtype=np.float64))
+    actual = raptors.modf(raptors.array(1.5, dtype=raptors.float64))
+    assert all(not isinstance(value, raptors.Array) for value in actual)
+    _assert_ufunc_result_matches(expected, actual, exact=True)
+
+    expected_out = np.empty((), dtype=np.float64)
+    actual_out = raptors.empty((), dtype=raptors.float64)
+    expected = np.modf(np.array(1.5), out=(expected_out, None))
+    actual = raptors.modf(raptors.array(1.5), out=(actual_out, None))
+    assert actual[0] is actual_out
+    assert not isinstance(actual[1], raptors.Array)
+    _assert_ufunc_result_matches(expected, actual, exact=True)
+
+
+def test_overlapping_multi_output_ufuncs_write_all_outputs_per_element():
+    expected_base = np.zeros(4, dtype=np.float64)
+    actual_base = raptors.zeros(4, dtype=raptors.float64)
+    expected = np.modf(
+        np.array([0.25, 1.5, 2.25]),
+        out=(expected_base[:-1], expected_base[1:]),
+    )
+    actual = raptors.modf(
+        raptors.array([0.25, 1.5, 2.25], dtype=raptors.float64),
+        out=(actual_base[:-1], actual_base[1:]),
+    )
+    _assert_ufunc_result_matches(expected, actual, exact=True)
+    _assert_ufunc_result_matches(expected_base, actual_base, exact=True)
+
+
 def test_multi_output_where_preserves_each_output_and_preflights_all_outputs():
     expected_values = np.array([-2.75, 3.5, 4.25], dtype=np.float64)
     actual_values = raptors.array([-2.75, 3.5, 4.25], dtype=raptors.float64)
@@ -905,6 +947,123 @@ def test_complex_inverse_tan_branch_cuts_match_numpy(dtype, name, values):
         expected = getattr(np, name)(values)
         actual = getattr(raptors, name)(actual_values)
     _assert_ufunc_result_matches(expected, actual)
+
+
+@pytest.mark.parametrize(
+    "dtype",
+    [np.complex64, np.complex128, np.clongdouble],
+    ids=lambda dtype: np.dtype(dtype).name,
+)
+def test_complex_arctanh_is_stable_near_branch_points(dtype):
+    values = np.array(
+        [
+            complex(-0.0, 0.0),
+            complex(1e-20, -1e-20),
+            complex(-1.0, 1e-20),
+            complex(1.0, 0.0),
+            complex(1.0, -0.0),
+            complex(-1.0, 0.0),
+            complex(-1.0, -0.0),
+        ],
+        dtype=dtype,
+    )
+    actual_values = raptors.array(
+        [complex(value) for value in values],
+        dtype=_raptors_dtype_for_numpy(values.dtype),
+    )
+    with np.errstate(all="ignore"), raptors.errstate(all="ignore"):
+        expected = np.arctanh(values)
+        actual = raptors.arctanh(actual_values)
+    _assert_ufunc_result_matches(expected, actual)
+
+
+@pytest.mark.parametrize("dtype", [np.complex64, np.complex128])
+def test_complex_acosh_preserves_negative_zero_on_lower_branch_cut(dtype):
+    values = np.array([complex(-2.0, 0.0), complex(-2.0, -0.0)], dtype=dtype)
+    actual_values = raptors.array(
+        [complex(value) for value in values],
+        dtype=_raptors_dtype_for_numpy(values.dtype),
+    )
+    with np.errstate(all="ignore"), raptors.errstate(all="ignore"):
+        expected = np.arccosh(values)
+        actual = raptors.arccosh(actual_values)
+    _assert_ufunc_result_matches(expected, actual)
+    actual_imaginary = np.array(
+        [_as_comparable(actual[index]).imag for index in range(len(values))]
+    )
+    assert np.array_equal(np.signbit(actual_imaginary), np.signbit(expected.imag))
+
+
+@pytest.mark.parametrize(
+    "dtype,raptors_dtype,tan_value,tanh_value",
+    [
+        (np.complex64, raptors.complex64, 90.0, 90.0),
+        (np.complex128, raptors.complex128, 710.0, 710.0),
+    ],
+)
+def test_complex_tan_and_tanh_avoid_overflow_for_finite_inputs(
+    dtype, raptors_dtype, tan_value, tanh_value
+):
+    tan_inputs = np.array([complex(1.0, tan_value)], dtype=dtype)
+    tan_actual_inputs = raptors.array([complex(tan_inputs[0])], dtype=raptors_dtype)
+    tanh_inputs = np.array([complex(tanh_value, 1.0)], dtype=dtype)
+    tanh_actual_inputs = raptors.array([complex(tanh_inputs[0])], dtype=raptors_dtype)
+    with np.errstate(all="ignore"), raptors.errstate(all="ignore"):
+        expected_tan = np.tan(tan_inputs)
+        actual_tan = raptors.tan(tan_actual_inputs)
+        expected_tanh = np.tanh(tanh_inputs)
+        actual_tanh = raptors.tanh(tanh_actual_inputs)
+    _assert_ufunc_result_matches(expected_tan, actual_tan)
+    _assert_ufunc_result_matches(expected_tanh, actual_tanh)
+
+
+@pytest.mark.parametrize(
+    "dtype,raptors_dtype",
+    [(np.complex64, raptors.complex64), (np.complex128, raptors.complex128)],
+)
+def test_complex_asinh_large_negative_values_match_numpy(dtype, raptors_dtype):
+    values = np.array([complex(-100.0, -100.0)], dtype=dtype)
+    actual_values = raptors.array([complex(values[0])], dtype=raptors_dtype)
+    with np.errstate(all="ignore"), raptors.errstate(all="ignore"):
+        expected = np.arcsinh(values)
+        actual = raptors.arcsinh(actual_values)
+    _assert_ufunc_result_matches(expected, actual)
+
+
+@pytest.mark.parametrize(
+    "dtype",
+    [np.complex64, np.complex128, np.clongdouble],
+    ids=lambda dtype: np.dtype(dtype).name,
+)
+def test_complex_divide_by_zero_matches_numpy_values_and_error_flags(dtype):
+    values = np.array([1.0 + 2.0j, 1.0 + 0.0j, 0.0 + 0.0j], dtype=dtype)
+    zeros = np.zeros(3, dtype=dtype)
+    actual_values = raptors.array(
+        [complex(value) for value in values], dtype=_raptors_dtype_for_numpy(values.dtype)
+    )
+    actual_zeros = raptors.zeros(3, dtype=_raptors_dtype_for_numpy(zeros.dtype))
+
+    with warnings.catch_warnings(record=True) as expected_caught:
+        warnings.simplefilter("always")
+        with np.errstate(all="warn"):
+            expected = np.divide(values, zeros)
+    with warnings.catch_warnings(record=True) as actual_caught:
+        warnings.simplefilter("always")
+        with raptors.errstate(all="warn"):
+            actual = raptors.divide(actual_values, actual_zeros)
+
+    _assert_ufunc_result_matches(expected, actual)
+    assert [(item.category, str(item.message)) for item in actual_caught] == [
+        (item.category, str(item.message)) for item in expected_caught
+    ]
+
+
+def test_float16_spacing_negative_values_matches_numpy():
+    values = np.array([-1.0, -0.0, 0.0, 1.0], dtype=np.float16)
+    actual_values = raptors.array(values.tolist(), dtype=raptors.float16)
+    expected = np.spacing(values)
+    actual = raptors.spacing(actual_values)
+    _assert_ufunc_result_matches(expected, actual, exact=True)
 
 
 @pytest.mark.parametrize(

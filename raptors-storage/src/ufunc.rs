@@ -479,7 +479,7 @@ pub fn binary(
             "add" => a + b,
             "subtract" => a - b,
             "multiply" => a * b,
-            "divide" | "true_divide" => a / b,
+            "divide" | "true_divide" => complex_divide_f64(a, b),
             "power" | "pow" | "float_power" => {
                 if a.re == 0.0 && a.im == 0.0 && b.re < 0.0 {
                     Complex::new(f64::NAN, f64::NAN)
@@ -905,9 +905,9 @@ fn unary_float_or_complex(name: &str, value: Scalar, dtype: DType) -> Result<Sca
         let z = Complex::new(re, im);
         let result = match name {
             "acos" | "arccos" => complex_acos_f64(z),
-            "acosh" | "arccosh" => z.acosh(),
+            "acosh" | "arccosh" => complex_acosh_f64(z),
             "asin" | "arcsin" => complex_asin_f64(z),
-            "asinh" | "arcsinh" => z.asinh(),
+            "asinh" | "arcsinh" => complex_asinh_f64(z),
             "atan" | "arctan" => complex_atan_f64(z),
             "atanh" | "arctanh" => complex_atanh_f64(z),
             "cos" => z.cos(),
@@ -923,9 +923,9 @@ fn unary_float_or_complex(name: &str, value: Scalar, dtype: DType) -> Result<Sca
             "sin" => z.sin(),
             "sinh" => z.sinh(),
             "sqrt" => z.sqrt(),
-            "tan" => z.tan(),
-            "tanh" => z.tanh(),
-            "reciprocal" => Complex::new(1.0, 0.0) / z,
+            "tan" => complex_tan_f64(z),
+            "tanh" => complex_tanh_f64(z),
+            "reciprocal" => complex_divide_f64(Complex::new(1.0, 0.0), z),
             "square" => z * z,
             "positive" => z,
             "negative" => -z,
@@ -1024,9 +1024,9 @@ fn unary_float32(name: &str, x: f32) -> Result<f32, StorageError> {
 fn unary_complex64(name: &str, z: Complex<f32>) -> Result<Scalar, StorageError> {
     let result = match name {
         "acos" | "arccos" => complex_acos_f32(z),
-        "acosh" | "arccosh" => z.acosh(),
+        "acosh" | "arccosh" => complex_acosh_f32(z),
         "asin" | "arcsin" => complex_asin_f32(z),
-        "asinh" | "arcsinh" => z.asinh(),
+        "asinh" | "arcsinh" => complex_asinh_f32(z),
         "atan" | "arctan" => complex_atan_f32(z),
         "atanh" | "arctanh" => complex_atanh_f32(z),
         "cos" => z.cos(),
@@ -1042,9 +1042,9 @@ fn unary_complex64(name: &str, z: Complex<f32>) -> Result<Scalar, StorageError> 
         "sin" => z.sin(),
         "sinh" => z.sinh(),
         "sqrt" => z.sqrt(),
-        "tan" => z.tan(),
-        "tanh" => z.tanh(),
-        "reciprocal" => Complex::new(1.0, 0.0) / z,
+        "tan" => complex_tan_f32(z),
+        "tanh" => complex_tanh_f32(z),
+        "reciprocal" => complex_divide_f32(Complex::new(1.0, 0.0), z),
         "square" => z * z,
         "positive" => z,
         "negative" => -z,
@@ -1105,14 +1105,99 @@ fn complex_atanh_f64(z: Complex<f64>) -> Complex<f64> {
         return z.atanh();
     }
 
-    let denominator = 1.0 - z.re * z.re - z.im * z.im;
-    let magnitude = (1.0 - z.re) * (1.0 - z.re) + z.im * z.im;
-    let real = if magnitude == 0.0 {
-        0.25 * (((1.0 + z.re) * (1.0 + z.re) + z.im * z.im).ln() - magnitude.ln())
+    // The difference of log distances avoids cancellation at either real
+    // branch point, including inputs such as -1 + 1e-20j.
+    let real = if z.re.abs() < 0.5 {
+        let denominator = (1.0 - z.re) * (1.0 - z.re) + z.im * z.im;
+        0.25 * (4.0 * z.re / denominator).ln_1p()
     } else {
-        0.25 * (4.0 * z.re / magnitude).ln_1p()
+        let numerator_distance = (1.0 + z.re).hypot(z.im);
+        let denominator_distance = (1.0 - z.re).hypot(z.im);
+        0.5 * (numerator_distance.ln() - denominator_distance.ln())
     };
-    Complex::new(real, (2.0 * z.im).atan2(denominator) * 0.5)
+    let principal_imaginary = (2.0 * z.im).atan2(1.0 - z.re * z.re - z.im * z.im) * 0.5;
+    // NumPy's Apple complex loop returns pi/4 at exact branch endpoints;
+    // other platforms preserve atan2's signed-zero result there.
+    #[cfg(target_os = "macos")]
+    let imaginary = if z.im == 0.0 && z.re.abs() == 1.0 {
+        std::f64::consts::FRAC_PI_4.copysign(z.im)
+    } else {
+        principal_imaginary
+    };
+    #[cfg(not(target_os = "macos"))]
+    let imaginary = principal_imaginary;
+    Complex::new(real, imaginary)
+}
+
+fn complex_acosh_f64(z: Complex<f64>) -> Complex<f64> {
+    let mut result = z.acosh();
+    if z.im == 0.0 && z.re < 1.0 {
+        result.im = result.im.abs().copysign(z.im);
+    }
+    result
+}
+
+fn complex_asinh_f64(z: Complex<f64>) -> Complex<f64> {
+    // Reflect the negative-real half-plane before evaluating. The direct
+    // formula can lose precision when large negative components nearly
+    // cancel in z + sqrt(z*z + 1).
+    if z.re < 0.0 {
+        -(-z).asinh()
+    } else {
+        z.asinh()
+    }
+}
+
+fn complex_tan_f64(z: Complex<f64>) -> Complex<f64> {
+    let (x, y) = (z.re, z.im);
+    if y.abs() < 20.0 {
+        return z.tan();
+    }
+
+    // Divide numerator and denominator by cosh(2|y|) to avoid overflow.
+    let decay = (-2.0 * y.abs()).exp();
+    let decay_squared = decay * decay;
+    let denominator = 1.0 + decay_squared + 2.0 * (2.0 * x).cos() * decay;
+    Complex::new(
+        2.0 * (2.0 * x).sin() * decay / denominator,
+        y.signum() * (1.0 - decay_squared) / denominator,
+    )
+}
+
+fn complex_tanh_f64(z: Complex<f64>) -> Complex<f64> {
+    let (x, y) = (z.re, z.im);
+    if x.abs() < 20.0 {
+        return z.tanh();
+    }
+
+    // Divide numerator and denominator by cosh(2|x|) to avoid overflow.
+    let decay = (-2.0 * x.abs()).exp();
+    let decay_squared = decay * decay;
+    let denominator = 1.0 + decay_squared + 2.0 * (2.0 * y).cos() * decay;
+    Complex::new(
+        x.signum() * (1.0 - decay_squared) / denominator,
+        2.0 * (2.0 * y).sin() * decay / denominator,
+    )
+}
+
+fn complex_acosh_f32(z: Complex<f32>) -> Complex<f32> {
+    let result = complex_acosh_f64(Complex::new(z.re as f64, z.im as f64));
+    Complex::new(result.re as f32, result.im as f32)
+}
+
+fn complex_asinh_f32(z: Complex<f32>) -> Complex<f32> {
+    let result = complex_asinh_f64(Complex::new(z.re as f64, z.im as f64));
+    Complex::new(result.re as f32, result.im as f32)
+}
+
+fn complex_tan_f32(z: Complex<f32>) -> Complex<f32> {
+    let result = complex_tan_f64(Complex::new(z.re as f64, z.im as f64));
+    Complex::new(result.re as f32, result.im as f32)
+}
+
+fn complex_tanh_f32(z: Complex<f32>) -> Complex<f32> {
+    let result = complex_tanh_f64(Complex::new(z.re as f64, z.im as f64));
+    Complex::new(result.re as f32, result.im as f32)
 }
 
 fn complex_asin_f64(z: Complex<f64>) -> Complex<f64> {
@@ -1354,7 +1439,7 @@ fn binary_complex64(name: &str, a: Complex<f32>, b: Complex<f32>) -> Result<Scal
         "add" => a + b,
         "subtract" => a - b,
         "multiply" => a * b,
-        "divide" | "true_divide" => a / b,
+        "divide" | "true_divide" => complex_divide_f32(a, b),
         "power" | "pow" | "float_power" => {
             if a.re == 0.0 && a.im == 0.0 && b.re < 0.0 {
                 Complex::new(f32::NAN, f32::NAN)
@@ -1366,6 +1451,42 @@ fn binary_complex64(name: &str, a: Complex<f32>, b: Complex<f32>) -> Result<Scal
         _ => return Err(StorageError::InvalidScalar),
     };
     Ok(Scalar::Complex64(result.re, result.im))
+}
+
+fn complex_divide_f32(a: Complex<f32>, b: Complex<f32>) -> Complex<f32> {
+    if b.re == 0.0 && b.im == 0.0 {
+        return Complex::new(
+            if a.re == 0.0 {
+                f32::NAN
+            } else {
+                f32::INFINITY.copysign(a.re)
+            },
+            if a.im == 0.0 {
+                f32::NAN
+            } else {
+                f32::INFINITY.copysign(a.im)
+            },
+        );
+    }
+    a / b
+}
+
+fn complex_divide_f64(a: Complex<f64>, b: Complex<f64>) -> Complex<f64> {
+    if b.re == 0.0 && b.im == 0.0 {
+        return Complex::new(
+            if a.re == 0.0 {
+                f64::NAN
+            } else {
+                f64::INFINITY.copysign(a.re)
+            },
+            if a.im == 0.0 {
+                f64::NAN
+            } else {
+                f64::INFINITY.copysign(a.im)
+            },
+        );
+    }
+    a / b
 }
 
 fn float_remainder_f32(a: f32, b: f32) -> f32 {
@@ -2131,7 +2252,9 @@ fn spacing_f16(value: f32) -> f32 {
         return f32::NAN;
     }
     let input = half::f16::from_f32(value);
-    let direction = half::f16::INFINITY.copysign(input);
+    // NumPy measures float16 spacing toward positive infinity even for
+    // negative values.
+    let direction = half::f16::INFINITY;
     (next_after_f16(input, direction).to_f32()) - value
 }
 fn next_after_f32(x: f32, y: f32) -> f32 {
