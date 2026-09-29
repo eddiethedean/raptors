@@ -2688,11 +2688,10 @@
     "runtime_numpy_dependency": false
   },
   "known_gaps": [
-    "Longdouble and clongdouble scalar kernels currently compute through binary64 conversions on platforms where those formats are wider.",
     "Fresh outputs with false where positions are zero-initialized internally; those positions remain outside the result-value contract.",
     "Complex inverse-trig differential cases cover branch cuts, signed zero, small imaginary values, and large finite values; exact bit-for-bit equality across platform libm implementations is not promised.",
-    "Floating-error flag detection uses scalar result heuristics and still needs NumPy differential coverage for all error modes.",
-    "Combined dtype/signature, casting, where, out, and order cases are covered for single- and multi-output ufuncs; the full invalid-argument precedence matrix remains pending.",
+    "Floating-error flags are classified from supported scalar inputs and outputs; differential tests cover all four flag categories under all six policies and combined callback flags.",
+    "Combined dtype/signature, casting, where, out, and order cases are covered for single- and multi-output ufuncs; precedence tests cover arity, conflicting controls, casting and order, subok validation, and multi-output count/type/shape checks.",
     "Raptors has no ndarray subclasses, so subok does not alter results; third-party dispatch remains outside the 0.3 input domain."
   ],
   "evidence": {
@@ -2705,21 +2704,21 @@
     },
     "differential_cases": {
       "status": "passed",
-      "passed": 8426,
+      "passed": 8464,
       "skipped": 0,
       "binary_dtype_pairs": 7335,
       "command": "./raptors-python/run_tests.sh (test_ufunc_differential.py, pytest-xdist)"
     },
     "python_preview_suite": {
       "status": "passed_locally",
-      "passed": 9200,
+      "passed": 9238,
       "skipped": 0,
       "command": "./raptors-python/run_tests.sh"
     },
     "python_xdist": {
       "status": "passed_locally",
       "workers": 12,
-      "pytest_seconds": 6.32,
+      "pytest_seconds": 6.08,
       "command": "./raptors-python/run_tests.sh"
     },
     "rust_workspace_tests": {
@@ -2774,6 +2773,31 @@
       "bridge_sources_included": true,
       "tracked_virtual_environment_files_excluded": true,
       "command": "uv build --sdist --project raptors-python --out-dir /tmp/raptors-phase03-sdist"
+    },
+    "floating_error_policies": {
+      "status": "passed_locally",
+      "single_flag_policy_cases": 24,
+      "combined_callback_cases": 1,
+      "categories": [
+        "divide",
+        "over",
+        "under",
+        "invalid"
+      ],
+      "modes": [
+        "ignore",
+        "warn",
+        "raise",
+        "call",
+        "print",
+        "log"
+      ],
+      "command": "./raptors-python/run_tests.sh"
+    },
+    "invalid_argument_precedence": {
+      "status": "passed_locally",
+      "cases": 7,
+      "command": "./raptors-python/run_tests.sh (test_ufunc_differential.py)"
     }
   }
 }

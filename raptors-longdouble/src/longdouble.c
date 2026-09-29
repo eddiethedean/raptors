@@ -165,6 +165,33 @@ static int write_complex(long double complex value, char *out_real, size_t real_
     return write_ld(creall(value), out_real, real_cap) && write_ld(cimagl(value), out_imag, imag_cap);
 }
 
+static long double complex complex_atan(long double real, long double imag) {
+    /* musl's catanl loses several digits for ordinary finite inputs. These
+     * equivalent formulas keep each component in the long-double domain and
+     * let atan2l preserve the branch selected by signed zero. */
+    long double denominator = 1.0L - real * real - imag * imag;
+    long double magnitude = real * real + (imag - 1.0L) * (imag - 1.0L);
+    long double imaginary_result;
+    if (magnitude == 0.0L) {
+        imaginary_result = 0.25L * (logl(real * real + (imag + 1.0L) * (imag + 1.0L)) - logl(magnitude));
+    } else {
+        imaginary_result = 0.25L * log1pl((4.0L * imag) / magnitude);
+    }
+    return CMPLXL(0.5L * atan2l(2.0L * real, denominator), imaginary_result);
+}
+
+static long double complex complex_atanh(long double real, long double imag) {
+    long double denominator = 1.0L - real * real - imag * imag;
+    long double magnitude = (1.0L - real) * (1.0L - real) + imag * imag;
+    long double real_result;
+    if (magnitude == 0.0L) {
+        real_result = 0.25L * (logl((1.0L + real) * (1.0L + real) + imag * imag) - logl(magnitude));
+    } else {
+        real_result = 0.25L * log1pl((4.0L * real) / magnitude);
+    }
+    return CMPLXL(real_result, 0.5L * atan2l(2.0L * imag, denominator));
+}
+
 static int unary_complex_value(const char *name, long double complex z, long double complex *result) {
     long double re = creall(z), im = cimagl(z);
     if (strcmp(name, "absolute") == 0 || strcmp(name, "abs") == 0) *result = CMPLXL(cabsl(z), 0.0L);
@@ -172,8 +199,18 @@ static int unary_complex_value(const char *name, long double complex z, long dou
     else if (strcmp(name, "acosh") == 0 || strcmp(name, "arccosh") == 0) *result = cacoshl(z);
     else if (strcmp(name, "asin") == 0 || strcmp(name, "arcsin") == 0) *result = casinl(z);
     else if (strcmp(name, "asinh") == 0 || strcmp(name, "arcsinh") == 0) *result = casinhl(z);
-    else if (strcmp(name, "atan") == 0 || strcmp(name, "arctan") == 0) *result = catanl(z);
-    else if (strcmp(name, "atanh") == 0 || strcmp(name, "arctanh") == 0) *result = catanhl(z);
+    else if (strcmp(name, "atan") == 0 || strcmp(name, "arctan") == 0) {
+        if (isfinite(re) && isfinite(im)
+            && fabsl(re) < sqrtl(LDBL_MAX) / 4.0L
+            && fabsl(im) < sqrtl(LDBL_MAX) / 4.0L) *result = complex_atan(re, im);
+        else *result = catanl(z);
+    }
+    else if (strcmp(name, "atanh") == 0 || strcmp(name, "arctanh") == 0) {
+        if (isfinite(re) && isfinite(im)
+            && fabsl(re) < sqrtl(LDBL_MAX) / 4.0L
+            && fabsl(im) < sqrtl(LDBL_MAX) / 4.0L) *result = complex_atanh(re, im);
+        else *result = catanhl(z);
+    }
     else if (strcmp(name, "cos") == 0) *result = ccosl(z);
     else if (strcmp(name, "cosh") == 0) *result = ccoshl(z);
     else if (strcmp(name, "exp") == 0) *result = cexpl(z);

@@ -7,7 +7,7 @@ use pyo3::exceptions::{
     PyUserWarning, PyValueError,
 };
 use pyo3::prelude::*;
-use pyo3::types::{PyDict, PyInt, PyList, PyTuple};
+use pyo3::types::{PyBool, PyDict, PyInt, PyList, PyTuple};
 use raptors_storage::{ufunc as kernels, ByteOrder, DType, IndexItem, Scalar, View};
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -1036,11 +1036,15 @@ fn report_errors(py: Python<'_>, name: &str, flags: ErrorFlags) -> PyResult<()> 
         return Ok(());
     }
     let state = ERROR_STATE.with(|state| *state.borrow());
-    for (occurred, mode, label, code) in [
-        (flags.divide, state.divide, "divide by zero", 1),
-        (flags.over, state.over, "overflow", 2),
-        (flags.under, state.under, "underflow", 4),
-        (flags.invalid, state.invalid, "invalid value", 8),
+    let combined_flag = u8::from(flags.divide)
+        | (u8::from(flags.over) << 1)
+        | (u8::from(flags.under) << 2)
+        | (u8::from(flags.invalid) << 3);
+    for (occurred, mode, label) in [
+        (flags.divide, state.divide, "divide by zero"),
+        (flags.over, state.over, "overflow"),
+        (flags.under, state.under, "underflow"),
+        (flags.invalid, state.invalid, "invalid value"),
     ] {
         if !occurred || matches!(mode, ErrorMode::Ignore) {
             continue;
@@ -1069,7 +1073,7 @@ fn report_errors(py: Python<'_>, name: &str, flags: ErrorFlags) -> PyResult<()> 
                 };
                 let callback = callback.bind(py);
                 if matches!(mode, ErrorMode::Call) {
-                    callback.call1((label, code))?;
+                    callback.call1((label, combined_flag))?;
                 } else {
                     callback.call_method1("write", (format!("Warning: {}\n", warning),))?;
                 }
@@ -1263,6 +1267,9 @@ fn call(
     let mut where_value: Option<Bound<'_, PyAny>> = None;
     let mut requested_dtype = None;
     let mut requested_signature = None;
+    let mut requested_casting = None;
+    let mut requested_order = None;
+    let mut requested_subok = None;
     let mut signature_seen = false;
     let mut casting = CastingRule::SameKind;
     let mut order = "K".to_owned();
@@ -1277,16 +1284,9 @@ fn call(
                         requested_dtype = Some(value)
                     }
                 }
-                "casting" => casting = CastingRule::parse(&value)?,
-                "order" => {
-                    order = value.extract::<String>()?;
-                    if !matches!(order.as_str(), "C" | "F" | "A" | "K") {
-                        return Err(PyValueError::new_err("order must be 'C', 'F', 'A', or 'K'"));
-                    }
-                }
-                "subok" => {
-                    let _ = value.is_truthy()?;
-                }
+                "casting" => requested_casting = Some(value),
+                "order" => requested_order = Some(value),
+                "subok" => requested_subok = Some(value),
                 "signature" | "sig" => {
                     if signature_seen {
                         return Err(PyTypeError::new_err(
@@ -1306,6 +1306,11 @@ fn call(
                 }
             }
         }
+    }
+    if requested_dtype.is_some() && requested_signature.is_some() {
+        return Err(PyTypeError::new_err(
+            "cannot specify both 'signature' and 'dtype'",
+        ));
     }
     let positional_outputs = args.iter().skip(nin).collect::<Vec<_>>();
     if !positional_outputs.is_empty() {
@@ -1332,16 +1337,25 @@ fn call(
     if where_value.is_some() && out.is_none() {
         warn_where_without_out(py)?;
     }
+    if let Some(value) = requested_casting {
+        casting = CastingRule::parse(&value)?;
+    }
+    if let Some(value) = requested_order {
+        order = value.extract::<String>()?;
+        if !matches!(order.as_str(), "C" | "F" | "A" | "K") {
+            return Err(PyValueError::new_err("order must be 'C', 'F', 'A', or 'K'"));
+        }
+    }
+    if let Some(value) = requested_subok {
+        if !value.is_instance_of::<PyBool>() {
+            return Err(PyTypeError::new_err("'subok' must be a boolean"));
+        }
+    }
     let operands = args
         .iter()
         .take(nin)
         .map(|value| Operand::from_python(&value))
         .collect::<PyResult<Vec<_>>>()?;
-    if requested_dtype.is_some() && requested_signature.is_some() {
-        return Err(PyTypeError::new_err(
-            "cannot specify both dtype and signature",
-        ));
-    }
     let mut shape = Vec::new();
     for operand in &operands {
         shape = broadcast_shape(&shape, operand.shape())?;
@@ -1571,7 +1585,7 @@ fn call(
                         py,
                         PyArray {
                             inner: view,
-                            scalar_alias: None,
+                            scalar_alias: ufunc_result_alias(outputs[index]),
                         },
                     )?
                     .into_any(),
@@ -1634,6 +1648,9 @@ fn call(
 }
 
 fn inferred_output_alias(operands: &[Operand], output: DType) -> Option<ScalarAlias> {
+    if let Some(alias) = ufunc_result_alias(output) {
+        return Some(alias);
+    }
     let mut alias = None;
     for operand in operands {
         if let Some(candidate) = operand.scalar_alias {
@@ -1644,6 +1661,18 @@ fn inferred_output_alias(operands: &[Operand], output: DType) -> Option<ScalarAl
         }
     }
     alias.filter(|alias| alias.dtype() == output)
+}
+
+fn ufunc_result_alias(output: DType) -> Option<ScalarAlias> {
+    if cfg!(target_os = "windows") {
+        match output {
+            DType::Int32 => Some(ScalarAlias::IntC),
+            DType::UInt32 => Some(ScalarAlias::UIntC),
+            _ => None,
+        }
+    } else {
+        None
+    }
 }
 
 fn weak_promote(left: &Operand, right: &Operand) -> PyResult<DType> {
@@ -2197,7 +2226,7 @@ fn finish_single(
                 .first()
                 .cloned()
                 .unwrap_or_else(|| Scalar::zero(dtype)),
-            None,
+            ufunc_result_alias(dtype),
         );
     }
     let view = View::from_values_with_layout(
@@ -2216,7 +2245,7 @@ fn finish_single(
         py,
         PyArray {
             inner: view,
-            scalar_alias: None,
+            scalar_alias: ufunc_result_alias(dtype),
         },
     )?
     .into_any())
@@ -2843,7 +2872,7 @@ fn outer(
                 py,
                 PyArray {
                     inner: view,
-                    scalar_alias: None,
+                    scalar_alias: ufunc_result_alias(outputs[index]),
                 },
             )?
             .into_any();

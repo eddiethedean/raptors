@@ -1,7 +1,9 @@
 """Pinned NumPy 2.5.3 differential coverage for the 0.3 ufunc preview."""
 
+import io
 import json
 from pathlib import Path
+import warnings
 
 import numpy as np
 import pytest
@@ -570,6 +572,36 @@ def test_complex_inverse_trig_preserves_branch_cuts_and_large_finite_values(
 
 
 @pytest.mark.parametrize(
+    "dtype",
+    [np.complex64, np.complex128, np.clongdouble],
+    ids=lambda dtype: np.dtype(dtype).name,
+)
+@pytest.mark.parametrize(
+    "name,values",
+    [
+        (
+            "arctan",
+            [complex(0.0, 2.0), complex(-0.0, 2.0), complex(0.0, -2.0), complex(-0.0, -2.0)],
+        ),
+        (
+            "arctanh",
+            [complex(2.0, 0.0), complex(2.0, -0.0), complex(-2.0, 0.0), complex(-2.0, -0.0)],
+        ),
+    ],
+    ids=("arctan-imaginary-cut", "arctanh-real-cut"),
+)
+def test_complex_inverse_tan_branch_cuts_match_numpy(dtype, name, values):
+    values = np.array(values, dtype=dtype)
+    actual_values = raptors.array(
+        [complex(value) for value in values], dtype=_raptors_dtype_for_numpy(values.dtype)
+    )
+    with np.errstate(all="ignore"), raptors.errstate(all="ignore"):
+        expected = getattr(np, name)(values)
+        actual = getattr(raptors, name)(actual_values)
+    _assert_ufunc_result_matches(expected, actual)
+
+
+@pytest.mark.parametrize(
     "loop_keyword,loop_value,actual_value",
     [
         ("dtype", np.float64, raptors.float64),
@@ -864,6 +896,113 @@ def test_where_false_preserves_outputs_and_rejects_invalid_masks_and_outputs():
         raptors.add(raptors.array([0, 1, 2]), 1, out=raptors.empty(2, dtype=raptors.int64))
 
 
+@pytest.mark.parametrize(
+    "case",
+    [
+        "dtype-signature-before-casting",
+        "dtype-signature-before-where",
+        "input-cast-before-output-shape",
+        "casting-before-order",
+        "output-count-before-entry-type",
+        "all-output-types-before-shapes",
+        "subok-requires-bool",
+    ],
+)
+def test_ufunc_invalid_argument_precedence_matches_numpy(case):
+    expected_values = np.array([1.0, 2.0], dtype=np.float64)
+    actual_values = raptors.array([1.0, 2.0], dtype=raptors.float64)
+
+    if case == "dtype-signature-before-casting":
+        expected_call = lambda: np.add(
+            expected_values,
+            expected_values,
+            dtype=np.float64,
+            signature="dd->d",
+            casting="invalid",
+        )
+        actual_call = lambda: raptors.add(
+            actual_values,
+            actual_values,
+            dtype=raptors.float64,
+            signature="dd->d",
+            casting="invalid",
+        )
+        marker = "both 'signature' and 'dtype'"
+    elif case == "dtype-signature-before-where":
+        expected_call = lambda: np.add(
+            expected_values,
+            expected_values,
+            dtype=np.float64,
+            signature="dd->d",
+            where=1,
+            out=np.empty(2, dtype=np.float64),
+        )
+        actual_call = lambda: raptors.add(
+            actual_values,
+            actual_values,
+            dtype=raptors.float64,
+            signature="dd->d",
+            where=1,
+            out=raptors.empty(2, dtype=raptors.float64),
+        )
+        marker = "both 'signature' and 'dtype'"
+    elif case == "input-cast-before-output-shape":
+        expected_values = np.array([1, 2], dtype=np.int8)
+        actual_values = raptors.array([1, 2], dtype=raptors.int8)
+        expected_call = lambda: np.add(
+            expected_values,
+            expected_values,
+            dtype=np.float64,
+            out=np.empty(3, dtype=np.float32),
+            casting="no",
+        )
+        actual_call = lambda: raptors.add(
+            actual_values,
+            actual_values,
+            dtype=raptors.float64,
+            out=raptors.empty(3, dtype=raptors.float32),
+            casting="no",
+        )
+        marker = "input"
+    elif case == "casting-before-order":
+        expected_call = lambda: np.add(
+            expected_values, expected_values, order="invalid", casting="invalid"
+        )
+        actual_call = lambda: raptors.add(
+            actual_values, actual_values, order="invalid", casting="invalid"
+        )
+        marker = "casting must be"
+    elif case == "output-count-before-entry-type":
+        expected_call = lambda: np.modf(expected_values, out=(1,))
+        actual_call = lambda: raptors.modf(actual_values, out=(1,))
+        marker = "out"
+    elif case == "all-output-types-before-shapes":
+        expected_call = lambda: np.modf(
+            expected_values,
+            out=(np.empty(3, dtype=np.float64), 1),
+        )
+        actual_call = lambda: raptors.modf(
+            actual_values,
+            out=(raptors.empty(3, dtype=raptors.float64), 1),
+        )
+        marker = "array"
+    else:
+        expected_call = lambda: np.add(expected_values, expected_values, subok=1)
+        actual_call = lambda: raptors.add(actual_values, actual_values, subok=1)
+        marker = "subok"
+
+    with pytest.raises((TypeError, ValueError)) as expected_error:
+        expected_call()
+    with pytest.raises((TypeError, ValueError)) as actual_error:
+        actual_call()
+
+    expected_family = TypeError if isinstance(expected_error.value, TypeError) else ValueError
+    actual_family = TypeError if isinstance(actual_error.value, TypeError) else ValueError
+    assert actual_family is expected_family, (expected_error.value, actual_error.value)
+    assert marker.lower() in str(expected_error.value).lower()
+    assert marker.lower() in str(actual_error.value).lower()
+
+
 def test_overlapping_ufunc_inputs_and_outputs_use_input_snapshots():
     expected_base = np.arange(1, 7, dtype=np.int64)
     actual_base = raptors.array([1, 2, 3, 4, 5, 6], dtype=raptors.int64)
@@ -1021,6 +1160,113 @@ def test_floating_error_modes_cover_divide_overflow_underflow_and_invalid(
         raptors.seterr(**actual_state)
 
 
+@pytest.mark.parametrize(
+    "category,operation,left,right",
+    [
+        ("divide", "divide", [1.0], [0.0]),
+        ("over", "multiply", [1e308], [1e308]),
+        ("under", "multiply", [1e-300], [1e-300]),
+        ("invalid", "sqrt", [-1.0], None),
+    ],
+)
+@pytest.mark.parametrize("mode", ["ignore", "warn", "raise", "call", "print", "log"])
+def test_every_floating_error_category_matches_each_policy(
+    category, operation, left, right, mode, capfd
+):
+    expected_events = []
+    actual_events = []
+    expected_log = io.StringIO()
+    actual_log = io.StringIO()
+    expected_callback = lambda name, flag: expected_events.append((name, flag))
+    actual_callback = lambda name, flag: actual_events.append((name, flag))
+    expected_errcall = expected_log if mode == "log" else expected_callback if mode == "call" else None
+    actual_errcall = actual_log if mode == "log" else actual_callback if mode == "call" else None
+    previous_callback = np.seterrcall(expected_errcall)
+    previous_actual_callback = raptors.seterrcall(actual_errcall)
+    previous_state = np.seterr(all="ignore", **{category: mode})
+    previous_actual_state = raptors.seterr(all="ignore", **{category: mode})
+
+    def expected_call():
+        expected_left = np.array(left, dtype=np.float64)
+        if right is None:
+            return getattr(np, operation)(expected_left)
+        return getattr(np, operation)(expected_left, np.array(right, dtype=np.float64))
+
+    def actual_call():
+        actual_left = raptors.array(left, dtype=raptors.float64)
+        if right is None:
+            return getattr(raptors, operation)(actual_left)
+        return getattr(raptors, operation)(
+            actual_left, raptors.array(right, dtype=raptors.float64)
+        )
+
+    def invoke(call):
+        try:
+            return call(), None
+        except Exception as error:
+            return None, error
+
+    try:
+        with warnings.catch_warnings(record=True) as expected_warnings:
+            warnings.simplefilter("always")
+            expected_result, expected_error = invoke(expected_call)
+        expected_output = capfd.readouterr()
+
+        with warnings.catch_warnings(record=True) as actual_warnings:
+            warnings.simplefilter("always")
+            actual_result, actual_error = invoke(actual_call)
+        actual_output = capfd.readouterr()
+
+        assert (expected_error is None) == (actual_error is None)
+        if expected_error is not None:
+            assert isinstance(expected_error, FloatingPointError)
+            assert isinstance(actual_error, FloatingPointError)
+            assert str(actual_error) == str(expected_error)
+        else:
+            _assert_ufunc_result_matches(expected_result, actual_result)
+
+        assert [
+            (warning.category, str(warning.message)) for warning in expected_warnings
+        ] == [(warning.category, str(warning.message)) for warning in actual_warnings]
+        assert expected_events == actual_events
+        assert expected_output == actual_output
+        if mode == "log":
+            assert actual_log.getvalue() == expected_log.getvalue()
+    finally:
+        np.seterr(**previous_state)
+        raptors.seterr(**previous_actual_state)
+        np.seterrcall(previous_callback)
+        raptors.seterrcall(previous_actual_callback)
+
+
+def test_floating_error_call_mode_passes_combined_flags_to_each_callback():
+    expected_events = []
+    actual_events = []
+    previous_callback = np.seterrcall(
+        lambda name, flag: expected_events.append((name, flag))
+    )
+    previous_actual_callback = raptors.seterrcall(
+        lambda name, flag: actual_events.append((name, flag))
+    )
+    previous_state = np.seterr(all="call")
+    previous_actual_state = raptors.seterr(all="call")
+    try:
+        np.divide(np.array([0.0, 1.0]), np.array([0.0, 0.0]))
+        raptors.divide(
+            raptors.array([0.0, 1.0], dtype=raptors.float64),
+            raptors.array([0.0, 0.0], dtype=raptors.float64),
+        )
+        assert actual_events == expected_events == [
+            ("divide by zero", 9),
+            ("invalid value", 9),
+        ]
+    finally:
+        np.seterr(**previous_state)
+        raptors.seterr(**previous_actual_state)
+        np.seterrcall(previous_callback)
+        raptors.seterrcall(previous_actual_callback)
+
+
 def test_exact_subnormal_flags_match_numpy():
     tiny = np.nextafter(np.float64(0), np.float64(1))
     cases = [
@@ -1147,8 +1393,6 @@ def test_inexact_subnormal_results_report_underflow(name, left, right):
 
 
 def test_floating_error_print_log_and_errstate_decorator_match_numpy(capfd):
-    import io
-
     expected_state = np.seterr(divide="print")
     actual_state = raptors.seterr(divide="print")
     try:

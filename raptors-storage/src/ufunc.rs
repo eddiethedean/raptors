@@ -890,8 +890,8 @@ fn unary_float_or_complex(name: &str, value: Scalar, dtype: DType) -> Result<Sca
             "acosh" | "arccosh" => z.acosh(),
             "asin" | "arcsin" => complex_asin_f64(z),
             "asinh" | "arcsinh" => z.asinh(),
-            "atan" | "arctan" => z.atan(),
-            "atanh" | "arctanh" => z.atanh(),
+            "atan" | "arctan" => complex_atan_f64(z),
+            "atanh" | "arctanh" => complex_atanh_f64(z),
             "cos" => z.cos(),
             "cosh" => z.cosh(),
             "exp" => z.exp(),
@@ -1009,8 +1009,8 @@ fn unary_complex64(name: &str, z: Complex<f32>) -> Result<Scalar, StorageError> 
         "acosh" | "arccosh" => z.acosh(),
         "asin" | "arcsin" => complex_asin_f32(z),
         "asinh" | "arcsinh" => z.asinh(),
-        "atan" | "arctan" => z.atan(),
-        "atanh" | "arctanh" => z.atanh(),
+        "atan" | "arctan" => complex_atan_f32(z),
+        "atanh" | "arctanh" => complex_atanh_f32(z),
         "cos" => z.cos(),
         "cosh" => z.cosh(),
         "exp" => z.exp(),
@@ -1047,6 +1047,54 @@ fn complex_acos_f32(z: Complex<f32>) -> Complex<f32> {
         (std::f64::consts::FRAC_PI_2 - result.re) as f32,
         (-result.im) as f32,
     )
+}
+
+fn complex_atan_f32(z: Complex<f32>) -> Complex<f32> {
+    let result = complex_atan_f64(Complex::new(z.re as f64, z.im as f64));
+    Complex::new(result.re as f32, result.im as f32)
+}
+
+fn complex_atanh_f32(z: Complex<f32>) -> Complex<f32> {
+    let result = complex_atanh_f64(Complex::new(z.re as f64, z.im as f64));
+    Complex::new(result.re as f32, result.im as f32)
+}
+
+fn complex_atan_f64(z: Complex<f64>) -> Complex<f64> {
+    if !z.re.is_finite()
+        || !z.im.is_finite()
+        || z.re.abs() >= f64::MAX.sqrt() / 4.0
+        || z.im.abs() >= f64::MAX.sqrt() / 4.0
+    {
+        return z.atan();
+    }
+
+    let denominator = 1.0 - z.re * z.re - z.im * z.im;
+    let magnitude = z.re * z.re + (z.im - 1.0) * (z.im - 1.0);
+    let imaginary = if magnitude == 0.0 {
+        0.25 * ((z.re * z.re + (z.im + 1.0) * (z.im + 1.0)).ln() - magnitude.ln())
+    } else {
+        0.25 * (4.0 * z.im / magnitude).ln_1p()
+    };
+    Complex::new((2.0 * z.re).atan2(denominator) * 0.5, imaginary)
+}
+
+fn complex_atanh_f64(z: Complex<f64>) -> Complex<f64> {
+    if !z.re.is_finite()
+        || !z.im.is_finite()
+        || z.re.abs() >= f64::MAX.sqrt() / 4.0
+        || z.im.abs() >= f64::MAX.sqrt() / 4.0
+    {
+        return z.atanh();
+    }
+
+    let denominator = 1.0 - z.re * z.re - z.im * z.im;
+    let magnitude = (1.0 - z.re) * (1.0 - z.re) + z.im * z.im;
+    let real = if magnitude == 0.0 {
+        0.25 * (((1.0 + z.re) * (1.0 + z.re) + z.im * z.im).ln() - magnitude.ln())
+    } else {
+        0.25 * (4.0 * z.re / magnitude).ln_1p()
+    };
+    Complex::new(real, (2.0 * z.im).atan2(denominator) * 0.5)
 }
 
 fn complex_asin_f64(z: Complex<f64>) -> Complex<f64> {
