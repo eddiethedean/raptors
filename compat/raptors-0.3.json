@@ -2704,21 +2704,23 @@
     },
     "differential_cases": {
       "status": "passed",
-      "passed": 8464,
+      "passed": 8528,
       "skipped": 0,
+      "platform_conditional_skips": 1,
+      "platform_conditional_skip_reason": "The native extended-precision long-double case is skipped on Darwin arm64, where long double aliases binary64.",
       "binary_dtype_pairs": 7335,
-      "command": "./raptors-python/run_tests.sh (test_ufunc_differential.py, pytest-xdist)"
+      "command": "python -m pytest -n auto raptors-python/tests/preview/test_ufunc_differential.py -q"
     },
     "python_preview_suite": {
       "status": "passed_locally",
-      "passed": 9238,
-      "skipped": 1,
+      "passed": 9302,
+      "skipped": 2,
       "command": "./raptors-python/run_tests.sh"
     },
     "python_xdist": {
       "status": "passed_locally",
       "workers": 12,
-      "pytest_seconds": 8.22,
+      "pytest_seconds": 5.87,
       "command": "./raptors-python/run_tests.sh"
     },
     "rust_workspace_tests": {
@@ -2766,14 +2768,13 @@
         "Windows",
         "macOS arm64"
       ],
-      "command": "cargo test --offline --locked -p raptors-longdouble; cc -std=c11 -Wall -Wextra -Werror -c raptors-longdouble/src/longdouble.c",
-      "workflow_url": "https://github.com/eddiethedean/raptors/actions/runs/36603352969"
+      "command": "cargo test --offline --locked -p raptors-longdouble; cc -std=c11 -Wall -Wextra -Werror -c raptors-longdouble/src/longdouble.c"
     },
     "source_distribution": {
       "status": "passed_locally",
       "bridge_sources_included": true,
       "tracked_virtual_environment_files_excluded": true,
-      "command": "uv build --sdist --project raptors-python --out-dir /tmp/raptors-phase03-sdist"
+      "command": "uv build --sdist --project raptors-python --out-dir /tmp/raptors-phase03-review-sdist-final"
     },
     "floating_error_policies": {
       "status": "passed_locally",
@@ -2801,38 +2802,57 @@
       "command": "./raptors-python/run_tests.sh (test_ufunc_differential.py)"
     },
     "hosted_validation": {
-      "source_commit": "f9eedb59050e6ea328b776a58c77723b47c948e1",
+      "status": "passed",
+      "source_commit": "f3904cf371a061b154cfa87938a01b08e76e000f",
       "ci": {
         "status": "passed",
-        "run_url": "https://github.com/eddiethedean/raptors/actions/runs/36603352947",
-        "coverage": [
-          "Rust formatting, tests, binding checks, and Clippy",
-          "Miri storage tests",
-          "AddressSanitizer storage tests",
-          "Pinned NumPy API inventory",
-          "CPython 3.12, 3.13, and 3.14 preview tests"
-        ]
+        "run_url": "https://github.com/eddiethedean/raptors/actions/runs/36614984578"
       },
       "wheel_matrix": {
         "status": "passed",
-        "run_url": "https://github.com/eddiethedean/raptors/actions/runs/36603352969",
-        "targets": [
-          "linux-x86_64-manylinux2014",
-          "linux-aarch64-manylinux_2_28",
-          "macos-x86_64",
-          "macos-arm64",
-          "linux-x86_64-musllinux_1_2",
-          "linux-aarch64-musllinux_1_2",
-          "windows-x86_64",
-          "windows-arm64"
-        ],
-        "python_versions": [
-          "3.12",
-          "3.13",
-          "3.14"
-        ],
-        "windows_integer_typecode_tests": "passed on x86_64 and arm64",
-        "publish_job": "skipped for branch workflow_dispatch; no publication"
+        "run_url": "https://github.com/eddiethedean/raptors/actions/runs/36614685701",
+        "artifacts": [
+          {
+            "name": "dist-linux-aarch64-manylinux_2_28",
+            "artifact_id": "11055057143",
+            "url": "https://github.com/eddiethedean/raptors/actions/runs/36614685701/artifacts/11055057143"
+          },
+          {
+            "name": "dist-macos-x86_64",
+            "artifact_id": "11054569515",
+            "url": "https://github.com/eddiethedean/raptors/actions/runs/36614685701/artifacts/11054569515"
+          },
+          {
+            "name": "dist-macos-arm64",
+            "artifact_id": "11054543857",
+            "url": "https://github.com/eddiethedean/raptors/actions/runs/36614685701/artifacts/11054543857"
+          },
+          {
+            "name": "dist-windows-arm64",
+            "artifact_id": "11054464163",
+            "url": "https://github.com/eddiethedean/raptors/actions/runs/36614685701/artifacts/11054464163"
+          },
+          {
+            "name": "dist-linux-x86_64-manylinux2014",
+            "artifact_id": "11054403996",
+            "url": "https://github.com/eddiethedean/raptors/actions/runs/36614685701/artifacts/11054403996"
+          },
+          {
+            "name": "dist-linux-x86_64-musllinux_1_2",
+            "artifact_id": "11054064422",
+            "url": "https://github.com/eddiethedean/raptors/actions/runs/36614685701/artifacts/11054064422"
+          },
+          {
+            "name": "dist-linux-aarch64-musllinux_1_2",
+            "artifact_id": "11053944428",
+            "url": "https://github.com/eddiethedean/raptors/actions/runs/36614685701/artifacts/11053944428"
+          },
+          {
+            "name": "dist-windows-x86_64",
+            "artifact_id": "11053899410",
+            "url": "https://github.com/eddiethedean/raptors/actions/runs/36614685701/artifacts/11053899410"
+          }
+        ]
       }
     }
   }

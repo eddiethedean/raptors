@@ -929,13 +929,13 @@ fn exact_subnormal_result(name: &str, inputs: &[Scalar], output: &Scalar, imag: 
 fn cos_intermediate_underflow(input: &Scalar, output: &Scalar) -> bool {
     let threshold = match output.dtype() {
         DType::Float16 | DType::Float32 => f32::MIN_POSITIVE.sqrt() as f64,
-        #[cfg(target_os = "macos")]
+        #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
         DType::Float64 => f64::MIN_POSITIVE.sqrt(),
-        #[cfg(not(target_os = "macos"))]
+        #[cfg(not(all(target_os = "macos", target_arch = "aarch64")))]
         DType::Float64 => return false,
-        #[cfg(target_os = "macos")]
+        #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
         DType::LongDouble if DType::LongDouble.itemsize() == 8 => f64::MIN_POSITIVE.sqrt(),
-        #[cfg(not(target_os = "macos"))]
+        #[cfg(not(all(target_os = "macos", target_arch = "aarch64")))]
         DType::LongDouble if DType::LongDouble.itemsize() == 8 => return false,
         _ => return false,
     };
@@ -2320,6 +2320,44 @@ fn reduction_accumulator_dtype(name: &str, input: DType) -> DType {
         input
     }
 }
+fn validate_repeated_ufunc_loop(
+    name: &str,
+    inputs: &[DType],
+    outputs: &[DType],
+    method: &str,
+) -> PyResult<()> {
+    // Accumulate and reduceat reuse one array dtype for each successive
+    // iteration. Logical ufuncs are the exception: NumPy accepts numeric
+    // inputs and applies truth testing before producing boolean results.
+    if is_logical_ufunc(name)
+        || outputs
+            .first()
+            .is_some_and(|output| inputs.iter().all(|input| input == output))
+    {
+        return Ok(());
+    }
+    Err(PyTypeError::new_err(format!(
+        "no loop matching the specified signature and casting was found for ufunc '{}' {}",
+        name, method
+    )))
+}
+fn validate_reduce_loop(name: &str, inputs: &[DType], outputs: &[DType]) -> PyResult<()> {
+    // reduce can feed a resolved output back through the first loop input.
+    // Comparisons with non-boolean inputs do not have such a loop in NumPy;
+    // logical ufuncs accept numeric inputs through truth testing.
+    if is_logical_ufunc(name)
+        || inputs
+            .first()
+            .zip(outputs.first())
+            .is_some_and(|(input, output)| input == output)
+    {
+        return Ok(());
+    }
+    Err(PyTypeError::new_err(format!(
+        "no loop matching the specified signature and casting was found for ufunc '{}'",
+        name
+    )))
+}
 fn scalar_loop(name: &str, left: Scalar, right: Scalar, dtype: DType) -> PyResult<Scalar> {
     kernels::binary(name, left, right, dtype)
         .map_err(map_storage_error)?
@@ -2436,9 +2474,11 @@ fn reduce(
         .unwrap_or_else(|| (0..source_shape.len()).collect());
     axes.sort_unstable();
     let input_dtype = accumulator_dtype(name, source.dtype, dtype)?;
-    let (_loop_inputs, loop_outputs) =
+    let (loop_inputs, loop_outputs) =
         kernels::resolve_loop(name, &[input_dtype, input_dtype]).map_err(map_storage_error)?;
-    let accumulator_dtype = reduction_accumulator_dtype(name, input_dtype);
+    validate_reduce_loop(name, &loop_inputs, &loop_outputs)?;
+    let accumulator_dtype = reduction_accumulator_dtype(name, loop_inputs[0]);
+    let value_dtype = reduction_accumulator_dtype(name, loop_inputs[1]);
     let result_dtype = loop_outputs[0];
     let mask = method_kw(kwargs, "where")?
         .map(|value| Operand::from_python(&value))
@@ -2529,7 +2569,7 @@ fn reduce(
             };
             let value = source
                 .read(source_coords, source_read_shape)?
-                .cast(accumulator_dtype)
+                .cast(value_dtype)
                 .map_err(map_storage_error)?;
             accumulator = Some(if let Some(previous) = accumulator {
                 let inputs = [previous.clone(), value.clone()];
@@ -2591,6 +2631,7 @@ fn accumulate(
     let input_dtype = accumulator_dtype(name, source.dtype, dtype)?;
     let (loop_inputs, loop_outputs) =
         kernels::resolve_loop(name, &[input_dtype, input_dtype]).map_err(map_storage_error)?;
+    validate_repeated_ufunc_loop(name, &loop_inputs, &loop_outputs, "accumulate")?;
     let result_dtype = loop_outputs[0];
     let total = element_count(&shape)?;
     let mut output = vec![Scalar::zero(result_dtype); total];
@@ -2683,9 +2724,11 @@ fn reduceat(
         starts.push(raw as usize);
     }
     let input_dtype = accumulator_dtype(name, source.dtype, dtype)?;
-    let (_loop_inputs, loop_outputs) =
+    let (loop_inputs, loop_outputs) =
         kernels::resolve_loop(name, &[input_dtype, input_dtype]).map_err(map_storage_error)?;
-    let reduction_dtype = reduction_accumulator_dtype(name, input_dtype);
+    validate_repeated_ufunc_loop(name, &loop_inputs, &loop_outputs, "reduceat")?;
+    let reduction_dtype = reduction_accumulator_dtype(name, loop_inputs[0]);
+    let value_dtype = reduction_accumulator_dtype(name, loop_inputs[1]);
     let result_dtype = loop_outputs[0];
     let mut output_shape = source_shape.clone();
     output_shape[axis] = starts.len();
@@ -2714,7 +2757,7 @@ fn reduceat(
                 }
                 let value = source
                     .read(&coord, &source_shape)?
-                    .cast(reduction_dtype)
+                    .cast(value_dtype)
                     .map_err(map_storage_error)?;
                 accumulator = Some(if let Some(previous) = accumulator {
                     let inputs = [previous.clone(), value.clone()];

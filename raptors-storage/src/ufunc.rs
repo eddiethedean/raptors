@@ -511,12 +511,8 @@ pub fn binary(
             } else if b.is_nan() {
                 b
             } else if a == 0.0 && b == 0.0 {
-                if cfg!(target_os = "macos") {
-                    if a.is_sign_negative() {
-                        b
-                    } else {
-                        a
-                    }
+                if extrema_zero_tie_selects_left(name, a.is_sign_negative()) {
+                    a
                 } else {
                     b
                 }
@@ -532,12 +528,8 @@ pub fn binary(
             } else if b.is_nan() {
                 b
             } else if a == 0.0 && b == 0.0 {
-                if cfg!(target_os = "macos") {
-                    if a.is_sign_negative() {
-                        a
-                    } else {
-                        b
-                    }
+                if extrema_zero_tie_selects_left(name, a.is_sign_negative()) {
+                    a
                 } else {
                     b
                 }
@@ -553,14 +545,10 @@ pub fn binary(
             } else if a.is_nan() {
                 b
             } else if a == 0.0 && b == 0.0 {
-                if cfg!(target_os = "macos") {
-                    if a.is_sign_negative() {
-                        b
-                    } else {
-                        a
-                    }
-                } else {
+                if extrema_zero_tie_selects_left(name, a.is_sign_negative()) {
                     a
+                } else {
+                    b
                 }
             } else if a >= b {
                 a
@@ -574,14 +562,10 @@ pub fn binary(
             } else if a.is_nan() {
                 b
             } else if a == 0.0 && b == 0.0 {
-                if cfg!(target_os = "macos") {
-                    if a.is_sign_negative() {
-                        a
-                    } else {
-                        b
-                    }
-                } else {
+                if extrema_zero_tie_selects_left(name, a.is_sign_negative()) {
                     a
+                } else {
+                    b
                 }
             } else if a <= b {
                 a
@@ -1215,6 +1199,56 @@ fn complex_log1p_f64(z: Complex<f64>) -> Complex<f64> {
     Complex::new(real, z.im.atan2(1.0 + z.re))
 }
 
+// Match NumPy 2.5.3's scalar tie handling for signed zero. Its x86 maximum and
+// minimum kernels keep the right operand; AArch64 kernels select by sign. The
+// fmax/fmin tie behavior also follows the platform's scalar math implementation.
+fn extrema_zero_tie_selects_left(name: &str, left_is_negative: bool) -> bool {
+    let _ = left_is_negative;
+    match name {
+        "maximum" => {
+            #[cfg(target_arch = "aarch64")]
+            {
+                !left_is_negative
+            }
+            #[cfg(not(target_arch = "aarch64"))]
+            {
+                false
+            }
+        }
+        "minimum" => {
+            #[cfg(target_arch = "aarch64")]
+            {
+                left_is_negative
+            }
+            #[cfg(not(target_arch = "aarch64"))]
+            {
+                false
+            }
+        }
+        "fmax" => {
+            #[cfg(any(target_arch = "aarch64", target_os = "windows", target_env = "musl"))]
+            {
+                !left_is_negative
+            }
+            #[cfg(not(any(target_arch = "aarch64", target_os = "windows", target_env = "musl")))]
+            {
+                true
+            }
+        }
+        "fmin" => {
+            #[cfg(any(target_arch = "aarch64", target_os = "windows", target_env = "musl"))]
+            {
+                left_is_negative
+            }
+            #[cfg(not(any(target_arch = "aarch64", target_os = "windows", target_env = "musl")))]
+            {
+                true
+            }
+        }
+        _ => true,
+    }
+}
+
 fn binary_float32(name: &str, a: f32, b: f32) -> Result<f32, StorageError> {
     Ok(match name {
         "add" => a + b,
@@ -1231,12 +1265,8 @@ fn binary_float32(name: &str, a: f32, b: f32) -> Result<f32, StorageError> {
             } else if b.is_nan() {
                 b
             } else if a == 0.0 && b == 0.0 {
-                if cfg!(target_os = "macos") {
-                    if a.is_sign_negative() {
-                        b
-                    } else {
-                        a
-                    }
+                if extrema_zero_tie_selects_left(name, a.is_sign_negative()) {
+                    a
                 } else {
                     b
                 }
@@ -1252,12 +1282,8 @@ fn binary_float32(name: &str, a: f32, b: f32) -> Result<f32, StorageError> {
             } else if b.is_nan() {
                 b
             } else if a == 0.0 && b == 0.0 {
-                if cfg!(target_os = "macos") {
-                    if a.is_sign_negative() {
-                        a
-                    } else {
-                        b
-                    }
+                if extrema_zero_tie_selects_left(name, a.is_sign_negative()) {
+                    a
                 } else {
                     b
                 }
@@ -1273,14 +1299,10 @@ fn binary_float32(name: &str, a: f32, b: f32) -> Result<f32, StorageError> {
             } else if a.is_nan() {
                 b
             } else if a == 0.0 && b == 0.0 {
-                if cfg!(target_os = "macos") {
-                    if a.is_sign_negative() {
-                        b
-                    } else {
-                        a
-                    }
-                } else {
+                if extrema_zero_tie_selects_left(name, a.is_sign_negative()) {
                     a
+                } else {
+                    b
                 }
             } else if a >= b {
                 a
@@ -1294,14 +1316,10 @@ fn binary_float32(name: &str, a: f32, b: f32) -> Result<f32, StorageError> {
             } else if a.is_nan() {
                 b
             } else if a == 0.0 && b == 0.0 {
-                if cfg!(target_os = "macos") {
-                    if a.is_sign_negative() {
-                        a
-                    } else {
-                        b
-                    }
-                } else {
+                if extrema_zero_tie_selects_left(name, a.is_sign_negative()) {
                     a
+                } else {
+                    b
                 }
             } else if a <= b {
                 a

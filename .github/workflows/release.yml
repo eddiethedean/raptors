@@ -82,7 +82,9 @@ jobs:
           }
           if status not in allowed_statuses:
               raise SystemExit(f"contract status {status!r} is not eligible for {'tagged release' if tagged_version else 'build-only validation'}")
-          if tagged_version and status != "published" and contract.get("evidence", {}).get("release_gates") != "passed":
+          evidence = contract.get("evidence", {})
+          release_gates = evidence.get("release_gates", evidence.get("release_gate"))
+          if tagged_version and status != "published" and release_gates != "passed":
               raise SystemExit("tagged release requires a release-candidate contract with passed gates")
           source_commit = subprocess.check_output(["git", "-C", "numpy-reference", "rev-parse", "HEAD"], text=True).strip()
           if source_commit != contract["reference"]["source_commit"]:
