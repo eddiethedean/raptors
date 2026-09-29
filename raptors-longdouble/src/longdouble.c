@@ -310,8 +310,35 @@ int raptors_ld_binary_complex(const char *name, const char *left_real, const cha
             result = CMPLXL(nanl(""), nanl(""));
         else result = cpowl(a, b);
     }
+    else if (strcmp(name, "maximum") == 0 || strcmp(name, "minimum") == 0 ||
+             strcmp(name, "fmax") == 0 || strcmp(name, "fmin") == 0) {
+        long double ar = creall(a), ai = cimagl(a), br = creall(b), bi = cimagl(b);
+        int left_nan = isnan(ar) || isnan(ai);
+        int right_nan = isnan(br) || isnan(bi);
+        int prefer_nan = strcmp(name, "fmax") != 0 && strcmp(name, "fmin") != 0;
+        int choose_left;
+        if (left_nan || right_nan) {
+            if (left_nan && right_nan) choose_left = 1;
+            else if (left_nan) choose_left = prefer_nan;
+            else choose_left = !prefer_nan;
+        } else {
+            int order = ar < br ? -1 : (ar > br ? 1 : (ai < bi ? -1 : (ai > bi ? 1 : 0)));
+            choose_left = (strcmp(name, "maximum") == 0 || strcmp(name, "fmax") == 0)
+                ? order >= 0 : order <= 0;
+        }
+        result = choose_left ? a : b;
+    }
     else return 0;
     return write_complex(result, out_real, real_cap, out_imag, imag_cap);
+}
+
+int raptors_ld_logaddexp_intermediate_underflow(const char *left_text, const char *right_text, int base2) {
+    long double left, right;
+    if (!parse_ld(left_text, &left) || !parse_ld(right_text, &right)) return -1;
+    if (!isfinite(left) || !isfinite(right)) return 0;
+    long double difference = fabsl(left - right);
+    long double exponent = base2 ? -difference * logl(2.0L) : -difference;
+    return exponent < logl(LDBL_MIN);
 }
 
 int raptors_ld_classify(const char *text, int property) {

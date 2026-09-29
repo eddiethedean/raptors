@@ -13,6 +13,7 @@ path = "src/preview_lib.rs"
 [dependencies]
 pyo3 = { version = "0.27", features = ["extension-module", "num-complex", "abi3-py312"] }
 raptors-storage = { path = "../raptors-storage" }
+raptors-longdouble = { path = "../raptors-longdouble" }
 
 [build-dependencies]
 pyo3-build-config = "0.27"

@@ -1313,6 +1313,94 @@ def test_dtype_and_casting_controls_match_numpy(casting, source, target, should_
             actual_call()
 
 
+def test_dtype_selects_ufunc_output_loop_like_numpy():
+    cases = [
+        (
+            "equal",
+            (np.array([1, 2], dtype=np.int64), np.array([1, 3], dtype=np.int64)),
+            (raptors.array([1, 2], dtype=raptors.int64), raptors.array([1, 3], dtype=raptors.int64)),
+            np.bool_,
+            raptors.bool_,
+        ),
+        (
+            "isfinite",
+            (np.array([1.0, np.inf], dtype=np.float32),),
+            (raptors.array([1.0, np.inf], dtype=raptors.float32),),
+            np.bool_,
+            raptors.bool_,
+        ),
+        (
+            "logical_not",
+            (np.array([0, 2], dtype=np.int16),),
+            (raptors.array([0, 2], dtype=raptors.int16),),
+            np.bool_,
+            raptors.bool_,
+        ),
+        (
+            "absolute",
+            (np.array([1 + 2j, -3 - 4j], dtype=np.complex128),),
+            (raptors.array([1 + 2j, -3 - 4j], dtype=raptors.complex128),),
+            np.float64,
+            raptors.float64,
+        ),
+        (
+            "modf",
+            (np.array([1.25, -2.5], dtype=np.float32),),
+            (raptors.array([1.25, -2.5], dtype=raptors.float32),),
+            np.float32,
+            raptors.float32,
+        ),
+    ]
+    for name, expected_inputs, actual_inputs, expected_dtype, actual_dtype in cases:
+        expected = getattr(np, name)(*expected_inputs, dtype=expected_dtype)
+        actual = getattr(raptors, name)(*actual_inputs, dtype=actual_dtype)
+        _assert_ufunc_result_matches(expected, actual, exact=True)
+
+    with pytest.raises(TypeError):
+        np.frexp(np.array([1.0], dtype=np.float32), dtype=np.float32)
+    with pytest.raises(TypeError):
+        raptors.frexp(raptors.array([1.0], dtype=raptors.float32), dtype=raptors.float32)
+    with pytest.raises(TypeError):
+        np.equal(np.array([1], dtype=np.int64), np.array([1], dtype=np.int64), dtype=np.int64)
+    with pytest.raises(TypeError):
+        raptors.equal(
+            raptors.array([1], dtype=raptors.int64),
+            raptors.array([1], dtype=raptors.int64),
+            dtype=raptors.int64,
+        )
+
+    expected_outer = np.equal.outer(
+        np.array([1, 2], dtype=np.int64), np.array([2, 1], dtype=np.int64), dtype=np.bool_
+    )
+    actual_outer = raptors.equal.outer(
+        raptors.array([1, 2], dtype=raptors.int64),
+        raptors.array([2, 1], dtype=raptors.int64),
+        dtype=raptors.bool_,
+    )
+    _assert_ufunc_result_matches(expected_outer, actual_outer, exact=True)
+
+    expected_unsafe = np.equal(
+        np.array([1, 2], dtype=np.int64),
+        np.array([1, 3], dtype=np.int64),
+        dtype=np.bool_,
+        casting="unsafe",
+    )
+    actual_unsafe = raptors.equal(
+        raptors.array([1, 2], dtype=raptors.int64),
+        raptors.array([1, 3], dtype=raptors.int64),
+        dtype=raptors.bool_,
+        casting="unsafe",
+    )
+    _assert_ufunc_result_matches(expected_unsafe, actual_unsafe, exact=True)
+
+
+def test_python_integer_beyond_double_range_raises_during_ufunc_cast():
+    source = raptors.array([1.0], dtype=raptors.float64)
+    huge_integer = 10**309
+    with pytest.raises(OverflowError, match="int too large to convert to float"):
+        raptors.add(source, huge_integer)
+
+
 def test_signature_dtype_constraints_and_output_casting_match_numpy():
     expected_left = np.array([1.25, 2.5], dtype=np.float32)
     expected_right = np.array([2.0, 3.0], dtype=np.float32)
@@ -2193,6 +2281,24 @@ def test_wide_longdouble_exp_uses_extended_exponent_range():
     assert actual_overflow == expected_overflow
     if not expected_overflow:
         assert bool(raptors.isfinite(actual)[0]) == bool(np.isfinite(expected[0]))
+
+
+@pytest.mark.parametrize("name", ["logaddexp", "logaddexp2"])
+def test_wide_longdouble_logaddexp_does_not_report_false_underflow(name):
+    dtype = np.dtype("longdouble")
+    if np.finfo(dtype).nmant <= np.finfo(np.float64).nmant:
+        pytest.skip("requires native extended long double")
+    candidate_dtype = _raptors_dtype_for_numpy(dtype)
+    expected_left = np.array([0.0], dtype=dtype)
+    expected_right = np.array([-1000.0], dtype=dtype)
+    actual_left = raptors.array([0.0], dtype=candidate_dtype)
+    actual_right = raptors.array([-1000.0], dtype=candidate_dtype)
+
+    with np.errstate(under="raise"):
+        expected = getattr(np, name)(expected_left, expected_right)
+    with raptors.errstate(under="raise"):
+        actual = getattr(raptors, name)(actual_left, actual_right)
+    _assert_ufunc_result_matches(expected, actual)
 
 
 def test_wide_longdouble_ldexp_clamps_exponents_outside_c_int_range():

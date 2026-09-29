@@ -3386,7 +3386,7 @@ fn f_strides(dtype: DType, shape: &[usize]) -> Result<Vec<isize>, StorageError> 
 
 #[cfg(test)]
 mod tests {
-    use super::{DType, IndexItem, Scalar, StorageError, View};
+    use super::{native_longdouble, ufunc, DType, IndexItem, Scalar, StorageError, View};
     use std::sync::Arc;
 
     #[test]
@@ -3396,6 +3396,42 @@ mod tests {
         assert!(!Scalar::ComplexLongDouble("0".into(), "0".into()).truthy());
         assert!(Scalar::ComplexLongDouble("0".into(), "1".into()).truthy());
         assert!(Scalar::ComplexLongDouble("1".into(), "0".into()).truthy());
+    }
+
+    #[test]
+    fn complex_longdouble_extrema_preserve_precision_beyond_f64() {
+        if !native_longdouble::has_extended_native() {
+            return;
+        }
+        let lower = Scalar::ComplexLongDouble("9007199254740992".into(), "1e-4000".into());
+        let higher = Scalar::ComplexLongDouble("9007199254740993".into(), "2e-4000".into());
+        for (name, expected_real, expected_imag) in [
+            ("maximum", "9007199254740993", "2e-4000"),
+            ("fmax", "9007199254740993", "2e-4000"),
+            ("minimum", "9007199254740992", "1e-4000"),
+            ("fmin", "9007199254740992", "1e-4000"),
+        ] {
+            let result = ufunc::binary(
+                name,
+                lower.clone(),
+                higher.clone(),
+                DType::ComplexLongDouble,
+            )
+            .unwrap();
+            let Scalar::ComplexLongDouble(real, imag) = &result[0] else {
+                panic!("complex extrema must return a complex long-double scalar");
+            };
+            assert_eq!(
+                native_longdouble::compare(real, expected_real),
+                Some(Some(0)),
+                "{name}"
+            );
+            assert_eq!(
+                native_longdouble::compare(imag, expected_imag),
+                Some(Some(0)),
+                "{name}"
+            );
+        }
     }
 
     #[test]

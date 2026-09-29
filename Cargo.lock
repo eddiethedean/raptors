@@ -613,6 +613,7 @@ version = "0.3.0"
 dependencies = [
  "pyo3",
  "pyo3-build-config",
+ "raptors-longdouble",
  "raptors-storage",
 ]
 
