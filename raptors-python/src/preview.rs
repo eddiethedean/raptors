@@ -1098,6 +1098,14 @@ impl PyComplexLongDoubleScalar {
         Ok(PyComplex::from_doubles(py, re, im).into_any().unbind())
     }
     #[getter]
+    fn real(&self, py: Python<'_>) -> PyResult<Py<PyLongDoubleScalar>> {
+        Py::new(py, PyLongDoubleScalar(self.0.clone()))
+    }
+    #[getter]
+    fn imag(&self, py: Python<'_>) -> PyResult<Py<PyLongDoubleScalar>> {
+        Py::new(py, PyLongDoubleScalar(self.1.clone()))
+    }
+    #[getter]
     fn dtype(&self, py: Python<'_>) -> PyResult<Py<PyDType>> {
         Py::new(
             py,

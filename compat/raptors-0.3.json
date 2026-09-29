@@ -2692,6 +2692,7 @@
     "Values at masked positions in newly allocated outputs are outside the result-value contract.",
     "Complex inverse-trigonometric results are checked across covered branch cases; bit-for-bit equality across platform libm implementations is not promised.",
     "Floating-error tests cover each flag category and policy plus combined callback flags for supported scalar-kernel results.",
+    "NumPy's underflow flag for an exact least-subnormal expm1 or sinh result varies among binary wheels; the differential suite checks these results exactly and treats the flag as non-portable.",
     "Raptors has no ndarray subclasses; subok does not alter results, and third-party dispatch is outside the 0.3 input domain."
   ],
   "evidence": {
@@ -2704,7 +2705,7 @@
     },
     "differential_cases": {
       "status": "passed",
-      "passed": 8681,
+      "passed": 8682,
       "skipped": 0,
       "platform_conditional_skips": 3,
       "platform_conditional_skip_reason": "Cases requiring native extended long double are skipped on Darwin arm64, where long double aliases binary64.",
@@ -2713,7 +2714,7 @@
     },
     "python_preview_suite": {
       "status": "passed_locally",
-      "passed": 9455,
+      "passed": 9456,
       "skipped": 4,
       "command": "python -m pytest -p xdist.plugin -n auto raptors-python/tests/preview -q"
     },

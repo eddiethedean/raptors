@@ -855,12 +855,11 @@ impl ErrorFlags {
     }
 }
 
-// NumPy's libm-backed float remainder loops differ by platform in whether
-// domain errors set FE_INVALID. Keep the observed macOS ARM64 behavior local
-// to that target; the other supported targets report the invalid flag.
-#[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+// NumPy's libm-backed float remainder loops do not set FE_INVALID for these
+// domain cases on either supported macOS architecture. Other targets do.
+#[cfg(target_os = "macos")]
 const FLOAT_REMAINDER_DOMAIN_RAISES_INVALID: bool = false;
-#[cfg(not(all(target_os = "macos", target_arch = "aarch64")))]
+#[cfg(not(target_os = "macos"))]
 const FLOAT_REMAINDER_DOMAIN_RAISES_INVALID: bool = true;
 
 fn classify_errors(name: &str, inputs: &[Scalar], outputs: &[Scalar]) -> ErrorFlags {
@@ -960,10 +959,10 @@ fn classify_errors(name: &str, inputs: &[Scalar], outputs: &[Scalar]) -> ErrorFl
     {
         flags.under = true;
     }
-    if outputs.first().is_some_and(|output| {
-        matches!(name, "floor_divide" | "divmod" | "arctan2")
-            && quotient_underflows(inputs, output.dtype())
-    }) {
+    if outputs
+        .first()
+        .is_some_and(|output| quotient_underflow_is_reported(name, inputs, output.dtype()))
+    {
         flags.under = true;
     }
     let input_finite = inputs.iter().all(scalar_is_finite);
@@ -1091,6 +1090,9 @@ fn exact_subnormal_result(name: &str, inputs: &[Scalar], output: &Scalar, imag: 
         return false;
     };
     match (name, inputs) {
+        // Exact subnormal outputs are not underflow in the tininess-and-
+        // inexactness model. For expm1 and sinh this also avoids matching a
+        // libm FE_UNDERFLOW flag that varies among NumPy's platform wheels.
         ("expm1" | "sinh" | "tanh" | "modf", [value]) => {
             value.as_f64().is_ok_and(|value| value == result)
         }
@@ -1215,6 +1217,19 @@ fn minimum_normal(dtype: DType) -> Option<f64> {
     }
 }
 
+fn quotient_underflow_is_reported(name: &str, inputs: &[Scalar], dtype: DType) -> bool {
+    if !matches!(name, "floor_divide" | "divmod" | "arctan2") {
+        return false;
+    }
+    // NumPy's Windows arctan2 loop does not set FE_UNDERFLOW for an
+    // intermediate ratio that rounds to zero.
+    #[cfg(target_os = "windows")]
+    if name == "arctan2" {
+        return false;
+    }
+    quotient_underflows(inputs, dtype)
+}
+
 fn quotient_underflows(inputs: &[Scalar], dtype: DType) -> bool {
     let [numerator, denominator] = inputs else {
         return false;
@@ -1262,6 +1277,12 @@ fn logaddexp_intermediate_overflow(name: &str, inputs: &[Scalar]) -> bool {
 
 fn logaddexp_intermediate_underflow(name: &str, inputs: &[Scalar], dtype: DType) -> bool {
     if !matches!(name, "logaddexp" | "logaddexp2") {
+        return false;
+    }
+    // NumPy's Windows x86-64 logaddexp2 loop does not expose the exp2
+    // intermediate's underflow flag, unlike the other supported loops.
+    #[cfg(all(target_os = "windows", target_arch = "x86_64"))]
+    if name == "logaddexp2" && dtype == DType::Float64 {
         return false;
     }
     let [left, right] = inputs else {

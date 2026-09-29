@@ -27,7 +27,11 @@ def _python_value(value):
     if scalar_name == "LongDoubleScalar":
         return np.longdouble(str(value))
     if scalar_name == "ComplexLongDoubleScalar":
-        return complex(value)
+        components = np.array(
+            [np.longdouble(str(value.real)), np.longdouble(str(value.imag))],
+            dtype=np.longdouble,
+        )
+        return components.view(np.clongdouble)[0]
     return value.item() if hasattr(value, "item") else value
 
 
