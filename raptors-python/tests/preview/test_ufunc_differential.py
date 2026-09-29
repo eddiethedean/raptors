@@ -2405,7 +2405,7 @@ def test_wide_longdouble_exp_uses_extended_exponent_range():
 
 
 @pytest.mark.parametrize("name", ["logaddexp", "logaddexp2"])
-def test_wide_longdouble_logaddexp_does_not_report_false_underflow(name):
+def test_wide_longdouble_logaddexp_underflow_matches_numpy(name):
     dtype = np.dtype("longdouble")
     if np.finfo(dtype).nmant <= np.finfo(np.float64).nmant:
         pytest.skip("requires native extended long double")
@@ -2415,9 +2415,23 @@ def test_wide_longdouble_logaddexp_does_not_report_false_underflow(name):
     actual_left = raptors.array([0.0], dtype=candidate_dtype)
     actual_right = raptors.array([-1000.0], dtype=candidate_dtype)
 
-    with np.errstate(under="raise"):
+    try:
+        with np.errstate(under="raise"):
+            getattr(np, name)(expected_left, expected_right)
+        expected_underflow = False
+    except FloatingPointError:
+        expected_underflow = True
+    try:
+        with raptors.errstate(under="raise"):
+            getattr(raptors, name)(actual_left, actual_right)
+        actual_underflow = False
+    except FloatingPointError:
+        actual_underflow = True
+
+    assert actual_underflow == expected_underflow
+    with np.errstate(under="ignore"):
         expected = getattr(np, name)(expected_left, expected_right)
-    with raptors.errstate(under="raise"):
+    with raptors.errstate(under="ignore"):
         actual = getattr(raptors, name)(actual_left, actual_right)
     _assert_ufunc_result_matches(expected, actual)
 

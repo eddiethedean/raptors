@@ -204,8 +204,9 @@ static long double complex complex_atanh(long double real, long double imag) {
     long double imaginary_result;
     if (imag == 0.0L && fabsl(real) == 1.0L) {
 #if defined(__APPLE__)
-        /* NumPy's Apple complex loop selects pi/4 at exact branch endpoints. */
-        imaginary_result = copysignl(acosl(-1.0L) / 4.0L, imag);
+        /* Match NumPy's native C99 complex loop, including Apple libm's
+         * long-double rounding at the exact branch endpoints. */
+        return catanhl(CMPLXL(real, imag));
 #else
         imaginary_result = 0.5L * atan2l(2.0L * imag, 1.0L - real * real - imag * imag);
 #endif
