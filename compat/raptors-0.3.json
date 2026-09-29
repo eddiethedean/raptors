@@ -2803,16 +2803,25 @@
       "command": "./raptors-python/run_tests.sh (test_ufunc_differential.py)"
     },
     "hosted_validation": {
-      "status": "pending",
-      "source_commit": null,
+      "status": "passed",
+      "source_commit": "c815be7f8ef87d30e7e428328d1640bc127de4bb",
       "ci": {
-        "status": "pending",
-        "run_url": null
+        "status": "passed",
+        "run_url": "https://github.com/eddiethedean/raptors/actions/runs/36643016198"
       },
       "wheel_matrix": {
-        "status": "pending",
-        "run_url": null,
-        "artifacts": []
+        "status": "passed",
+        "run_url": "https://github.com/eddiethedean/raptors/actions/runs/36643188463",
+        "artifacts": [
+          "dist-linux-aarch64-manylinux_2_28",
+          "dist-linux-aarch64-musllinux_1_2",
+          "dist-linux-x86_64-manylinux2014",
+          "dist-linux-x86_64-musllinux_1_2",
+          "dist-macos-arm64",
+          "dist-macos-x86_64",
+          "dist-windows-arm64",
+          "dist-windows-x86_64"
+        ]
       }
     }
   }
