@@ -497,6 +497,109 @@ def test_ufunc_at_casts_python_scalars_to_target_dtype(index_kind, update, expec
     assert int(expected[0]) == expected_value
 
 
+@pytest.mark.parametrize("index_kind", ["basic", "fancy"])
+@pytest.mark.parametrize(
+    "name,update",
+    [
+        ("multiply", 1.5),
+        ("subtract", 1.5),
+        ("true_divide", 1.5),
+        ("greater", 260),
+    ],
+)
+def test_ufunc_at_resolves_python_scalars_before_storing_to_target(
+    index_kind, name, update
+):
+    expected = np.array([10], dtype=np.int8)
+    actual = raptors.array([10], dtype=raptors.int8)
+    if index_kind == "basic":
+        expected_index, actual_index = 0, 0
+    else:
+        expected_index = np.array([0], dtype=np.int64)
+        actual_index = raptors.array([0], dtype=raptors.int64)
+
+    getattr(np, name).at(expected, expected_index, update)
+    getattr(raptors, name).at(actual, actual_index, update)
+    _assert_ufunc_result_matches(expected, actual, exact=True)
+
+
+@pytest.mark.parametrize("name,update", [("multiply", [1.5]), ("true_divide", [1.5])])
+def test_ufunc_at_casts_wide_array_loop_results_to_target(name, update):
+    expected = np.array([10], dtype=np.int8)
+    actual = raptors.array([10], dtype=raptors.int8)
+    expected_update = np.array(update, dtype=np.float64)
+    actual_update = raptors.array(update, dtype=raptors.float64)
+
+    getattr(np, name).at(expected, [0], expected_update)
+    getattr(raptors, name).at(actual, raptors.array([0], dtype=raptors.int64), actual_update)
+    _assert_ufunc_result_matches(expected, actual, exact=True)
+
+
+@pytest.mark.parametrize("index_kind", ["basic", "fancy"])
+def test_unary_ufunc_at_casts_wide_results_to_target(index_kind):
+    expected = np.array([10], dtype=np.int8)
+    actual = raptors.array([10], dtype=raptors.int8)
+    if index_kind == "basic":
+        expected_index, actual_index = 0, 0
+    else:
+        expected_index = np.array([0], dtype=np.int64)
+        actual_index = raptors.array([0], dtype=raptors.int64)
+
+    np.sqrt.at(expected, expected_index)
+    raptors.sqrt.at(actual, actual_index)
+    _assert_ufunc_result_matches(expected, actual, exact=True)
+
+
+@pytest.mark.parametrize("index_kind", ["basic", "fancy"])
+def test_ufunc_at_complex_result_cast_warns_like_numpy(index_kind):
+    expected = np.array([10], dtype=np.float32)
+    actual = raptors.array([10], dtype=raptors.float32)
+    if index_kind == "basic":
+        expected_index, actual_index = 0, 0
+    else:
+        expected_index = np.array([0], dtype=np.int64)
+        actual_index = raptors.array([0], dtype=raptors.int64)
+
+    with pytest.warns(np.exceptions.ComplexWarning, match="discards the imaginary part"):
+        np.add.at(expected, expected_index, 1 + 2j)
+    with pytest.warns(raptors.ComplexWarning, match="discards the imaginary part"):
+        raptors.add.at(actual, actual_index, 1 + 2j)
+    _assert_ufunc_result_matches(expected, actual, exact=True)
+
+
+@pytest.mark.parametrize(
+    "name,left,right,expected_warnings",
+    [
+        ("remainder", 1, 0, ["divide by zero encountered in remainder"]),
+        ("fmod", 0, 0, ["divide by zero encountered in fmod"]),
+        ("remainder", 1.0, 0.0, []),
+        ("fmod", 1.0, 0.0, []),
+        ("floor_divide", 0, 0, ["divide by zero encountered in floor_divide"]),
+        ("floor_divide", 0.0, 0.0, ["invalid value encountered in floor_divide"]),
+        ("floor_divide", 1.0, 0.0, ["divide by zero encountered in floor_divide"]),
+        ("divmod", 0, 0, ["divide by zero encountered in divmod"]),
+        ("divmod", 1.0, 0.0, ["divide by zero encountered in divmod"]),
+        ("divmod", 0.0, 0.0, ["invalid value encountered in divmod"]),
+        ("divmod", float("inf"), 0.0, []),
+    ],
+)
+def test_zero_divisor_error_categories_match_numpy(name, left, right, expected_warnings):
+    with warnings.catch_warnings(record=True) as expected_caught:
+        warnings.simplefilter("always")
+        with np.errstate(all="warn"):
+            expected = getattr(np, name)(left, right)
+    with warnings.catch_warnings(record=True) as actual_caught:
+        warnings.simplefilter("always")
+        with raptors.errstate(all="warn"):
+            actual = getattr(raptors, name)(left, right)
+
+    expected_messages = [str(item.message) for item in expected_caught]
+    actual_messages = [str(item.message) for item in actual_caught]
+    assert expected_messages == expected_warnings
+    assert actual_messages == expected_messages
+    _assert_ufunc_result_matches(expected, actual)
+
+
 @pytest.mark.parametrize("subok", [1, None])
 def test_outer_requires_boolean_subok_like_numpy(subok):
     expected_left = np.array([1, 2], dtype=np.int64)
@@ -580,6 +683,35 @@ def test_complex_power_zero_to_negative_is_invalid_not_divide(dtype):
         raptors.power(actual_base, actual_exponent)
 
 
+@pytest.mark.parametrize("base", [float("-inf"), -0.0])
+@pytest.mark.parametrize("array_inputs", [False, True])
+def test_real_power_square_root_edges_match_scalar_and_array_numpy_paths(
+    base, array_inputs
+):
+    if array_inputs:
+        expected_base = np.array([base], dtype=np.float64)
+        expected_exponent = np.array([0.5], dtype=np.float64)
+        actual_base = raptors.array([base], dtype=raptors.float64)
+        actual_exponent = raptors.array([0.5], dtype=raptors.float64)
+    else:
+        expected_base, expected_exponent = base, 0.5
+        actual_base, actual_exponent = base, 0.5
+
+    with warnings.catch_warnings(record=True) as expected_caught:
+        warnings.simplefilter("always")
+        with np.errstate(all="warn"):
+            expected = np.power(expected_base, expected_exponent)
+    with warnings.catch_warnings(record=True) as actual_caught:
+        warnings.simplefilter("always")
+        with raptors.errstate(all="warn"):
+            actual = raptors.power(actual_base, actual_exponent)
+
+    assert [str(item.message) for item in actual_caught] == [
+        str(item.message) for item in expected_caught
+    ]
+    _assert_ufunc_result_matches(expected, actual)
+
+
 @pytest.mark.parametrize("name", ["remainder", "fmod", "floor_divide"])
 def test_division_family_negative_and_zero_edges_match_numpy(name):
     if name == "floor_divide":
@@ -608,6 +740,97 @@ def test_logaddexp_large_values_are_stable_and_match_numpy(name):
         expected = getattr(np, name)(left, right)
         actual = getattr(raptors, name)(actual_left, actual_right)
     _assert_ufunc_result_matches(expected, actual)
+
+
+@pytest.mark.parametrize("name", ["logaddexp", "logaddexp2"])
+@pytest.mark.parametrize("array_inputs", [False, True])
+@pytest.mark.parametrize("left,right", [(-0.0, -np.inf), (-np.inf, -0.0)])
+def test_logaddexp_negative_zero_and_negative_infinity_return_positive_zero(
+    name, array_inputs, left, right
+):
+    if array_inputs:
+        expected_left = np.array([left], dtype=np.float64)
+        expected_right = np.array([right], dtype=np.float64)
+        actual_left = raptors.array([left], dtype=raptors.float64)
+        actual_right = raptors.array([right], dtype=raptors.float64)
+    else:
+        expected_left, expected_right = left, right
+        actual_left, actual_right = left, right
+    expected = getattr(np, name)(expected_left, expected_right)
+    actual = getattr(raptors, name)(actual_left, actual_right)
+    _assert_ufunc_result_matches(expected, actual, exact=True)
+
+
+@pytest.mark.parametrize(
+    "name,left,right",
+    [
+        ("remainder", np.inf, 1.0),
+        ("mod", np.inf, 1.0),
+        ("fmod", np.inf, 1.0),
+        ("floor_divide", np.inf, 1.0),
+        ("floor_divide", np.inf, np.inf),
+        ("divmod", np.inf, 1.0),
+        ("logaddexp", 0.0, np.nan),
+        ("logaddexp2", np.nan, 0.0),
+        ("logaddexp", 1e308, -1e308),
+        ("logaddexp2", 1e308, -1e308),
+        ("arctan2", 1e-300, 1e300),
+        ("floor_divide", 1e-300, 1e300),
+        ("divmod", 1e-300, 1e300),
+        ("logaddexp", 0.0, 1e300),
+        ("logaddexp2", 0.0, 1e300),
+    ],
+)
+@pytest.mark.parametrize("array_inputs", [False, True])
+def test_floating_domain_and_intermediate_error_flags_match_numpy(
+    name, left, right, array_inputs
+):
+    if array_inputs:
+        expected_left = np.array([left], dtype=np.float64)
+        expected_right = np.array([right], dtype=np.float64)
+        actual_left = raptors.array([left], dtype=raptors.float64)
+        actual_right = raptors.array([right], dtype=raptors.float64)
+    else:
+        expected_left, expected_right = left, right
+        actual_left, actual_right = left, right
+
+    with warnings.catch_warnings(record=True) as expected_caught:
+        warnings.simplefilter("always")
+        with np.errstate(all="warn"):
+            expected = getattr(np, name)(expected_left, expected_right)
+    with warnings.catch_warnings(record=True) as actual_caught:
+        warnings.simplefilter("always")
+        with raptors.errstate(all="warn"):
+            actual = getattr(raptors, name)(actual_left, actual_right)
+
+    assert [(item.category, str(item.message)) for item in actual_caught] == [
+        (item.category, str(item.message)) for item in expected_caught
+    ]
+    _assert_ufunc_result_matches(expected, actual)
+
+
+@pytest.mark.parametrize("value", [1e-300, -1e-300, 1e-293, -1e-293])
+@pytest.mark.parametrize("array_input", [False, True])
+def test_tiny_exp_intermediate_flags_match_numpy(value, array_input):
+    if array_input:
+        expected_input = np.array([value], dtype=np.float64)
+        actual_input = raptors.array([value], dtype=raptors.float64)
+    else:
+        expected_input = actual_input = value
+
+    with warnings.catch_warnings(record=True) as expected_caught:
+        warnings.simplefilter("always")
+        with np.errstate(all="warn"):
+            expected = np.exp(expected_input)
+    with warnings.catch_warnings(record=True) as actual_caught:
+        warnings.simplefilter("always")
+        with raptors.errstate(all="warn"):
+            actual = raptors.exp(actual_input)
+
+    assert [(item.category, str(item.message)) for item in actual_caught] == [
+        (item.category, str(item.message)) for item in expected_caught
+    ]
+    _assert_ufunc_result_matches(expected, actual, exact=True)
 
 
 @pytest.mark.parametrize("name", ["log1p", "expm1"])
@@ -1200,6 +1423,168 @@ def test_reduce_empty_identity_initial_and_output_match_numpy():
         out=actual_output,
     )
     assert actual is actual_output
+    _assert_ufunc_result_matches(expected, actual, exact=True)
+
+
+@pytest.mark.parametrize("axis", [0, -1, None])
+@pytest.mark.parametrize("keepdims", [False, True])
+def test_reduce_zero_dimensional_arrays_accept_scalar_axes(axis, keepdims):
+    expected_values = np.array(3, dtype=np.int64)
+    actual_values = raptors.array(3, dtype=raptors.int64)
+
+    expected = np.add.reduce(expected_values, axis=axis, keepdims=keepdims)
+    actual = raptors.add.reduce(actual_values, axis=axis, keepdims=keepdims)
+    _assert_ufunc_result_matches(expected, actual, exact=True)
+
+
+def test_reduce_zero_dimensional_array_rejects_axis_tuple_like_numpy():
+    expected_values = np.array(3, dtype=np.int64)
+    actual_values = raptors.array(3, dtype=raptors.int64)
+    with pytest.raises(np.exceptions.AxisError):
+        np.add.reduce(expected_values, axis=(-1,))
+    with pytest.raises(raptors.AxisError):
+        raptors.add.reduce(actual_values, axis=(-1,))
+
+
+@pytest.mark.parametrize("axis", [0, -1, None])
+def test_reduce_zero_dimensional_where_mask_must_remain_scalar(axis):
+    expected_values = np.array(3, dtype=np.int64)
+    actual_values = raptors.array(3, dtype=raptors.int64)
+    expected_mask = np.array([True])
+    actual_mask = raptors.array([True], dtype=raptors.bool_)
+
+    with pytest.raises(ValueError):
+        np.add.reduce(expected_values, axis=axis, where=expected_mask)
+    with pytest.raises(ValueError):
+        raptors.add.reduce(actual_values, axis=axis, where=actual_mask)
+
+
+def test_reduce_accepts_all_positional_controls_like_numpy():
+    expected_values = np.array([[1, 2, 3], [4, 5, 6]], dtype=np.int64)
+    actual_values = raptors.array([[1, 2, 3], [4, 5, 6]], dtype=raptors.int64)
+    expected_where = np.array([[True, False, True], [True, True, False]])
+    actual_where = raptors.array(
+        [[True, False, True], [True, True, False]], dtype=raptors.bool_
+    )
+
+    expected = np.add.reduce(
+        expected_values, 1, None, None, True, 10, expected_where
+    )
+    actual = raptors.add.reduce(actual_values, 1, None, None, True, 10, actual_where)
+    _assert_ufunc_result_matches(expected, actual, exact=True)
+
+
+def test_accumulate_and_reduceat_accept_single_axis_tuples_and_reject_bool():
+    expected_values = np.array([[1, 2], [3, 4]], dtype=np.int64)
+    actual_values = raptors.array([[1, 2], [3, 4]], dtype=raptors.int64)
+    expected_indices = np.array([0], dtype=np.int64)
+    actual_indices = raptors.array([0], dtype=raptors.int64)
+
+    expected = np.add.accumulate(expected_values, axis=(0,))
+    actual = raptors.add.accumulate(actual_values, axis=(0,))
+    _assert_ufunc_result_matches(expected, actual, exact=True)
+
+    expected = np.add.reduceat(expected_values, expected_indices, axis=(0,))
+    actual = raptors.add.reduceat(actual_values, actual_indices, axis=(0,))
+    _assert_ufunc_result_matches(expected, actual, exact=True)
+
+    for numpy_call, raptors_call in (
+        (
+            lambda: np.add.reduce(expected_values, axis=True),
+            lambda: raptors.add.reduce(actual_values, axis=True),
+        ),
+        (
+            lambda: np.add.accumulate(expected_values, axis=True),
+            lambda: raptors.add.accumulate(actual_values, axis=True),
+        ),
+        (
+            lambda: np.add.reduceat(expected_values, expected_indices, axis=True),
+            lambda: raptors.add.reduceat(actual_values, actual_indices, axis=True),
+        ),
+    ):
+        with pytest.raises(TypeError):
+            numpy_call()
+        with pytest.raises(TypeError):
+            raptors_call()
+
+    for axis in (None, (), (0, 1)):
+        with pytest.raises(ValueError):
+            np.add.accumulate(expected_values, axis=axis)
+        with pytest.raises(ValueError):
+            raptors.add.accumulate(actual_values, axis=axis)
+        with pytest.raises(ValueError):
+            np.add.reduceat(expected_values, expected_indices, axis=axis)
+        with pytest.raises(ValueError):
+            raptors.add.reduceat(actual_values, actual_indices, axis=axis)
+
+
+@pytest.mark.parametrize("axis", [-3, 2])
+def test_out_of_range_reduction_axes_raise_numpy_compatible_axis_error(axis):
+    expected_values = np.arange(6, dtype=np.int64).reshape(2, 3)
+    actual_values = raptors.array(expected_values.tolist(), dtype=raptors.int64)
+    expected_indices = np.array([0], dtype=np.int64)
+    actual_indices = raptors.array([0], dtype=raptors.int64)
+
+    assert issubclass(raptors.AxisError, ValueError)
+    assert issubclass(raptors.AxisError, IndexError)
+    for numpy_call, raptors_call in (
+        (
+            lambda: np.add.reduce(expected_values, axis=axis),
+            lambda: raptors.add.reduce(actual_values, axis=axis),
+        ),
+        (
+            lambda: np.add.accumulate(expected_values, axis=axis),
+            lambda: raptors.add.accumulate(actual_values, axis=axis),
+        ),
+        (
+            lambda: np.add.reduceat(expected_values, expected_indices, axis=axis),
+            lambda: raptors.add.reduceat(actual_values, actual_indices, axis=axis),
+        ),
+    ):
+        with pytest.raises(np.exceptions.AxisError) as expected_error:
+            numpy_call()
+        with pytest.raises(raptors.AxisError) as actual_error:
+            raptors_call()
+        assert isinstance(actual_error.value, ValueError)
+        assert isinstance(actual_error.value, IndexError)
+        assert str(actual_error.value) == str(expected_error.value)
+
+
+def test_reduce_initial_none_is_equivalent_to_omitting_initial():
+    expected_values = np.array([1, 2, 3], dtype=np.int64)
+    actual_values = raptors.array([1, 2, 3], dtype=raptors.int64)
+
+    expected = np.add.reduce(expected_values, initial=None)
+    actual = raptors.add.reduce(actual_values, initial=None)
+    _assert_ufunc_result_matches(expected, actual, exact=True)
+
+
+def test_where_none_is_a_false_mask_for_calls_reductions_and_outer():
+    expected_left = np.array([1, 2, 3], dtype=np.int64)
+    actual_left = raptors.array([1, 2, 3], dtype=raptors.int64)
+    expected_out = np.full(3, -7, dtype=np.int64)
+    actual_out = raptors.array([-7, -7, -7], dtype=raptors.int64)
+
+    expected = np.add(expected_left, 1, out=expected_out, where=None)
+    actual = raptors.add(actual_left, 1, out=actual_out, where=None)
+    assert actual is actual_out
+    _assert_ufunc_result_matches(expected, actual, exact=True)
+
+    expected = np.add.reduce(expected_left, where=None)
+    actual = raptors.add.reduce(actual_left, where=None)
+    _assert_ufunc_result_matches(expected, actual, exact=True)
+
+    expected_outer_out = np.full((3, 3), -9, dtype=np.int64)
+    actual_outer_out = raptors.array(
+        [[-9, -9, -9], [-9, -9, -9], [-9, -9, -9]], dtype=raptors.int64
+    )
+    expected = np.add.outer(
+        expected_left, expected_left, out=expected_outer_out, where=None
+    )
+    actual = raptors.add.outer(
+        actual_left, actual_left, out=actual_outer_out, where=None
+    )
+    assert actual is actual_outer_out
     _assert_ufunc_result_matches(expected, actual, exact=True)
 
 

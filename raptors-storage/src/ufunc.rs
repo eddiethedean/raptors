@@ -1401,14 +1401,7 @@ fn floor_divide_f32(a: f32, b: f32) -> f32 {
         return a / b;
     }
     if a.is_infinite() {
-        if b.is_infinite() {
-            return f32::NAN;
-        }
-        return if a.is_sign_negative() != b.is_sign_negative() {
-            f32::NEG_INFINITY
-        } else {
-            f32::INFINITY
-        };
+        return f32::NAN;
     }
     if b.is_infinite() {
         if a == 0.0 {
@@ -1444,10 +1437,10 @@ fn logaddexp_f32(a: f32, b: f32) -> f32 {
         return f32::INFINITY;
     }
     if a == f32::NEG_INFINITY {
-        return b;
+        return if b == 0.0 { 0.0 } else { b };
     }
     if b == f32::NEG_INFINITY {
-        return a;
+        return if a == 0.0 { 0.0 } else { a };
     }
     let m = a.max(b);
     m + (-(a - b).abs()).exp().ln_1p()
@@ -1461,10 +1454,10 @@ fn logaddexp2_f32(a: f32, b: f32) -> f32 {
         return f32::INFINITY;
     }
     if a == f32::NEG_INFINITY {
-        return b;
+        return if b == 0.0 { 0.0 } else { b };
     }
     if b == f32::NEG_INFINITY {
-        return a;
+        return if a == 0.0 { 0.0 } else { a };
     }
     let m = a.max(b);
     m + (-(a - b).abs()).exp2().ln_1p() / std::f32::consts::LN_2
@@ -1969,14 +1962,7 @@ fn floor_divide(a: f64, b: f64) -> f64 {
         return a / b;
     }
     if a.is_infinite() {
-        if b.is_infinite() {
-            return f64::NAN;
-        }
-        return if a.is_sign_negative() != b.is_sign_negative() {
-            f64::NEG_INFINITY
-        } else {
-            f64::INFINITY
-        };
+        return f64::NAN;
     }
     if b.is_infinite() {
         if a == 0.0 {
@@ -2011,10 +1997,10 @@ fn logaddexp(a: f64, b: f64) -> f64 {
         return f64::INFINITY;
     }
     if a == f64::NEG_INFINITY {
-        return b;
+        return if b == 0.0 { 0.0 } else { b };
     }
     if b == f64::NEG_INFINITY {
-        return a;
+        return if a == 0.0 { 0.0 } else { a };
     }
     let m = a.max(b);
     m + (-(a - b).abs()).exp().ln_1p()
@@ -2028,10 +2014,10 @@ fn logaddexp2(a: f64, b: f64) -> f64 {
         return f64::INFINITY;
     }
     if a == f64::NEG_INFINITY {
-        return b;
+        return if b == 0.0 { 0.0 } else { b };
     }
     if b == f64::NEG_INFINITY {
-        return a;
+        return if a == 0.0 { 0.0 } else { a };
     }
     let m = a.max(b);
     m + (-(a - b).abs()).exp2().ln_1p() / std::f64::consts::LN_2

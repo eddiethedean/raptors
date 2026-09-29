@@ -1,13 +1,14 @@
 use super::{
-    array, map_storage_error, parse_dtype_spec, scalar_alias_from_value, scalar_to_python, PyArray,
-    ScalarAlias,
+    array, emit_complex_warning, map_storage_error, parse_dtype_spec, scalar_alias_from_value,
+    scalar_to_python, PyArray, ScalarAlias,
 };
 use pyo3::exceptions::{
-    PyFloatingPointError, PyOverflowError, PyRuntimeError, PyRuntimeWarning, PyTypeError,
-    PyUserWarning, PyValueError,
+    PyFloatingPointError, PyIndexError, PyOverflowError, PyRuntimeError, PyRuntimeWarning,
+    PyTypeError, PyUserWarning, PyValueError,
 };
 use pyo3::prelude::*;
-use pyo3::types::{PyBool, PyDict, PyInt, PyList, PyTuple};
+use pyo3::types::{PyBool, PyDict, PyInt, PyList, PyString, PyTuple, PyType};
+use pyo3::PyTypeInfo;
 use raptors_storage::{
     keep_order_axes, ufunc as kernels, ByteOrder, DType, IndexItem, Scalar, View,
 };
@@ -81,9 +82,9 @@ impl PyUFunc {
         kwargs: Option<&Bound<'_, PyDict>>,
     ) -> PyResult<Py<PyAny>> {
         let positionals = args.iter().collect::<Vec<_>>();
-        if positionals.len() > 3 {
+        if positionals.len() > 6 {
             return Err(PyTypeError::new_err(format!(
-                "reduce() takes at most 4 positional arguments ({} given)",
+                "reduce() takes at most 7 positional arguments ({} given)",
                 positionals.len() + 1
             )));
         }
@@ -104,12 +105,12 @@ impl PyUFunc {
         let dtype =
             method_parameter(&positionals, kwargs, 1, "dtype")?.filter(|value| !value.is_none());
         let out = method_parameter(&positionals, kwargs, 2, "out")?;
-        let keepdims = method_kw(kwargs, "keepdims")?
+        let keepdims = method_parameter(&positionals, kwargs, 3, "keepdims")?
             .map(|value| value.extract::<bool>())
             .transpose()?
             .unwrap_or(false);
-        let initial = method_kw(kwargs, "initial")?;
-        let where_value = method_kw(kwargs, "where")?;
+        let initial = method_parameter(&positionals, kwargs, 4, "initial")?;
+        let where_value = method_parameter(&positionals, kwargs, 5, "where")?;
         let forwarded_kwargs = PyDict::new(py);
         if let Some(value) = &where_value {
             forwarded_kwargs.set_item("where", value)?;
@@ -126,28 +127,62 @@ impl PyUFunc {
             Some(&forwarded_kwargs),
         )
     }
-    #[pyo3(signature = (array, /, axis=0, dtype=None, out=None))]
+    #[pyo3(signature = (array, /, *args, **kwargs))]
     fn accumulate(
         &self,
         py: Python<'_>,
         array: &Bound<'_, PyAny>,
-        axis: isize,
-        dtype: Option<&Bound<'_, PyAny>>,
-        out: Option<&Bound<'_, PyAny>>,
+        args: &Bound<'_, PyTuple>,
+        kwargs: Option<&Bound<'_, PyDict>>,
     ) -> PyResult<Py<PyAny>> {
-        accumulate(self.name, py, array, axis, dtype, out)
+        let positionals = args.iter().collect::<Vec<_>>();
+        if positionals.len() > 3 {
+            return Err(PyTypeError::new_err(format!(
+                "accumulate() takes at most 4 positional arguments ({} given)",
+                positionals.len() + 1
+            )));
+        }
+        ensure_known_method_kwargs(kwargs, &["axis", "dtype", "out"])?;
+        let axis_default = PyInt::new(py, 0).into_any();
+        let axis = method_parameter(&positionals, kwargs, 0, "axis")?.unwrap_or(axis_default);
+        let dtype =
+            method_parameter(&positionals, kwargs, 1, "dtype")?.filter(|value| !value.is_none());
+        let out = method_parameter(&positionals, kwargs, 2, "out")?;
+        let axis = single_axis_argument(&axis, "accumulate")?;
+        accumulate(self.name, py, array, axis, dtype.as_ref(), out.as_ref())
     }
-    #[pyo3(signature = (array, /, indices, axis=0, dtype=None, out=None))]
+    #[pyo3(signature = (array, /, indices, *args, **kwargs))]
     fn reduceat(
         &self,
         py: Python<'_>,
         array: &Bound<'_, PyAny>,
         indices: &Bound<'_, PyAny>,
-        axis: isize,
-        dtype: Option<&Bound<'_, PyAny>>,
-        out: Option<&Bound<'_, PyAny>>,
+        args: &Bound<'_, PyTuple>,
+        kwargs: Option<&Bound<'_, PyDict>>,
     ) -> PyResult<Py<PyAny>> {
-        reduceat(self.name, py, array, indices, axis, dtype, out)
+        let positionals = args.iter().collect::<Vec<_>>();
+        if positionals.len() > 3 {
+            return Err(PyTypeError::new_err(format!(
+                "reduceat() takes at most 5 positional arguments ({} given)",
+                positionals.len() + 2
+            )));
+        }
+        ensure_known_method_kwargs(kwargs, &["axis", "dtype", "out"])?;
+        let axis_default = PyInt::new(py, 0).into_any();
+        let axis = method_parameter(&positionals, kwargs, 0, "axis")?.unwrap_or(axis_default);
+        let dtype =
+            method_parameter(&positionals, kwargs, 1, "dtype")?.filter(|value| !value.is_none());
+        let out = method_parameter(&positionals, kwargs, 2, "out")?;
+        let axis = single_axis_argument(&axis, "reduceat")?;
+        reduceat(
+            self.name,
+            py,
+            array,
+            indices,
+            axis,
+            dtype.as_ref(),
+            out.as_ref(),
+        )
     }
     #[pyo3(signature = (a, b, /, **kwargs))]
     fn outer(
@@ -267,6 +302,19 @@ impl Operand {
             weak_scalar,
         })
     }
+    fn from_mask(value: &Bound<'_, PyAny>) -> PyResult<Self> {
+        if value.is_none() {
+            return Ok(Self {
+                view: None,
+                scalar: Some(Scalar::Bool(false)),
+                dtype: DType::Bool,
+                scalar_alias: None,
+                is_array: false,
+                weak_scalar: true,
+            });
+        }
+        Self::from_python(value)
+    }
     fn shape(&self) -> &[usize] {
         self.view.as_ref().map(View::shape).unwrap_or(&[])
     }
@@ -326,11 +374,26 @@ impl CastingRule {
 pub(super) fn register(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_class::<PyUFunc>()?;
     module.add_class::<PyErrState>()?;
+    let py = module.py();
+    let exception_bases = PyTuple::new(
+        py,
+        [
+            PyValueError::type_object(py).into_any(),
+            PyIndexError::type_object(py).into_any(),
+        ],
+    )?;
+    let exception_namespace = PyDict::new(py);
+    exception_namespace.set_item("__module__", "raptors")?;
+    let axis_error = PyModule::import(py, "builtins")?.getattr("type")?.call1((
+        PyString::new(py, "AxisError"),
+        exception_bases,
+        exception_namespace,
+    ))?;
+    module.add("AxisError", axis_error)?;
     module.add_function(wrap_pyfunction!(geterr, module)?)?;
     module.add_function(wrap_pyfunction!(seterr, module)?)?;
     module.add_function(wrap_pyfunction!(geterrcall, module)?)?;
     module.add_function(wrap_pyfunction!(seterrcall, module)?)?;
-    let py = module.py();
     let mut objects: HashMap<&str, Py<PyUFunc>> = HashMap::new();
     for &name in kernels::TOP_LEVEL_UFUNC_NAMES {
         let canonical = canonical_name(name);
@@ -729,16 +792,40 @@ impl ErrorFlags {
 fn classify_errors(name: &str, inputs: &[Scalar], outputs: &[Scalar]) -> ErrorFlags {
     let mut flags = ErrorFlags::default();
     let input_nan = inputs.iter().any(scalar_is_nan);
-    if inputs.len() == 2 && scalar_is_zero(&inputs[1]) {
+    let zero_divisor = inputs.len() == 2 && scalar_is_zero(&inputs[1]);
+    let zero_divisor_remainder = zero_divisor && matches!(name, "remainder" | "mod" | "fmod");
+    let zero_divisor_divmod = zero_divisor && name == "divmod";
+    let infinite_dividend_domain = inputs.len() == 2
+        && scalar_is_infinite(&inputs[0])
+        && matches!(
+            name,
+            "remainder" | "mod" | "fmod" | "floor_divide" | "divmod"
+        );
+    let logaddexp_nan_invalid = input_nan && matches!(name, "logaddexp" | "logaddexp2");
+    if zero_divisor {
+        let integer_inputs = inputs
+            .iter()
+            .all(|value| matches!(value.dtype().kind(), "b" | "i" | "u"));
+        // Integer quotient/remainder loops report divide-by-zero even for
+        // 0/0. Floating remainder loops suppress the zero-divisor flag, and
+        // floating divmod reports the quotient's flag only.
         match name {
-            "divide" | "true_divide" | "floor_divide" | "divmod" => {
+            "divide" | "true_divide" => {
                 if inputs.first().is_some_and(scalar_is_zero) {
                     flags.invalid = true;
                 } else if inputs.first().is_some_and(scalar_is_finite) {
                     flags.divide = true;
                 }
             }
-            "remainder" | "mod" | "fmod" => flags.invalid = true,
+            "floor_divide" | "divmod" if integer_inputs => flags.divide = true,
+            "floor_divide" | "divmod" => {
+                if inputs.first().is_some_and(scalar_is_zero) {
+                    flags.invalid = true;
+                } else if inputs.first().is_some_and(scalar_is_finite) {
+                    flags.divide = true;
+                }
+            }
+            "remainder" | "mod" | "fmod" if integer_inputs => flags.divide = true,
             _ => {}
         }
     }
@@ -777,12 +864,35 @@ fn classify_errors(name: &str, inputs: &[Scalar], outputs: &[Scalar]) -> ErrorFl
     {
         flags.divide = true;
     }
+    if logaddexp_nan_invalid {
+        flags.invalid = true;
+    }
+    if logaddexp_intermediate_overflow(name, inputs) {
+        flags.over = true;
+    }
+    if outputs
+        .first()
+        .is_some_and(|output| logaddexp_intermediate_underflow(name, inputs, output.dtype()))
+    {
+        flags.under = true;
+    }
+    if outputs.first().is_some_and(|output| {
+        matches!(name, "floor_divide" | "divmod" | "arctan2")
+            && quotient_underflows(inputs, output.dtype())
+    }) {
+        flags.under = true;
+    }
     let input_finite = inputs.iter().all(scalar_is_finite);
     for output in outputs {
         let (_, imag) = output.as_complex().unwrap_or((f64::NAN, f64::NAN));
         let output_nan = scalar_is_nan(output);
         let output_infinite = scalar_is_infinite(output);
-        if output_nan && !input_nan {
+        if output_nan
+            && !input_nan
+            && !zero_divisor_remainder
+            && !zero_divisor_divmod
+            && !infinite_dividend_domain
+        {
             flags.invalid = true;
         }
         if output_infinite && input_finite && !flags.divide {
@@ -792,6 +902,9 @@ fn classify_errors(name: &str, inputs: &[Scalar], outputs: &[Scalar]) -> ErrorFl
             flags.under = true;
         }
         if name == "cos" && matches!(inputs, [input] if cos_intermediate_underflow(input, output)) {
+            flags.under = true;
+        }
+        if name == "exp" && matches!(inputs, [input] if exp_intermediate_underflow(input, output)) {
             flags.under = true;
         }
         if matches!(output.dtype().kind(), "f" | "c") {
@@ -943,6 +1056,103 @@ fn cos_intermediate_underflow(input: &Scalar, output: &Scalar) -> bool {
         .as_f64()
         .is_ok_and(|value| value != 0.0 && value.abs() < threshold)
         && output.as_f64().is_ok_and(|value| value.abs() == 1.0)
+}
+
+#[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+fn exp_intermediate_underflow(input: &Scalar, output: &Scalar) -> bool {
+    let supported_dtype = matches!(output.dtype(), DType::Float64)
+        || (output.dtype() == DType::LongDouble && DType::LongDouble.itemsize() == 8);
+    supported_dtype
+        && input
+            .as_f64()
+            .is_ok_and(|value| value != 0.0 && value.abs() <= 1.0e-294)
+        && output.as_f64().is_ok_and(|value| value == 1.0)
+}
+
+#[cfg(not(all(target_os = "macos", target_arch = "aarch64")))]
+fn exp_intermediate_underflow(_input: &Scalar, _output: &Scalar) -> bool {
+    false
+}
+
+fn minimum_normal(dtype: DType) -> Option<f64> {
+    match dtype {
+        DType::Float16 => Some(6.103_515_625e-5),
+        DType::Float32 => Some(f32::MIN_POSITIVE as f64),
+        DType::Float64 | DType::LongDouble => Some(f64::MIN_POSITIVE),
+        _ => None,
+    }
+}
+
+fn quotient_underflows(inputs: &[Scalar], dtype: DType) -> bool {
+    let [numerator, denominator] = inputs else {
+        return false;
+    };
+    let (Ok(numerator_value), Ok(denominator_value), Some(normal_minimum)) = (
+        numerator.as_f64(),
+        denominator.as_f64(),
+        minimum_normal(dtype),
+    ) else {
+        return false;
+    };
+    if !numerator_value.is_finite()
+        || !denominator_value.is_finite()
+        || numerator_value == 0.0
+        || denominator_value == 0.0
+    {
+        return false;
+    }
+    let log_magnitude = numerator_value.abs().ln() - denominator_value.abs().ln();
+    if log_magnitude >= normal_minimum.ln() {
+        return false;
+    }
+
+    // Exact subnormal quotients do not set IEEE underflow. Compare the
+    // rounded quotient times its denominator to the numerator exactly.
+    let quotient = numerator_value / denominator_value;
+    let Ok(rounded_quotient) = Scalar::Float64(quotient).cast(dtype) else {
+        return true;
+    };
+    quotient == 0.0 || !exact_product_matches(&rounded_quotient, denominator, numerator_value)
+}
+
+fn logaddexp_intermediate_overflow(name: &str, inputs: &[Scalar]) -> bool {
+    if !matches!(name, "logaddexp" | "logaddexp2") {
+        return false;
+    }
+    let [left, right] = inputs else {
+        return false;
+    };
+    let (Ok(left), Ok(right)) = (left.as_f64(), right.as_f64()) else {
+        return false;
+    };
+    left.is_finite() && right.is_finite() && !(left - right).is_finite()
+}
+
+fn logaddexp_intermediate_underflow(name: &str, inputs: &[Scalar], dtype: DType) -> bool {
+    if !matches!(name, "logaddexp" | "logaddexp2") {
+        return false;
+    }
+    let [left, right] = inputs else {
+        return false;
+    };
+    let (Ok(left), Ok(right), Some(normal_minimum)) =
+        (left.as_f64(), right.as_f64(), minimum_normal(dtype))
+    else {
+        return false;
+    };
+    if !left.is_finite() || !right.is_finite() {
+        return false;
+    }
+    let difference = (left - right).abs();
+    if !difference.is_finite() {
+        return false;
+    }
+    let exponent = if name == "logaddexp2" {
+        -difference * std::f64::consts::LN_2
+    } else {
+        -difference
+    };
+    exponent < normal_minimum.ln()
 }
 
 fn negated_scalar(value: &Scalar) -> Scalar {
@@ -1400,7 +1610,7 @@ fn call(
         shape = broadcast_shape(&shape, operand.shape())?;
     }
     let mask_operand = match where_value {
-        Some(value) => Some(Operand::from_python(&value)?),
+        Some(value) => Some(Operand::from_mask(&value)?),
         None => None,
     };
     if let Some(mask) = &mask_operand {
@@ -1522,6 +1732,7 @@ fn call(
         }
     }
     let size = element_count(&shape)?;
+    let scalar_call = !operands.iter().any(|operand| operand.is_array);
     let mut values = vec![Vec::with_capacity(size); nout];
     let mut selected_elements = Vec::with_capacity(size);
     let mut error_flags = ErrorFlags::default();
@@ -1545,7 +1756,7 @@ fn call(
         } else {
             operands[0].read(&coordinates, &shape)?
         };
-        let (loop_inputs, result) = if nin == 1 {
+        let (loop_inputs, mut result) = if nin == 1 {
             let loop_inputs = vec![left.clone()];
             let result = kernels::unary(name, left, outputs[0]).map_err(map_storage_error)?;
             (loop_inputs, result)
@@ -1561,6 +1772,24 @@ fn call(
                 kernels::binary(name, left, right, outputs[0]).map_err(map_storage_error)?;
             (loop_inputs, result)
         };
+        if scalar_call && matches!(name, "power" | "pow") && outputs[0].kind() == "f" {
+            if let [base, exponent] = loop_inputs.as_slice() {
+                if exponent.as_f64().is_ok_and(|value| value == 0.5) {
+                    if base.as_f64().is_ok_and(|value| value == f64::NEG_INFINITY) {
+                        result[0] = Scalar::Float64(f64::NAN)
+                            .cast(outputs[0])
+                            .map_err(map_storage_error)?;
+                    } else if base
+                        .as_f64()
+                        .is_ok_and(|value| value == 0.0 && value.is_sign_negative())
+                    {
+                        result[0] = Scalar::Float64(-0.0)
+                            .cast(outputs[0])
+                            .map_err(map_storage_error)?;
+                    }
+                }
+            }
+        }
         error_flags.merge(classify_errors(name, &loop_inputs, &result));
         for (slot, value) in values.iter_mut().zip(result) {
             slot.push(value);
@@ -2250,17 +2479,58 @@ fn ensure_known_method_kwargs(
     }
     Ok(())
 }
-fn normalize_axis_index(raw: isize, ndim: usize) -> PyResult<usize> {
+fn axis_error(py: Python<'_>, message: String) -> PyResult<PyErr> {
+    let exception = PyModule::import(py, "raptors")?
+        .getattr("AxisError")?
+        .cast_into::<PyType>()?;
+    Ok(PyErr::from_type(exception, (message,)))
+}
+
+fn normalize_axis_index(py: Python<'_>, raw: isize, ndim: usize) -> PyResult<usize> {
     let normalized = if raw < 0 { raw + ndim as isize } else { raw };
     if normalized < 0 || normalized >= ndim as isize {
-        return Err(PyValueError::new_err(format!(
-            "axis {} is out of bounds for array of dimension {}",
-            raw, ndim
-        )));
+        return Err(axis_error(
+            py,
+            format!(
+                "axis {} is out of bounds for array of dimension {}",
+                raw, ndim
+            ),
+        )?);
     }
     Ok(normalized as usize)
 }
-fn normalize_axes(axis: Option<&Bound<'_, PyAny>>, ndim: usize) -> PyResult<Option<Vec<usize>>> {
+
+fn extract_axis_integer(value: &Bound<'_, PyAny>) -> PyResult<isize> {
+    if value.is_instance_of::<PyBool>() {
+        return Err(PyTypeError::new_err("an integer is required"));
+    }
+    value.extract::<isize>()
+}
+
+fn single_axis_argument(value: &Bound<'_, PyAny>, method: &str) -> PyResult<isize> {
+    if value.is_none() {
+        return Err(PyValueError::new_err(format!(
+            "{} does not allow multiple axes",
+            method
+        )));
+    }
+    if let Ok(tuple) = value.cast::<PyTuple>() {
+        if tuple.len() != 1 {
+            return Err(PyValueError::new_err(format!(
+                "{} does not allow multiple axes",
+                method
+            )));
+        }
+        return extract_axis_integer(&tuple.get_item(0)?);
+    }
+    extract_axis_integer(value)
+}
+
+fn normalize_axes(
+    py: Python<'_>,
+    axis: Option<&Bound<'_, PyAny>>,
+    ndim: usize,
+) -> PyResult<Option<Vec<usize>>> {
     let Some(axis) = axis else { return Ok(None) };
     if axis.is_none() {
         return Ok(None);
@@ -2268,19 +2538,22 @@ fn normalize_axes(axis: Option<&Bound<'_, PyAny>>, ndim: usize) -> PyResult<Opti
     let raw_axes = if let Ok(tuple) = axis.cast::<PyTuple>() {
         tuple
             .iter()
-            .map(|value| value.extract::<isize>())
+            .map(|value| extract_axis_integer(&value))
             .collect::<PyResult<Vec<_>>>()?
     } else {
-        vec![axis.extract::<isize>()?]
+        vec![extract_axis_integer(axis)?]
     };
     let mut axes = Vec::with_capacity(raw_axes.len());
     for raw in raw_axes {
         let normalized = if raw < 0 { raw + ndim as isize } else { raw };
         if normalized < 0 || normalized >= ndim as isize {
-            return Err(PyValueError::new_err(format!(
-                "axis {} is out of bounds for array of dimension {}",
-                raw, ndim
-            )));
+            return Err(axis_error(
+                py,
+                format!(
+                    "axis {} is out of bounds for array of dimension {}",
+                    raw, ndim
+                ),
+            )?);
         }
         let normalized = normalized as usize;
         if axes.contains(&normalized) {
@@ -2464,13 +2737,20 @@ fn reduce(
     }
     let source = Operand::from_python(array)?;
     let original_shape = source.shape().to_vec();
-    let flatten_scalar = original_shape.is_empty() && axis.is_some_and(|value| value.is_none());
+    let flatten_scalar = original_shape.is_empty()
+        && axis.is_some_and(|value| {
+            value.is_none()
+                || (value.cast::<PyTuple>().is_err()
+                    && value
+                        .extract::<isize>()
+                        .is_ok_and(|axis| axis == 0 || axis == -1))
+        });
     let source_shape = if flatten_scalar {
         vec![1]
     } else {
         original_shape.clone()
     };
-    let mut axes = normalize_axes(axis, source_shape.len())?
+    let mut axes = normalize_axes(py, axis, source_shape.len())?
         .unwrap_or_else(|| (0..source_shape.len()).collect());
     axes.sort_unstable();
     let input_dtype = accumulator_dtype(name, source.dtype, dtype)?;
@@ -2481,19 +2761,25 @@ fn reduce(
     let value_dtype = reduction_accumulator_dtype(name, loop_inputs[1]);
     let result_dtype = loop_outputs[0];
     let mask = method_kw(kwargs, "where")?
-        .map(|value| Operand::from_python(&value))
+        .map(|value| Operand::from_mask(&value))
         .transpose()?;
     if let Some(mask) = &mask {
         if mask.dtype != DType::Bool {
             return Err(PyTypeError::new_err("where must be boolean"));
         }
-        if broadcast_shape(&source_shape, mask.shape())? != source_shape {
+        let mask_shape = if flatten_scalar {
+            &original_shape
+        } else {
+            &source_shape
+        };
+        if broadcast_shape(mask_shape, mask.shape())?.as_slice() != mask_shape.as_slice() {
             return Err(PyValueError::new_err(
                 "where mask cannot be broadcast to the reduction input",
             ));
         }
     }
     let initial_value = initial
+        .filter(|value| !value.is_none())
         .map(super::value_to_untyped_scalar)
         .transpose()?
         .map(|value| value.cast(accumulator_dtype).map_err(map_storage_error))
@@ -2604,7 +2890,7 @@ fn reduce(
         values,
         inferred_output_alias(name, std::slice::from_ref(&source), result_dtype),
         out,
-        !keepdims,
+        !keepdims || original_shape.is_empty(),
     )?;
     report_errors(py, name, error_flags)?;
     Ok(result)
@@ -2627,7 +2913,7 @@ fn accumulate(
     let source = Operand::from_python(array)?;
     let source_shape = source.shape().to_vec();
     let shape = source_shape.clone();
-    let axis = normalize_axis_index(axis, shape.len())?;
+    let axis = normalize_axis_index(py, axis, shape.len())?;
     let input_dtype = accumulator_dtype(name, source.dtype, dtype)?;
     let (loop_inputs, loop_outputs) =
         kernels::resolve_loop(name, &[input_dtype, input_dtype]).map_err(map_storage_error)?;
@@ -2704,7 +2990,7 @@ fn reduceat(
     }
     let source = Operand::from_python(array)?;
     let source_shape = source.shape().to_vec();
-    let axis = normalize_axis_index(axis, source_shape.len())?;
+    let axis = normalize_axis_index(py, axis, source_shape.len())?;
     let index_array = Operand::from_python(indices)?;
     let index_shape = index_array.shape().to_vec();
     if index_shape.len() != 1 {
@@ -2900,7 +3186,7 @@ fn outer(
         ));
     }
     let mask = where_value
-        .map(|value| Operand::from_python(&value))
+        .map(|value| Operand::from_mask(&value))
         .transpose()?;
     if let Some(mask) = &mask {
         if mask.dtype != DType::Bool {
@@ -3180,12 +3466,10 @@ fn at(
                 ));
             }
         }
+        // `at` resolves with the RHS's dtype and casts each result back to
+        // the target dtype, including when the loop result is wider.
         let input_dtypes = if let Some(rhs) = rhs_operand {
-            if rhs.is_array || name == "ldexp" {
-                [target.inner.dtype(), rhs.dtype]
-            } else {
-                [target.inner.dtype(), target.inner.dtype()]
-            }
+            [target.inner.dtype(), rhs.dtype]
         } else {
             [target.inner.dtype(), target.inner.dtype()]
         };
@@ -3196,13 +3480,7 @@ fn at(
             kernels::resolve_loop(name, &input_dtypes[..1]).map_err(map_storage_error)?
         };
         let result_dtype = loop_outputs[0];
-        if !can_cast(result_dtype, target.inner.dtype(), CastingRule::SameKind) {
-            return Err(PyTypeError::new_err(format!(
-                "ufunc.at output cannot be cast from {} to {} with casting rule 'same_kind'",
-                result_dtype.name(),
-                target.inner.dtype().name()
-            )));
-        }
+        warn_at_complex_cast(a.py(), result_dtype, target.inner.dtype())?;
         let selection_count = element_count(&selection_shape)?;
         let rhs_values = if let Some(rhs) = rhs_operand {
             (0..selection_count)
@@ -3277,11 +3555,9 @@ fn at(
                 "right operand cannot be broadcast to the indexed target shape",
             ));
         }
-        if rhs.is_array || name == "ldexp" {
-            [target.inner.dtype(), rhs.dtype]
-        } else {
-            [target.inner.dtype(), target.inner.dtype()]
-        }
+        // Match the basic-index path: resolve by the actual RHS dtype, then
+        // store each loop result back to the target dtype.
+        [target.inner.dtype(), rhs.dtype]
     } else {
         [target.inner.dtype(), target.inner.dtype()]
     };
@@ -3291,13 +3567,7 @@ fn at(
         kernels::resolve_loop(name, &input_dtypes[..1]).map_err(map_storage_error)?
     };
     let result_dtype = loop_outputs[0];
-    if !can_cast(result_dtype, target.inner.dtype(), CastingRule::SameKind) {
-        return Err(PyTypeError::new_err(format!(
-            "ufunc.at output cannot be cast from {} to {} with casting rule 'same_kind'",
-            result_dtype.name(),
-            target.inner.dtype().name()
-        )));
-    }
+    warn_at_complex_cast(a.py(), result_dtype, target.inner.dtype())?;
     let selection_count = element_count(&selection_shape)?;
     let rhs_values = if let Some(rhs) = rhs_operand {
         (0..selection_count)
@@ -3344,6 +3614,13 @@ fn at(
             .map_err(map_storage_error)?;
     }
     report_errors(a.py(), name, error_flags)?;
+    Ok(())
+}
+
+fn warn_at_complex_cast(py: Python<'_>, source: DType, target: DType) -> PyResult<()> {
+    if source.kind() == "c" && matches!(target.kind(), "i" | "u" | "f") {
+        emit_complex_warning(py)?;
+    }
     Ok(())
 }
 
