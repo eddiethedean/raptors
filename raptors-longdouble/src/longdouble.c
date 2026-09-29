@@ -148,7 +148,7 @@ static int binary_values(const char *name, long double a, long double b, long do
 }
 
 int raptors_ld_binary_real(const char *name, const char *left, const char *right, char *first, size_t first_cap, char *second, size_t second_cap) {
-    long double a, b, first_value, second_value;
+    long double a, b, first_value, second_value = 0.0L;
     if (!parse_ld(left, &a) || !parse_ld(right, &b) || !binary_values(name, a, b, &first_value, &second_value)) return 0;
     if (!write_ld(first_value, first, first_cap)) return 0;
     return write_ld(second_value, second, second_cap);

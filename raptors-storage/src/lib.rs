@@ -82,7 +82,9 @@ impl DType {
             Self::UInt8 => 'B',
             Self::Int16 => 'h',
             Self::UInt16 => 'H',
+            Self::Int32 if cfg!(target_os = "windows") => 'l',
             Self::Int32 => 'i',
+            Self::UInt32 if cfg!(target_os = "windows") => 'L',
             Self::UInt32 => 'I',
             Self::Int64 if cfg!(target_os = "windows") => 'q',
             Self::Int64 => 'l',
@@ -360,13 +362,13 @@ impl Scalar {
             Self::Float64(v) => *v != 0.0,
             Self::Complex64(re, im) => *re != 0.0 || *im != 0.0,
             Self::Complex128(re, im) => *re != 0.0 || *im != 0.0,
-            Self::LongDouble(v) => native_longdouble::classify(v, 3)
-                .unwrap_or_else(|| v.parse::<f64>().map(|x| x != 0.0).unwrap_or(false)),
+            Self::LongDouble(v) => !native_longdouble::classify(v, 3)
+                .unwrap_or_else(|| v.parse::<f64>().map(|x| x == 0.0).unwrap_or(true)),
             Self::ComplexLongDouble(re, im) => {
-                native_longdouble::classify(re, 3)
-                    .unwrap_or_else(|| re.parse::<f64>().map(|x| x != 0.0).unwrap_or(false))
-                    || native_longdouble::classify(im, 3)
-                        .unwrap_or_else(|| im.parse::<f64>().map(|x| x != 0.0).unwrap_or(false))
+                !native_longdouble::classify(re, 3)
+                    .unwrap_or_else(|| re.parse::<f64>().map(|x| x == 0.0).unwrap_or(true))
+                    || !native_longdouble::classify(im, 3)
+                        .unwrap_or_else(|| im.parse::<f64>().map(|x| x == 0.0).unwrap_or(true))
             }
         }
     }
@@ -3359,6 +3361,15 @@ fn f_strides(dtype: DType, shape: &[usize]) -> Result<Vec<isize>, StorageError> 
 mod tests {
     use super::{DType, IndexItem, Scalar, StorageError, View};
     use std::sync::Arc;
+
+    #[test]
+    fn longdouble_truthiness_matches_nonzero_values() {
+        assert!(!Scalar::LongDouble("0".into()).truthy());
+        assert!(Scalar::LongDouble("1".into()).truthy());
+        assert!(!Scalar::ComplexLongDouble("0".into(), "0".into()).truthy());
+        assert!(Scalar::ComplexLongDouble("0".into(), "1".into()).truthy());
+        assert!(Scalar::ComplexLongDouble("1".into(), "0".into()).truthy());
+    }
 
     #[test]
     fn extended_longdouble_loops_keep_platform_precision() {

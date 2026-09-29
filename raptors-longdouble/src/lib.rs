@@ -112,7 +112,7 @@ pub fn decode(input: &[u8; 16]) -> Option<String> {
     }
     #[cfg(raptors_native_longdouble)]
     {
-        let mut output = [0_i8; TEXT_CAPACITY];
+        let mut output = [0 as c_char; TEXT_CAPACITY];
         // SAFETY: input is exactly 16 readable bytes and output is a live
         // writable C character buffer with the supplied capacity.
         let status = unsafe {
@@ -140,7 +140,7 @@ pub fn unary_real(name: &str, value: &str) -> Option<String> {
     {
         let name = CString::new(name).ok()?;
         let value = CString::new(value).ok()?;
-        let mut output = [0_i8; TEXT_CAPACITY];
+        let mut output = [0 as c_char; TEXT_CAPACITY];
         // SAFETY: both inputs are NUL-terminated and output is a bounded live
         // writable buffer; the C bridge writes at most `output.len()` bytes.
         let status = unsafe {
@@ -169,8 +169,8 @@ pub fn binary_real(name: &str, left: &str, right: &str) -> Option<(String, Strin
         let name = CString::new(name).ok()?;
         let left = CString::new(left).ok()?;
         let right = CString::new(right).ok()?;
-        let mut first = [0_i8; TEXT_CAPACITY];
-        let mut second = [0_i8; TEXT_CAPACITY];
+        let mut first = [0 as c_char; TEXT_CAPACITY];
+        let mut second = [0 as c_char; TEXT_CAPACITY];
         // SAFETY: inputs are NUL-terminated and both outputs are live bounded
         // character buffers with capacities passed to the C function.
         let status = unsafe {
@@ -202,8 +202,8 @@ pub fn unary_complex(name: &str, real: &str, imag: &str) -> Option<(String, Stri
         let name = CString::new(name).ok()?;
         let real = CString::new(real).ok()?;
         let imag = CString::new(imag).ok()?;
-        let mut out_real = [0_i8; TEXT_CAPACITY];
-        let mut out_imag = [0_i8; TEXT_CAPACITY];
+        let mut out_real = [0 as c_char; TEXT_CAPACITY];
+        let mut out_imag = [0 as c_char; TEXT_CAPACITY];
         // SAFETY: each input is NUL-terminated and each output is a live
         // bounded character buffer whose capacity is passed to C.
         let status = unsafe {
@@ -243,8 +243,8 @@ pub fn binary_complex(
         let left_imag = CString::new(left_imag).ok()?;
         let right_real = CString::new(right_real).ok()?;
         let right_imag = CString::new(right_imag).ok()?;
-        let mut out_real = [0_i8; TEXT_CAPACITY];
-        let mut out_imag = [0_i8; TEXT_CAPACITY];
+        let mut out_real = [0 as c_char; TEXT_CAPACITY];
+        let mut out_imag = [0 as c_char; TEXT_CAPACITY];
         // SAFETY: inputs are NUL-terminated and output buffers are live,
         // bounded, and disjoint for the duration of the C call.
         let status = unsafe {
@@ -358,7 +358,7 @@ pub fn frexp(value: &str) -> Option<(String, i32)> {
     #[cfg(raptors_native_longdouble)]
     {
         let value = CString::new(value).ok()?;
-        let mut fraction = [0_i8; TEXT_CAPACITY];
+        let mut fraction = [0 as c_char; TEXT_CAPACITY];
         let mut exponent = 0;
         // SAFETY: value is NUL-terminated and outputs point to valid writable
         // storage with the stated fraction capacity.
@@ -386,8 +386,8 @@ pub fn modf(value: &str) -> Option<(String, String)> {
     #[cfg(raptors_native_longdouble)]
     {
         let value = CString::new(value).ok()?;
-        let mut fraction = [0_i8; TEXT_CAPACITY];
-        let mut integral = [0_i8; TEXT_CAPACITY];
+        let mut fraction = [0 as c_char; TEXT_CAPACITY];
+        let mut integral = [0 as c_char; TEXT_CAPACITY];
         // SAFETY: value is NUL-terminated and the two outputs are disjoint,
         // writable buffers whose capacities are passed to C.
         let status = unsafe {
@@ -514,6 +514,16 @@ mod tests {
                 "{operation}"
             );
         }
+    }
+
+    #[test]
+    fn native_complex_addition_keeps_extended_precision() {
+        if !has_extended_native() {
+            return;
+        }
+        let (real, imag) = binary_complex("add", "9007199254740993", "0", "1", "0").unwrap();
+        assert_eq!(compare(&real, "9007199254740994"), Some(Some(0)));
+        assert_eq!(compare(&imag, "0"), Some(Some(0)));
     }
 
     #[test]

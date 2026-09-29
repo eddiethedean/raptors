@@ -1092,7 +1092,10 @@ def test_wide_longdouble_addition_preserves_precision(dtype):
     expected_candidate = raptors.array([int(expected[0].real)], dtype=candidate_dtype)
 
     assert actual.dtype == candidate_dtype
-    assert bool(raptors.equal(actual, expected_candidate)[0])
+    assert bool(raptors.equal(actual, expected_candidate)[0]), (
+        actual[0],
+        expected_candidate[0],
+    )
 
 
 def test_wide_longdouble_exp_uses_extended_exponent_range():

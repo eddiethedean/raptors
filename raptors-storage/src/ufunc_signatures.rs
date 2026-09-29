@@ -284,14 +284,7 @@ fn target_signature(signature: &str) -> String {
 }
 
 fn windows_signature(signature: &str) -> String {
-    signature
-        .chars()
-        .map(|code| match code {
-            'l' => 'q',
-            'L' => 'Q',
-            other => other,
-        })
-        .collect()
+    signature.to_owned()
 }
 
 #[cfg(test)]
@@ -299,11 +292,10 @@ mod tests {
     use super::windows_signature;
 
     #[test]
-    fn windows_typecodes_preserve_c_int_and_map_c_long_to_longlong() {
-        assert_eq!(windows_signature("ii->iII->I"), "ii->iII->I");
+    fn windows_typecodes_preserve_numpy_aliases() {
         assert_eq!(
-            windows_signature("ll->lLL->Lqq->qQQ->Q"),
-            "qq->qQQ->Qqq->qQQ->Q"
+            windows_signature("ii->iII->IlL->lLqq->qQQ->Q"),
+            "ii->iII->IlL->lLqq->qQQ->Q"
         );
     }
 }

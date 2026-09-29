@@ -2688,9 +2688,10 @@
     "runtime_numpy_dependency": false
   },
   "known_gaps": [
+    "Longdouble and clongdouble scalar kernels currently compute through binary64 conversions on platforms where those formats are wider.",
     "Fresh outputs with false where positions are zero-initialized internally; those positions remain outside the result-value contract.",
     "Complex inverse-trig differential cases cover branch cuts, signed zero, small imaginary values, and large finite values; exact bit-for-bit equality across platform libm implementations is not promised.",
-    "Floating-error flag detection uses scalar result heuristics; exact subnormal cases are covered for common real operations. NumPy's exp2 underflow flag for exact subnormal powers varies across supported platform wheels, and Windows reports underflow for exact least-subnormal ldexp results. The full operation-by-mode matrix remains pending.",
+    "Floating-error flag detection uses scalar result heuristics and still needs NumPy differential coverage for all error modes.",
     "Combined dtype/signature, casting, where, out, and order cases are covered for single- and multi-output ufuncs; the full invalid-argument precedence matrix remains pending.",
     "Raptors has no ndarray subclasses, so subok does not alter results; third-party dispatch remains outside the 0.3 input domain."
   ],
@@ -2718,12 +2719,12 @@
     "python_xdist": {
       "status": "passed_locally",
       "workers": 12,
-      "pytest_seconds": 6.23,
+      "pytest_seconds": 6.51,
       "command": "./raptors-python/run_tests.sh"
     },
     "rust_workspace_tests": {
       "status": "passed_locally",
-      "test_cases": 1551,
+      "test_cases": 1553,
       "test_binaries": 58,
       "command": "cargo test --offline --locked --manifest-path Cargo.toml --workspace -- --test-threads=1"
     },
@@ -2737,7 +2738,7 @@
     },
     "miri": {
       "status": "passed_locally",
-      "passed": 11,
+      "passed": 12,
       "command": "RAPTORS_SKIP_NATIVE_LONGDOUBLE=1 cargo +nightly miri test --offline --locked -p raptors-storage"
     },
     "benchmark": {
