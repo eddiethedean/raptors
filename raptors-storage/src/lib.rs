@@ -79,6 +79,10 @@ impl DType {
             Self::UInt8 => 'B',
             Self::Int16 => 'h',
             Self::UInt16 => 'H',
+            // NumPy's 32-bit integer descriptors use C `long`'s codes on
+            // Windows, where `long` is also 32 bits.
+            Self::Int32 if cfg!(target_os = "windows") => 'l',
+            Self::UInt32 if cfg!(target_os = "windows") => 'L',
             Self::Int32 => 'i',
             Self::UInt32 => 'I',
             Self::Int64 if cfg!(target_os = "windows") => 'q',
