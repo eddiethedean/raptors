@@ -9,6 +9,7 @@ use pyo3::exceptions::{
 use pyo3::prelude::*;
 use pyo3::types::{PyBool, PyDict, PyInt, PyList, PyString, PyTuple, PyType};
 use pyo3::PyTypeInfo;
+use raptors_longdouble as native_longdouble;
 use raptors_storage::{
     keep_order_axes, ufunc as kernels, ByteOrder, DType, IndexItem, Scalar, View,
 };
@@ -388,6 +389,23 @@ impl Operand {
             return Err(PyOverflowError::new_err(
                 "Python int is outside the supported 64-bit numeric range",
             ));
+        }
+        if self.large_python_integer && matches!(dtype.kind(), "f" | "c") {
+            let Scalar::LongDouble(value) = self.scalar.as_ref().expect("scalar operand has value")
+            else {
+                unreachable!("large Python integers are stored as decimal scalars")
+            };
+            let finite = if matches!(dtype, DType::LongDouble | DType::ComplexLongDouble) {
+                native_longdouble::classify(value, 4)
+                    .or_else(|| value.parse::<f64>().ok().map(f64::is_finite))
+            } else {
+                value.parse::<f64>().ok().map(f64::is_finite)
+            };
+            if finite != Some(true) {
+                return Err(PyOverflowError::new_err(
+                    "int too large to convert to float",
+                ));
+            }
         }
         self.read(coordinates, result_shape)?
             .cast(dtype)
@@ -1142,7 +1160,8 @@ fn minimum_normal(dtype: DType) -> Option<f64> {
     match dtype {
         DType::Float16 => Some(6.103_515_625e-5),
         DType::Float32 => Some(f32::MIN_POSITIVE as f64),
-        DType::Float64 | DType::LongDouble => Some(f64::MIN_POSITIVE),
+        DType::Float64 => Some(f64::MIN_POSITIVE),
+        DType::LongDouble if !native_longdouble::has_extended_native() => Some(f64::MIN_POSITIVE),
         _ => None,
     }
 }
@@ -1199,6 +1218,17 @@ fn logaddexp_intermediate_underflow(name: &str, inputs: &[Scalar], dtype: DType)
     let [left, right] = inputs else {
         return false;
     };
+    if dtype == DType::LongDouble && native_longdouble::has_extended_native() {
+        let (Scalar::LongDouble(left), Scalar::LongDouble(right)) = (left, right) else {
+            return false;
+        };
+        return native_longdouble::logaddexp_intermediate_underflow(
+            left,
+            right,
+            name == "logaddexp2",
+        )
+        .unwrap_or(false);
+    }
     let (Ok(left), Ok(right), Some(normal_minimum)) =
         (left.as_f64(), right.as_f64(), minimum_normal(dtype))
     else {
@@ -1493,6 +1523,67 @@ fn parse_loop_signature(
     )))
 }
 
+fn resolve_requested_dtype_loop(
+    name: &str,
+    nin: usize,
+    nout: usize,
+    requested: DType,
+    source_inputs: &[DType],
+    operands: &[Operand],
+    casting: CastingRule,
+) -> PyResult<(Vec<DType>, Vec<DType>)> {
+    let mut best_match = None;
+    let mut best_exact_inputs = 0;
+    let mut best_output_loop = None;
+    let mut best_output_exact_inputs = 0;
+    for signature in signatures(name) {
+        let Ok((inputs, outputs)) = parse_signature_text(&signature, nin, nout) else {
+            continue;
+        };
+        if outputs.iter().any(|&output| output != requested) {
+            continue;
+        }
+        let exact_inputs = inputs
+            .iter()
+            .zip(source_inputs)
+            .filter(|(destination, source)| destination == source)
+            .count();
+        if best_output_loop.is_none() || exact_inputs > best_output_exact_inputs {
+            best_output_exact_inputs = exact_inputs;
+            best_output_loop = Some((inputs.clone(), outputs.clone()));
+        }
+        let inputs_castable = inputs.iter().zip(source_inputs).zip(operands).all(
+            |((destination, source), operand)| {
+                can_cast_ufunc_operand(name, operand, *source, *destination, casting)
+            },
+        );
+        if inputs_castable && (best_match.is_none() || exact_inputs > best_exact_inputs) {
+            best_exact_inputs = exact_inputs;
+            best_match = Some((inputs, outputs));
+        }
+    }
+    if let Some(best_match) = best_match {
+        return Ok(best_match);
+    }
+    if let Some((inputs, _)) = best_output_loop {
+        for (index, (source, destination)) in source_inputs.iter().zip(&inputs).enumerate() {
+            if !can_cast_ufunc_operand(name, &operands[index], *source, *destination, casting) {
+                return Err(PyTypeError::new_err(format!(
+                    "ufunc '{}' input cannot be cast from {} to {} with casting rule '{}'",
+                    name,
+                    operand_source_dtype(&operands[index], *source).name(),
+                    destination.name(),
+                    casting_name(casting)
+                )));
+            }
+        }
+    }
+    Err(PyTypeError::new_err(format!(
+        "no loop matching the specified signature and casting was found for ufunc '{}'",
+        name
+    )))
+}
+
 fn signature_dtype_constraint(value: &Bound<'_, PyAny>) -> PyResult<Option<DType>> {
     if value.is_none() {
         return Ok(None);
@@ -1694,7 +1785,7 @@ fn call(
     let weak_pair = nin == 2
         && ((operands[0].is_array && operands[1].weak_scalar)
             || (operands[1].is_array && operands[0].weak_scalar));
-    let mut input_dtypes = if nin == 1 {
+    let input_dtypes = if nin == 1 {
         vec![operands[0].dtype]
     } else if weak_pair && name == "ldexp" {
         // ldexp has a heterogeneous (floating mantissa, integer exponent)
@@ -1752,7 +1843,7 @@ fn call(
         outputs = signature_outputs;
     } else if let Some(dtype) = requested_dtype {
         let (requested, _, _) = parse_dtype_spec(&dtype)?;
-        if is_logical_ufunc(name) {
+        if is_truthiness_ufunc(name) {
             if requested != DType::Bool {
                 return Err(PyTypeError::new_err(format!(
                     "no loop matching the specified signature and casting was found for ufunc '{}'",
@@ -1760,36 +1851,15 @@ fn call(
                 )));
             }
         } else {
-            for (index, source) in input_dtypes.iter().enumerate() {
-                if !can_cast_ufunc_operand(name, &operands[index], *source, requested, casting) {
-                    return Err(PyTypeError::new_err(format!(
-                        "ufunc '{}' input cannot be cast from {} to {} with casting rule '{}'",
-                        name,
-                        operand_source_dtype(&operands[index], *source).name(),
-                        requested.name(),
-                        casting_name(casting),
-                    )));
-                }
-            }
-            if name == "ldexp" {
-                input_dtypes[0] = requested;
-            } else {
-                input_dtypes.fill(requested);
-            }
-            let (dtype_inputs, dtype_outputs) =
-                kernels::resolve_loop(name, &input_dtypes).map_err(map_storage_error)?;
-            for (index, (source, destination)) in input_dtypes.iter().zip(&dtype_inputs).enumerate()
-            {
-                if !can_cast_ufunc_operand(name, &operands[index], *source, *destination, casting) {
-                    return Err(PyTypeError::new_err(format!(
-                        "ufunc '{}' input cannot be cast from {} to {} with casting rule '{}'",
-                        name,
-                        operand_source_dtype(&operands[index], *source).name(),
-                        destination.name(),
-                        casting_name(casting)
-                    )));
-                }
-            }
+            let (dtype_inputs, dtype_outputs) = resolve_requested_dtype_loop(
+                name,
+                nin,
+                nout,
+                requested,
+                &input_dtypes,
+                &operands,
+                casting,
+            )?;
             resolved_inputs = dtype_inputs;
             cast_input_dtypes = Some(resolved_inputs.clone());
             outputs = dtype_outputs;
@@ -2257,6 +2327,9 @@ fn can_cast_operand(operand: &Operand, from: DType, to: DType, casting: CastingR
 }
 fn is_logical_ufunc(name: &str) -> bool {
     matches!(name, "logical_and" | "logical_or" | "logical_xor")
+}
+fn is_truthiness_ufunc(name: &str) -> bool {
+    is_logical_ufunc(name) || name == "logical_not"
 }
 fn can_cast_ufunc_operand(
     name: &str,
@@ -3300,7 +3373,7 @@ fn outer(
     }
 
     let weak_pair = (left.is_array && right.weak_scalar) || (right.is_array && left.weak_scalar);
-    let mut input_dtypes = if weak_pair && name == "ldexp" {
+    let input_dtypes = if weak_pair && name == "ldexp" {
         [left.dtype, right.dtype]
     } else if weak_pair {
         let promoted = weak_promote(&left, &right)?;
@@ -3353,7 +3426,7 @@ fn outer(
         outputs = signature_outputs;
     } else if let Some(dtype) = requested_dtype {
         let (requested, _, _) = parse_dtype_spec(&dtype)?;
-        if is_logical_ufunc(name) {
+        if is_truthiness_ufunc(name) {
             if requested != DType::Bool {
                 return Err(PyTypeError::new_err(format!(
                     "no loop matching the specified signature and casting was found for ufunc '{}'",
@@ -3361,37 +3434,16 @@ fn outer(
                 )));
             }
         } else {
-            for (index, source) in input_dtypes.iter().enumerate() {
-                if !can_cast_ufunc_operand(name, &operands[index], *source, requested, casting) {
-                    return Err(PyTypeError::new_err(format!(
-                        "ufunc '{}' input cannot be cast from {} to {} with casting rule '{}'",
-                        name,
-                        operand_source_dtype(&operands[index], *source).name(),
-                        requested.name(),
-                        casting_name(casting)
-                    )));
-                }
-            }
-            input_dtypes = if name == "ldexp" {
-                [requested, input_dtypes[1]]
-            } else {
-                [requested, requested]
-            };
-            let (dtype_inputs, dtype_outputs) =
-                kernels::resolve_loop(name, &input_dtypes).map_err(map_storage_error)?;
-            for (index, (source, destination)) in input_dtypes.iter().zip(&dtype_inputs).enumerate()
-            {
-                if !can_cast_ufunc_operand(name, &operands[index], *source, *destination, casting) {
-                    return Err(PyTypeError::new_err(format!(
-                        "ufunc '{}' input cannot be cast from {} to {} with casting rule '{}'",
-                        name,
-                        operand_source_dtype(&operands[index], *source).name(),
-                        destination.name(),
-                        casting_name(casting)
-                    )));
-                }
-            }
-            resolved_inputs = dtype_inputs;
+            let (dtype_inputs, dtype_outputs) = resolve_requested_dtype_loop(
+                name,
+                2,
+                nout,
+                requested,
+                &input_dtypes,
+                &operands,
+                casting,
+            )?;
+            resolved_inputs = vec![dtype_inputs[0], dtype_inputs[1]];
             cast_input_dtypes = Some([resolved_inputs[0], resolved_inputs[1]]);
             outputs = dtype_outputs;
         }

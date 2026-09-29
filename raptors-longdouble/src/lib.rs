@@ -55,6 +55,11 @@ extern "C" {
         imag_cap: usize,
     ) -> c_int;
     fn raptors_ld_classify(value: *const c_char, property: c_int) -> c_int;
+    fn raptors_ld_logaddexp_intermediate_underflow(
+        left: *const c_char,
+        right: *const c_char,
+        base2: c_int,
+    ) -> c_int;
     fn raptors_ld_compare(left: *const c_char, right: *const c_char) -> c_int;
     fn raptors_ld_compare_complex(
         left_real: *const c_char,
@@ -288,6 +293,34 @@ pub fn classify(value: &str, property: i32) -> Option<bool> {
     }
 }
 
+/// Whether the exponential intermediate in logaddexp underflows the native
+/// long-double normal range for these operands.
+pub fn logaddexp_intermediate_underflow(left: &str, right: &str, base2: bool) -> Option<bool> {
+    if !has_extended_native() {
+        return None;
+    }
+    #[cfg(raptors_native_longdouble)]
+    {
+        let left = CString::new(left).ok()?;
+        let right = CString::new(right).ok()?;
+        // SAFETY: both values are live NUL-terminated strings; base2 is a
+        // boolean flag consumed by the C bridge.
+        let result = unsafe {
+            raptors_ld_logaddexp_intermediate_underflow(
+                left.as_ptr(),
+                right.as_ptr(),
+                c_int::from(base2),
+            )
+        };
+        (result >= 0).then_some(result != 0)
+    }
+    #[cfg(not(raptors_native_longdouble))]
+    {
+        let _ = (left, right, base2);
+        None
+    }
+}
+
 /// Compare finite or infinite real values: -1, 0, 1; `None` for NaN.
 pub fn compare(left: &str, right: &str) -> Option<Option<i8>> {
     if !has_extended_native() {
@@ -421,7 +454,7 @@ fn c_buffer_to_string(buffer: &[c_char]) -> String {
 mod tests {
     use super::{
         binary_complex, binary_real, classify, compare, decode, encode, has_extended_native,
-        unary_complex, unary_real,
+        logaddexp_intermediate_underflow, unary_complex, unary_real,
     };
 
     #[test]
@@ -541,6 +574,29 @@ mod tests {
     }
 
     #[test]
+    fn longdouble_logaddexp_underflow_uses_the_native_normal_range() {
+        if !has_extended_native() {
+            return;
+        }
+        assert_eq!(
+            logaddexp_intermediate_underflow("0", "-1000", false),
+            Some(false)
+        );
+        assert_eq!(
+            logaddexp_intermediate_underflow("0", "-1e10", false),
+            Some(true)
+        );
+        assert_eq!(
+            logaddexp_intermediate_underflow("0", "-1000", true),
+            Some(false)
+        );
+        assert_eq!(
+            logaddexp_intermediate_underflow("0", "-1e10", true),
+            Some(true)
+        );
+    }
+
+    #[test]
     fn native_complex_addition_keeps_extended_precision() {
         if !has_extended_native() {
             return;
@@ -605,6 +661,12 @@ mod tests {
             "pow",
             "float_power",
         ] {
+            assert!(
+                binary_complex(operation, "0.5", "0.25", "1.5", "0.75").is_some(),
+                "{operation}"
+            );
+        }
+        for operation in ["maximum", "minimum", "fmax", "fmin"] {
             assert!(
                 binary_complex(operation, "0.5", "0.25", "1.5", "0.75").is_some(),
                 "{operation}"
