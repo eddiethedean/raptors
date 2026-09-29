@@ -333,7 +333,7 @@ impl Operand {
         }
         if value.is_instance_of::<PyList>() || value.is_instance_of::<PyTuple>() {
             let dtype = PyString::new(value.py(), "bool");
-            let array = array(value, Some(&dtype.as_any()), Some(true), "K")?;
+            let array = array(value, Some(dtype.as_any()), Some(true), "K")?;
             return Ok(Self {
                 view: Some(array.inner),
                 scalar: None,
