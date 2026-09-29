@@ -1,5 +1,6 @@
 """Pinned NumPy 2.5.3 differential coverage for the 0.3 ufunc preview."""
 
+import asyncio
 import io
 import json
 from pathlib import Path
@@ -1309,6 +1310,39 @@ def test_floating_error_state_restores_and_raise_mode_matches_numpy():
         raptors.seterr(**old)
 
 
+def test_errstate_is_isolated_between_asyncio_tasks():
+    async def interleaved_contexts():
+        entered = asyncio.Event()
+        release = asyncio.Event()
+        outer_callback = lambda *_: None
+        inner_callback = lambda *_: None
+
+        async def outer_task():
+            with raptors.errstate(over="raise", call=outer_callback):
+                entered.set()
+                await release.wait()
+                assert raptors.geterr()["over"] == "raise"
+                assert raptors.geterrcall() is outer_callback
+
+        async def inner_task():
+            await entered.wait()
+            assert raptors.geterr()["over"] == "warn"
+            assert raptors.geterrcall() is None
+            with raptors.errstate(under="raise", call=inner_callback):
+                assert raptors.geterr()["over"] == "warn"
+                assert raptors.geterr()["under"] == "raise"
+                assert raptors.geterrcall() is inner_callback
+            assert raptors.geterr()["under"] == "ignore"
+            assert raptors.geterrcall() is None
+            release.set()
+
+        await asyncio.gather(outer_task(), inner_task())
+
+    asyncio.run(interleaved_contexts())
+    assert raptors.geterr() == np.geterr()
+    assert raptors.geterrcall() is None
+
+
 def test_floating_error_warning_and_callback_modes_match_numpy_contract():
     messages = []
     previous_callback = raptors.seterrcall(lambda name, flag: messages.append((name, flag)))
@@ -2434,6 +2468,34 @@ def test_wide_longdouble_logaddexp_underflow_matches_numpy(name):
     with raptors.errstate(under="ignore"):
         actual = getattr(raptors, name)(actual_left, actual_right)
     _assert_ufunc_result_matches(expected, actual)
+
+
+@pytest.mark.parametrize("name", ["logaddexp", "logaddexp2"])
+def test_wide_longdouble_logaddexp_intermediate_overflow_matches_numpy(name):
+    dtype = np.dtype("longdouble")
+    if np.finfo(dtype).nmant <= np.finfo(np.float64).nmant:
+        pytest.skip("requires native extended long double")
+    candidate_dtype = _raptors_dtype_for_numpy(dtype)
+    expected_infinity = np.array([np.inf], dtype=dtype)
+    expected_zero = np.array([0.0], dtype=dtype)
+    expected_left = np.nextafter(expected_infinity, expected_zero)
+    expected_right = np.negative(expected_left)
+    actual_infinity = raptors.array([np.inf], dtype=candidate_dtype)
+    actual_zero = raptors.array([0.0], dtype=candidate_dtype)
+    actual_left = raptors.nextafter(actual_infinity, actual_zero)
+    actual_right = raptors.negative(actual_left)
+
+    with np.errstate(over="raise"), pytest.raises(FloatingPointError, match="overflow"):
+        getattr(np, name)(expected_left, expected_right)
+    with raptors.errstate(over="raise"), pytest.raises(
+        FloatingPointError, match="overflow"
+    ):
+        getattr(raptors, name)(actual_left, actual_right)
+
+    with np.errstate(all="ignore"), raptors.errstate(all="ignore"):
+        expected = getattr(np, name)(expected_left, expected_right)
+        actual = getattr(raptors, name)(actual_left, actual_right)
+    _assert_ufunc_result_matches(expected, actual, exact=True)
 
 
 def test_wide_longdouble_ldexp_clamps_exponents_outside_c_int_range():

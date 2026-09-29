@@ -60,6 +60,10 @@ extern "C" {
         right: *const c_char,
         base2: c_int,
     ) -> c_int;
+    fn raptors_ld_logaddexp_intermediate_overflow(
+        left: *const c_char,
+        right: *const c_char,
+    ) -> c_int;
     fn raptors_ld_compare(left: *const c_char, right: *const c_char) -> c_int;
     fn raptors_ld_compare_complex(
         left_real: *const c_char,
@@ -321,6 +325,27 @@ pub fn logaddexp_intermediate_underflow(left: &str, right: &str, base2: bool) ->
     }
 }
 
+/// Whether subtracting these finite operands overflows native `long double`.
+pub fn logaddexp_intermediate_overflow(left: &str, right: &str) -> Option<bool> {
+    if !has_extended_native() {
+        return None;
+    }
+    #[cfg(raptors_native_longdouble)]
+    {
+        let left = CString::new(left).ok()?;
+        let right = CString::new(right).ok()?;
+        // SAFETY: both inputs are live NUL-terminated strings.
+        let result =
+            unsafe { raptors_ld_logaddexp_intermediate_overflow(left.as_ptr(), right.as_ptr()) };
+        (result >= 0).then_some(result != 0)
+    }
+    #[cfg(not(raptors_native_longdouble))]
+    {
+        let _ = (left, right);
+        None
+    }
+}
+
 /// Compare finite or infinite real values: -1, 0, 1; `None` for NaN.
 pub fn compare(left: &str, right: &str) -> Option<Option<i8>> {
     if !has_extended_native() {
@@ -454,7 +479,8 @@ fn c_buffer_to_string(buffer: &[c_char]) -> String {
 mod tests {
     use super::{
         binary_complex, binary_real, classify, compare, decode, encode, has_extended_native,
-        logaddexp_intermediate_underflow, unary_complex, unary_real,
+        logaddexp_intermediate_overflow, logaddexp_intermediate_underflow, unary_complex,
+        unary_real,
     };
 
     #[test]
@@ -586,6 +612,19 @@ mod tests {
             logaddexp_intermediate_underflow("0", "-1e10", true),
             Some(true)
         );
+    }
+
+    #[test]
+    fn longdouble_logaddexp_overflow_detects_native_range_differences() {
+        if !has_extended_native() {
+            return;
+        }
+        assert_eq!(
+            logaddexp_intermediate_overflow("1e4932", "-1e4932"),
+            Some(true)
+        );
+        assert_eq!(logaddexp_intermediate_overflow("1e4932", "0"), Some(false));
+        assert_eq!(logaddexp_intermediate_overflow("inf", "-inf"), Some(false));
     }
 
     #[test]

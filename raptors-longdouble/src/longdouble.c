@@ -354,6 +354,22 @@ int raptors_ld_logaddexp_intermediate_underflow(const char *left_text, const cha
     return underflow;
 }
 
+int raptors_ld_logaddexp_intermediate_overflow(const char *left_text, const char *right_text) {
+    long double left, right;
+    if (!parse_ld(left_text, &left) || !parse_ld(right_text, &right)) return -1;
+    if (!isfinite(left) || !isfinite(right)) return 0;
+
+    fenv_t environment;
+    if (feholdexcept(&environment) != 0) {
+        volatile long double difference = left - right;
+        return isinf(difference) != 0;
+    }
+    volatile long double difference = left - right;
+    int overflow = fetestexcept(FE_OVERFLOW) != 0 || isinf(difference);
+    if (fesetenv(&environment) != 0) return overflow;
+    return overflow;
+}
+
 int raptors_ld_classify(const char *text, int property) {
     long double value;
     if (!parse_ld(text, &value)) return -1;
