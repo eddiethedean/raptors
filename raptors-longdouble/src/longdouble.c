@@ -190,15 +190,23 @@ static long double complex complex_atan(long double real, long double imag) {
 }
 
 static long double complex complex_atanh(long double real, long double imag) {
-    long double denominator = 1.0L - real * real - imag * imag;
-    long double magnitude = (1.0L - real) * (1.0L - real) + imag * imag;
+    /* Log distances retain the small distance to either branch point. Near
+     * zero, log1p preserves tiny real parts and their signed zero. */
     long double real_result;
-    if (magnitude == 0.0L) {
-        real_result = 0.25L * (logl((1.0L + real) * (1.0L + real) + imag * imag) - logl(magnitude));
+    if (fabsl(real) < 0.5L) {
+        long double denominator = (1.0L - real) * (1.0L - real) + imag * imag;
+        real_result = 0.25L * log1pl((4.0L * real) / denominator);
     } else {
-        real_result = 0.25L * log1pl((4.0L * real) / magnitude);
+        long double numerator_distance = hypotl(1.0L + real, imag);
+        long double denominator_distance = hypotl(1.0L - real, imag);
+        real_result = 0.5L * (logl(numerator_distance) - logl(denominator_distance));
     }
-    return CMPLXL(real_result, 0.5L * atan2l(2.0L * imag, denominator));
+    long double imaginary_result;
+    if (imag == 0.0L && fabsl(real) == 1.0L)
+        imaginary_result = copysignl(acosl(-1.0L) / 4.0L, imag);
+    else
+        imaginary_result = 0.5L * atan2l(2.0L * imag, 1.0L - real * real - imag * imag);
+    return CMPLXL(real_result, imaginary_result);
 }
 
 static int unary_complex_value(const char *name, long double complex z, long double complex *result) {
@@ -246,7 +254,12 @@ static int unary_complex_value(const char *name, long double complex z, long dou
     else if (strcmp(name, "sqrt") == 0) *result = csqrtl(z);
     else if (strcmp(name, "tan") == 0) *result = ctanl(z);
     else if (strcmp(name, "tanh") == 0) *result = ctanhl(z);
-    else if (strcmp(name, "reciprocal") == 0) *result = 1.0L / z;
+    else if (strcmp(name, "reciprocal") == 0) {
+        if (re == 0.0L && im == 0.0L)
+            *result = CMPLXL(INFINITY, nanl(""));
+        else
+            *result = 1.0L / z;
+    }
     else if (strcmp(name, "square") == 0) *result = z * z;
     else if (strcmp(name, "positive") == 0) *result = z;
     else if (strcmp(name, "negative") == 0) *result = -z;
@@ -277,7 +290,15 @@ int raptors_ld_binary_complex(const char *name, const char *left_real, const cha
     if (strcmp(name, "add") == 0) result = a + b;
     else if (strcmp(name, "subtract") == 0) result = a - b;
     else if (strcmp(name, "multiply") == 0) result = a * b;
-    else if (strcmp(name, "divide") == 0 || strcmp(name, "true_divide") == 0) result = a / b;
+    else if (strcmp(name, "divide") == 0 || strcmp(name, "true_divide") == 0) {
+        long double real = creall(a), imag = cimagl(a);
+        if (creall(b) == 0.0L && cimagl(b) == 0.0L) {
+            result = CMPLXL(real == 0.0L ? nanl("") : copysignl(INFINITY, real),
+                            imag == 0.0L ? nanl("") : copysignl(INFINITY, imag));
+        } else {
+            result = a / b;
+        }
+    }
     else if (strcmp(name, "power") == 0 || strcmp(name, "pow") == 0 || strcmp(name, "float_power") == 0) {
         if (creall(a) == 0.0L && cimagl(a) == 0.0L && creall(b) < 0.0L)
             result = CMPLXL(nanl(""), nanl(""));
