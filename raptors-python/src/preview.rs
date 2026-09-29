@@ -1475,6 +1475,11 @@ fn assign_basic_sequence(
         return Err(PyValueError::new_err("input sequence has an invalid shape"));
     }
     if let Err(shape_error) = validate_assignment_broadcast(&source_shape, target.shape()) {
+        if source_shape.len() > target.ndim() {
+            // NumPy rejects sequences that exceed the target rank before
+            // attempting to cast their elements.
+            return Err(shape_error);
+        }
         // NumPy converts a sequence before reporting a later broadcast error.
         // Keep that error precedence, but leave the destination untouched.
         for atom in &source_values {

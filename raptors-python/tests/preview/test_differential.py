@@ -862,6 +862,18 @@ def test_basic_sequence_assignment_keeps_successful_prefix_on_conversion_error()
     assert reference.tolist() == [1, 0, 0]
 
 
+def test_basic_assignment_checks_excess_sequence_rank_before_cast():
+    reference = np.zeros((2, 3), dtype=np.int8)
+    candidate = raptors.zeros((2, 3), dtype=raptors.int8)
+    values = [[1e100]]
+
+    with pytest.raises(ValueError):
+        reference[0] = values
+    with pytest.raises(ValueError):
+        candidate[0] = values
+    assert_array_matches(reference, candidate)
+
+
 @pytest.mark.parametrize(
     "dtype,error",
     [
