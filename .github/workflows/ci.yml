@@ -29,7 +29,7 @@ jobs:
       - name: Keep raw-pointer code out of preview storage
         run: |
           if rg -n '\bunsafe\b' raptors-storage/src; then
-            echo 'The 0.1 storage crate must remain free of unsafe Rust.' >&2
+            echo 'The preview storage crate must remain free of unsafe Rust.' >&2
             exit 1
           fi
 

@@ -1,0 +1,348 @@
+{
+  "measurement": {
+    "input": "one Python list(range(count)) of int64-compatible integers",
+    "limitations": [
+      "single local host",
+      "one input size and int64 source dtype",
+      "allocator and page-size effects",
+      "the measurements are not a release performance claim"
+    ],
+    "native_memory": "process high-water RSS delta after imports and inputs are prepared; coarse and platform dependent",
+    "operations": [
+      "create",
+      "slice",
+      "cast",
+      "reshape",
+      "transpose",
+      "fancy_index",
+      "assignment",
+      "copy"
+    ],
+    "python_memory": "tracemalloc peak delta; excludes Rust/native allocations",
+    "timing": "median wall-clock nanoseconds over repeated equivalent Python calls in a fresh subprocess"
+  },
+  "purpose": "informational 0.2 foundation baseline; does not support a speed claim",
+  "results": [
+    {
+      "backend": "numpy",
+      "count": 250000,
+      "implementation": "CPython",
+      "machine": "arm64",
+      "median_latency_ns": 3561708,
+      "numpy": "2.5.3",
+      "operation": "create",
+      "platform": "macOS-26.5.2-arm64-arm-64bit-Mach-O",
+      "process_peak_rss_delta_bytes": 2048000,
+      "python": "3.14.3",
+      "python_tracemalloc_peak_delta_bytes": 2000588,
+      "raptors": "0.2.0",
+      "repeats": 5,
+      "thread_settings": {
+        "MKL_NUM_THREADS": null,
+        "OMP_NUM_THREADS": null,
+        "OPENBLAS_NUM_THREADS": null
+      }
+    },
+    {
+      "backend": "numpy",
+      "count": 250000,
+      "implementation": "CPython",
+      "machine": "arm64",
+      "median_latency_ns": 750,
+      "numpy": "2.5.3",
+      "operation": "slice",
+      "platform": "macOS-26.5.2-arm64-arm-64bit-Mach-O",
+      "process_peak_rss_delta_bytes": 0,
+      "python": "3.14.3",
+      "python_tracemalloc_peak_delta_bytes": 588,
+      "raptors": "0.2.0",
+      "repeats": 5,
+      "thread_settings": {
+        "MKL_NUM_THREADS": null,
+        "OMP_NUM_THREADS": null,
+        "OPENBLAS_NUM_THREADS": null
+      }
+    },
+    {
+      "backend": "numpy",
+      "count": 250000,
+      "implementation": "CPython",
+      "machine": "arm64",
+      "median_latency_ns": 78500,
+      "numpy": "2.5.3",
+      "operation": "cast",
+      "platform": "macOS-26.5.2-arm64-arm-64bit-Mach-O",
+      "process_peak_rss_delta_bytes": 1015808,
+      "python": "3.14.3",
+      "python_tracemalloc_peak_delta_bytes": 1000588,
+      "raptors": "0.2.0",
+      "repeats": 5,
+      "thread_settings": {
+        "MKL_NUM_THREADS": null,
+        "OMP_NUM_THREADS": null,
+        "OPENBLAS_NUM_THREADS": null
+      }
+    },
+    {
+      "backend": "numpy",
+      "count": 250000,
+      "implementation": "CPython",
+      "machine": "arm64",
+      "median_latency_ns": 1041,
+      "numpy": "2.5.3",
+      "operation": "reshape",
+      "platform": "macOS-26.5.2-arm64-arm-64bit-Mach-O",
+      "process_peak_rss_delta_bytes": 0,
+      "python": "3.14.3",
+      "python_tracemalloc_peak_delta_bytes": 644,
+      "raptors": "0.2.0",
+      "repeats": 5,
+      "thread_settings": {
+        "MKL_NUM_THREADS": null,
+        "OMP_NUM_THREADS": null,
+        "OPENBLAS_NUM_THREADS": null
+      }
+    },
+    {
+      "backend": "numpy",
+      "count": 250000,
+      "implementation": "CPython",
+      "machine": "arm64",
+      "median_latency_ns": 1417,
+      "numpy": "2.5.3",
+      "operation": "transpose",
+      "platform": "macOS-26.5.2-arm64-arm-64bit-Mach-O",
+      "process_peak_rss_delta_bytes": 16384,
+      "python": "3.14.3",
+      "python_tracemalloc_peak_delta_bytes": 680,
+      "raptors": "0.2.0",
+      "repeats": 5,
+      "thread_settings": {
+        "MKL_NUM_THREADS": null,
+        "OMP_NUM_THREADS": null,
+        "OPENBLAS_NUM_THREADS": null
+      }
+    },
+    {
+      "backend": "numpy",
+      "count": 250000,
+      "implementation": "CPython",
+      "machine": "arm64",
+      "median_latency_ns": 84875,
+      "numpy": "2.5.3",
+      "operation": "fancy_index",
+      "platform": "macOS-26.5.2-arm64-arm-64bit-Mach-O",
+      "process_peak_rss_delta_bytes": 1048576,
+      "python": "3.14.3",
+      "python_tracemalloc_peak_delta_bytes": 1000588,
+      "raptors": "0.2.0",
+      "repeats": 5,
+      "thread_settings": {
+        "MKL_NUM_THREADS": null,
+        "OMP_NUM_THREADS": null,
+        "OPENBLAS_NUM_THREADS": null
+      }
+    },
+    {
+      "backend": "numpy",
+      "count": 250000,
+      "implementation": "CPython",
+      "machine": "arm64",
+      "median_latency_ns": 32209,
+      "numpy": "2.5.3",
+      "operation": "assignment",
+      "platform": "macOS-26.5.2-arm64-arm-64bit-Mach-O",
+      "process_peak_rss_delta_bytes": 0,
+      "python": "3.14.3",
+      "python_tracemalloc_peak_delta_bytes": 632,
+      "raptors": "0.2.0",
+      "repeats": 5,
+      "thread_settings": {
+        "MKL_NUM_THREADS": null,
+        "OMP_NUM_THREADS": null,
+        "OPENBLAS_NUM_THREADS": null
+      }
+    },
+    {
+      "backend": "numpy",
+      "count": 250000,
+      "implementation": "CPython",
+      "machine": "arm64",
+      "median_latency_ns": 89792,
+      "numpy": "2.5.3",
+      "operation": "copy",
+      "platform": "macOS-26.5.2-arm64-arm-64bit-Mach-O",
+      "process_peak_rss_delta_bytes": 2015232,
+      "python": "3.14.3",
+      "python_tracemalloc_peak_delta_bytes": 2000588,
+      "raptors": "0.2.0",
+      "repeats": 5,
+      "thread_settings": {
+        "MKL_NUM_THREADS": null,
+        "OMP_NUM_THREADS": null,
+        "OPENBLAS_NUM_THREADS": null
+      }
+    },
+    {
+      "backend": "raptors",
+      "count": 250000,
+      "implementation": "CPython",
+      "machine": "arm64",
+      "median_latency_ns": 66759750,
+      "numpy": "2.5.3",
+      "operation": "create",
+      "platform": "macOS-26.5.2-arm64-arm-64bit-Mach-O",
+      "process_peak_rss_delta_bytes": 28360704,
+      "python": "3.14.3",
+      "python_tracemalloc_peak_delta_bytes": 695,
+      "raptors": "0.2.0",
+      "repeats": 5,
+      "thread_settings": {
+        "MKL_NUM_THREADS": null,
+        "OMP_NUM_THREADS": null,
+        "OPENBLAS_NUM_THREADS": null
+      }
+    },
+    {
+      "backend": "raptors",
+      "count": 250000,
+      "implementation": "CPython",
+      "machine": "arm64",
+      "median_latency_ns": 958,
+      "numpy": "2.5.3",
+      "operation": "slice",
+      "platform": "macOS-26.5.2-arm64-arm-64bit-Mach-O",
+      "process_peak_rss_delta_bytes": 0,
+      "python": "3.14.3",
+      "python_tracemalloc_peak_delta_bytes": 596,
+      "raptors": "0.2.0",
+      "repeats": 5,
+      "thread_settings": {
+        "MKL_NUM_THREADS": null,
+        "OMP_NUM_THREADS": null,
+        "OPENBLAS_NUM_THREADS": null
+      }
+    },
+    {
+      "backend": "raptors",
+      "count": 250000,
+      "implementation": "CPython",
+      "machine": "arm64",
+      "median_latency_ns": 21293375,
+      "numpy": "2.5.3",
+      "operation": "cast",
+      "platform": "macOS-26.5.2-arm64-arm-64bit-Mach-O",
+      "process_peak_rss_delta_bytes": 2326528,
+      "python": "3.14.3",
+      "python_tracemalloc_peak_delta_bytes": 596,
+      "raptors": "0.2.0",
+      "repeats": 5,
+      "thread_settings": {
+        "MKL_NUM_THREADS": null,
+        "OMP_NUM_THREADS": null,
+        "OPENBLAS_NUM_THREADS": null
+      }
+    },
+    {
+      "backend": "raptors",
+      "count": 250000,
+      "implementation": "CPython",
+      "machine": "arm64",
+      "median_latency_ns": 1125,
+      "numpy": "2.5.3",
+      "operation": "reshape",
+      "platform": "macOS-26.5.2-arm64-arm-64bit-Mach-O",
+      "process_peak_rss_delta_bytes": 0,
+      "python": "3.14.3",
+      "python_tracemalloc_peak_delta_bytes": 596,
+      "raptors": "0.2.0",
+      "repeats": 5,
+      "thread_settings": {
+        "MKL_NUM_THREADS": null,
+        "OMP_NUM_THREADS": null,
+        "OPENBLAS_NUM_THREADS": null
+      }
+    },
+    {
+      "backend": "raptors",
+      "count": 250000,
+      "implementation": "CPython",
+      "machine": "arm64",
+      "median_latency_ns": 1583,
+      "numpy": "2.5.3",
+      "operation": "transpose",
+      "platform": "macOS-26.5.2-arm64-arm-64bit-Mach-O",
+      "process_peak_rss_delta_bytes": 0,
+      "python": "3.14.3",
+      "python_tracemalloc_peak_delta_bytes": 640,
+      "raptors": "0.2.0",
+      "repeats": 5,
+      "thread_settings": {
+        "MKL_NUM_THREADS": null,
+        "OMP_NUM_THREADS": null,
+        "OPENBLAS_NUM_THREADS": null
+      }
+    },
+    {
+      "backend": "raptors",
+      "count": 250000,
+      "implementation": "CPython",
+      "machine": "arm64",
+      "median_latency_ns": 12472791,
+      "numpy": "2.5.3",
+      "operation": "fancy_index",
+      "platform": "macOS-26.5.2-arm64-arm-64bit-Mach-O",
+      "process_peak_rss_delta_bytes": 0,
+      "python": "3.14.3",
+      "python_tracemalloc_peak_delta_bytes": 596,
+      "raptors": "0.2.0",
+      "repeats": 5,
+      "thread_settings": {
+        "MKL_NUM_THREADS": null,
+        "OMP_NUM_THREADS": null,
+        "OPENBLAS_NUM_THREADS": null
+      }
+    },
+    {
+      "backend": "raptors",
+      "count": 250000,
+      "implementation": "CPython",
+      "machine": "arm64",
+      "median_latency_ns": 2187834,
+      "numpy": "2.5.3",
+      "operation": "assignment",
+      "platform": "macOS-26.5.2-arm64-arm-64bit-Mach-O",
+      "process_peak_rss_delta_bytes": 0,
+      "python": "3.14.3",
+      "python_tracemalloc_peak_delta_bytes": 492,
+      "raptors": "0.2.0",
+      "repeats": 5,
+      "thread_settings": {
+        "MKL_NUM_THREADS": null,
+        "OMP_NUM_THREADS": null,
+        "OPENBLAS_NUM_THREADS": null
+      }
+    },
+    {
+      "backend": "raptors",
+      "count": 250000,
+      "implementation": "CPython",
+      "machine": "arm64",
+      "median_latency_ns": 7851459,
+      "numpy": "2.5.3",
+      "operation": "copy",
+      "platform": "macOS-26.5.2-arm64-arm-64bit-Mach-O",
+      "process_peak_rss_delta_bytes": 0,
+      "python": "3.14.3",
+      "python_tracemalloc_peak_delta_bytes": 596,
+      "raptors": "0.2.0",
+      "repeats": 5,
+      "thread_settings": {
+        "MKL_NUM_THREADS": null,
+        "OMP_NUM_THREADS": null,
+        "OPENBLAS_NUM_THREADS": null
+      }
+    }
+  ],
+  "schema_version": 1
+}

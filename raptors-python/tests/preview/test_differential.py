@@ -9,6 +9,40 @@ import raptors
 from harness import assert_array_matches
 
 
+NUMERIC_DTYPE_CASES = [
+    ("bool", raptors.bool_, [False, True]),
+    ("int8", raptors.int8, [0, 1, 2]),
+    ("uint8", raptors.uint8, [0, 1, 2]),
+    ("int16", raptors.int16, [0, 1, 2]),
+    ("uint16", raptors.uint16, [0, 1, 2]),
+    ("int32", raptors.int32, [0, 1, 2]),
+    ("uint32", raptors.uint32, [0, 1, 2]),
+    ("int64", raptors.int64, [0, 1, 2]),
+    ("uint64", raptors.uint64, [0, 1, 2]),
+    ("float16", raptors.float16, [0.0, 1.0, 2.0]),
+    ("float32", raptors.float32, [0.0, 1.0, 2.0]),
+    ("float64", raptors.float64, [0.0, 1.0, 2.0]),
+    ("complex64", raptors.complex64, [0j, 1 + 2j, 2 + 0j]),
+    ("complex128", raptors.complex128, [0j, 1 + 2j, 2 + 0j]),
+    ("longdouble", raptors.DType("longdouble"), [0.0, 1.0, 2.0]),
+    ("clongdouble", raptors.DType("clongdouble"), [0j, 1 + 2j, 2 + 0j]),
+]
+
+NUMERIC_DTYPE_ALIASES = [
+    "bool_", "?", "b1",
+    "i1", "b", "byte", "u1", "B", "ubyte",
+    "i2", "h", "short", "u2", "H", "ushort",
+    "i4", "i", "intc", "u4", "I", "uintc",
+    "i8", "q", "int", "int_", "long", "intp", "p", "n", "longlong",
+    "u8", "Q", "uint", "ulong", "uintp", "P", "N", "ulonglong",
+    "f2", "e", "half", "f4", "f", "single", "f8", "d", "double", "float",
+    "c8", "F", "csingle", "c16", "D", "complex", "cdouble", "G",
+    "longdouble", "g", "clongdouble",
+]
+if np.dtype("longdouble").itemsize > np.dtype("float64").itemsize:
+    NUMERIC_DTYPE_ALIASES.extend(("float128", "complex256", "c32"))
+
+
 @pytest.mark.parametrize(
     "dtype, values",
     [
@@ -73,6 +107,38 @@ def test_csingle_dtype_alias_matches_numpy_complex64():
     expected = np.array([1 + 2**-30 + 2j], dtype="csingle")
     actual = raptors.array([1 + 2**-30 + 2j], dtype="csingle")
     assert_array_matches(expected, actual)
+
+
+@pytest.mark.parametrize("alias", NUMERIC_DTYPE_ALIASES)
+def test_numeric_dtype_aliases_match_numpy(alias):
+    expected_dtype = np.dtype(alias)
+    actual_dtype = raptors.DType(alias)
+    for attribute in (
+        "name",
+        "kind",
+        "char",
+        "itemsize",
+        "alignment",
+        "byteorder",
+        "isnative",
+        "str",
+    ):
+        assert getattr(actual_dtype, attribute) == getattr(expected_dtype, attribute), (
+            alias,
+            attribute,
+        )
+
+    values = {
+        "b": [False, True],
+        "i": [0, 1, 2],
+        "u": [0, 1, 2],
+        "f": [0.0, 1.25, -2.5],
+        "c": [0j, 1 + 2j, 3 - 4j],
+    }[expected_dtype.kind]
+    expected = np.array(values, dtype=expected_dtype)
+    actual = raptors.array(values, dtype=alias)
+    assert_array_matches(expected, actual)
+    assert actual_dtype.type.__name__ == type(actual[0]).__name__
 
 
 @pytest.mark.parametrize("shape", [(), (0,), (2, 0, 3), (1, 3), (2, 3)])
@@ -275,6 +341,56 @@ def test_reshape_views_compatible_stepped_source():
     assert_array_matches(reference_matrix, candidate_matrix)
 
 
+@pytest.mark.parametrize(
+    "source_shape,source_kind,target_shape,order,shares",
+    [
+        ((4, 6), "base", (2, 12), "C", True),
+        ((4, 6), "base", (2, 12), "F", True),
+        ((4, 6), "transpose", (2, 12), "C", False),
+        ((4, 6), "transpose", (2, 12), "F", True),
+        ((24,), "reverse", (2, 12), "C", True),
+        ((4, 6), "row_step", (12,), "C", False),
+    ],
+)
+def test_reshape_copy_and_view_behavior_matches_numpy(
+    source_shape, source_kind, target_shape, order, shares
+):
+    values = np.arange(np.prod(source_shape), dtype=np.int64).reshape(source_shape)
+    owner_order = "F" if source_kind == "base" and order == "F" else "C"
+    reference_owner = np.array(values, order=owner_order, copy=True)
+    candidate_owner = raptors.array(
+        values.tolist(), dtype=raptors.int64, order=owner_order
+    )
+
+    if source_kind == "transpose":
+        reference_source, candidate_source = reference_owner.T, candidate_owner.T
+    elif source_kind == "reverse":
+        reference_source, candidate_source = reference_owner[::-1], candidate_owner[::-1]
+    elif source_kind == "row_step":
+        reference_source, candidate_source = reference_owner[::2], candidate_owner[::2]
+    else:
+        reference_source, candidate_source = reference_owner, candidate_owner
+
+    expected = reference_source.reshape(target_shape, order=order)
+    actual = candidate_source.reshape(target_shape, order=order)
+    assert_array_matches(expected, actual)
+    assert np.shares_memory(expected, reference_owner) is shares
+
+    if shares:
+        assert_array_matches(
+            reference_source.reshape(target_shape, order=order, copy=False),
+            candidate_source.reshape(target_shape, order=order, copy=False),
+        )
+    else:
+        with pytest.raises(ValueError):
+            reference_source.reshape(target_shape, order=order, copy=False)
+        with pytest.raises(ValueError):
+            candidate_source.reshape(target_shape, order=order, copy=False)
+
+    expected.flat[0] = 97
+    actual[tuple(0 for _ in target_shape)] = 97
+    assert_array_matches(reference_owner, candidate_owner)
+
 def test_array_copy_none_accepts_copy_if_needed_semantics():
     source = raptors.array([1, 2, 3], dtype=raptors.int64)
     reused = raptors.array(source, copy=None)
@@ -317,12 +433,21 @@ def test_array_reuses_equivalent_native_byteorder_descriptor(copy):
 def test_array_reuses_equal_width_float_dtype_aliases(
     copy, source_dtype, target_dtype, values, replacement, convert
 ):
-    if np.dtype(source_dtype) != np.dtype(target_dtype):
-        pytest.skip("this platform uses distinct storage for long double")
-
     source = raptors.array(values, dtype=raptors.DType(source_dtype))
-    actual = raptors.array(source, dtype=raptors.DType(target_dtype), copy=copy)
     expected_dtype = np.dtype(target_dtype)
+    if np.dtype(source_dtype) != expected_dtype:
+        if copy is False:
+            with pytest.raises(ValueError):
+                raptors.array(source, dtype=raptors.DType(target_dtype), copy=False)
+            return
+        expected = np.array(values, dtype=np.dtype(source_dtype)).astype(expected_dtype)
+        actual = raptors.array(source, dtype=raptors.DType(target_dtype), copy=None)
+        assert_array_matches(expected, actual)
+        actual[0] = replacement
+        assert convert(source[0]) == convert(values[0])
+        return
+
+    actual = raptors.array(source, dtype=raptors.DType(target_dtype), copy=copy)
     assert actual.dtype.name == expected_dtype.name
     assert actual.dtype.char == expected_dtype.char
     assert actual.dtype.byteorder == expected_dtype.byteorder
@@ -387,10 +512,7 @@ def test_any_order_uses_c_layout_when_singleton_array_is_both_contiguous():
     )
 
 
-def test_longdouble_dtype_alias_equality_matches_numpy_when_same_size():
-    if np.dtype("longdouble").itemsize != np.dtype("float64").itemsize:
-        pytest.skip("longdouble is distinct from float64 on this platform")
-
+def test_longdouble_dtype_alias_equality_matches_numpy_on_each_platform():
     for long_name, alias_name in (
         ("longdouble", "float64"),
         ("clongdouble", "complex128"),
@@ -399,15 +521,16 @@ def test_longdouble_dtype_alias_equality_matches_numpy_when_same_size():
         expected_alias = np.dtype(alias_name)
         actual_long = raptors.DType(long_name)
         actual_alias = raptors.DType(alias_name)
-        assert expected_long == expected_alias
-        assert actual_long == actual_alias
-        assert actual_alias == actual_long
-        assert actual_long == alias_name
-        assert actual_alias == long_name
+        assert (expected_long == expected_alias) == (actual_long == actual_alias)
+        assert (expected_alias == expected_long) == (actual_alias == actual_long)
+        assert (expected_long == expected_alias) == (actual_long == alias_name)
+        assert (expected_alias == expected_long) == (actual_alias == long_name)
 
-        long_array = raptors.array([1], dtype=long_name)
-        alias_array = raptors.array([1], dtype=alias_name)
-        assert long_array.dtype == alias_array.dtype
+        long_array = raptors.array([1], dtype=raptors.DType(long_name))
+        alias_array = raptors.array([1], dtype=raptors.DType(alias_name))
+        assert (long_array.dtype == alias_array.dtype) == (expected_long == expected_alias)
+        assert_array_matches(np.array([1], dtype=expected_long), long_array)
+        assert_array_matches(np.array([1], dtype=expected_alias), alias_array)
 
 
 def test_longlong_dtype_alias_metadata_survives_arrays_and_scalars():
@@ -464,6 +587,137 @@ def test_dtype_metadata_and_inferred_dtype():
         assert dtype.kind == np.dtype(dtype.name).kind
     assert raptors.array([[1, 2], [3, 4]], dtype="int64").dtype == raptors.int64
     assert_array_matches(np.array([1, 2]), raptors.array([1, 2]))
+
+
+@pytest.mark.parametrize("dtype_name,dtype,values", NUMERIC_DTYPE_CASES)
+def test_all_numeric_dtype_metadata_and_round_trip(dtype_name, dtype, values):
+    expected_dtype = np.dtype(dtype_name)
+    actual_dtype = raptors.DType(dtype_name)
+
+    assert actual_dtype.name == expected_dtype.name
+    assert actual_dtype.kind == expected_dtype.kind
+    assert actual_dtype.char == expected_dtype.char
+    assert actual_dtype.itemsize == expected_dtype.itemsize
+    assert actual_dtype.alignment == expected_dtype.alignment
+    assert actual_dtype.byteorder == expected_dtype.byteorder
+    assert actual_dtype.isnative == expected_dtype.isnative
+    assert actual_dtype.str == expected_dtype.str
+
+    expected = np.array(values, dtype=expected_dtype)
+    actual = raptors.array(values, dtype=dtype)
+    scalar_name = type(actual[0]).__name__
+    assert actual_dtype.type.__name__ == scalar_name
+    assert actual[0].dtype.type.__name__ == scalar_name
+    assert_array_matches(expected, actual)
+    assert_array_matches(expected.copy(), actual.copy())
+
+
+@pytest.mark.parametrize(
+    "values,mask",
+    [
+        ([3, 5, 7, 9], [True, False, True, False]),
+        ([3, 5, 7, 9], [False, False, False, False]),
+        ([], []),
+    ],
+)
+def test_boolean_mask_indexing_and_assignment_matches_numpy(values, mask):
+    reference = np.array(values, dtype=np.int64)
+    candidate = raptors.array(values, dtype=raptors.int64)
+    reference_mask = np.array(mask, dtype=np.bool_)
+    candidate_mask = raptors.array(mask, dtype=raptors.bool_)
+
+    expected_selection = reference[reference_mask]
+    actual_selection = candidate[candidate_mask]
+    assert_array_matches(expected_selection, actual_selection)
+    if expected_selection.size:
+        expected_selection[0] = -11
+        actual_selection[0] = -11
+        assert_array_matches(reference, candidate)
+
+    replacement = np.arange(expected_selection.size, dtype=np.int64) + 20
+    reference[reference_mask] = replacement
+    candidate[candidate_mask] = raptors.array(replacement.tolist(), dtype=raptors.int64)
+    assert_array_matches(reference, candidate)
+
+
+def test_boolean_mask_rank_shape_errors_match_numpy():
+    reference = np.arange(6, dtype=np.int64).reshape(2, 3)
+    candidate = raptors.array(reference.tolist(), dtype=raptors.int64)
+    for mask in (np.array([True, False, True]), np.ones((2, 2), dtype=np.bool_)):
+        with pytest.raises(IndexError) as expected_error:
+            _ = reference[mask]
+        with pytest.raises(type(expected_error.value)):
+            _ = candidate[raptors.array(mask.tolist(), dtype=raptors.bool_)]
+
+
+def test_fancy_index_copy_duplicate_writes_and_overlapping_source_match_numpy():
+    reference = np.arange(5, dtype=np.int64)
+    candidate = raptors.array(reference.tolist(), dtype=raptors.int64)
+    key_values = [1, 1, -1]
+    reference_key = np.array(key_values, dtype=np.int64)
+    candidate_key = raptors.array(key_values, dtype=raptors.int64)
+
+    expected_selection = reference[reference_key]
+    actual_selection = candidate[candidate_key]
+    assert_array_matches(expected_selection, actual_selection)
+    expected_selection[0] = 99
+    actual_selection[0] = 99
+    assert_array_matches(reference, candidate)
+
+    reference[reference_key] = [10, 20, 30]
+    candidate[candidate_key] = [10, 20, 30]
+    assert_array_matches(reference, candidate)
+
+    reference = np.arange(5, dtype=np.int64)
+    candidate = raptors.array(reference.tolist(), dtype=raptors.int64)
+    reference[[0, 1, 2, 3, 4]] = reference[[4, 3, 2, 1, 0]]
+    candidate[[0, 1, 2, 3, 4]] = candidate[[4, 3, 2, 1, 0]]
+    assert_array_matches(reference, candidate)
+
+
+@pytest.mark.parametrize("source_name,source_dtype,values", NUMERIC_DTYPE_CASES)
+@pytest.mark.parametrize("target_name,target_dtype,_", NUMERIC_DTYPE_CASES)
+def test_numeric_array_cast_matrix_matches_numpy(
+    source_name, source_dtype, values, target_name, target_dtype, _
+):
+    expected_source = np.array(values, dtype=source_name)
+    actual_source = raptors.array(values, dtype=source_dtype)
+
+    with warnings.catch_warnings(record=True) as expected_warnings:
+        warnings.simplefilter("always")
+        expected = expected_source.astype(target_name)
+    with warnings.catch_warnings(record=True) as actual_warnings:
+        warnings.simplefilter("always")
+        actual = actual_source.astype(target_dtype)
+
+    assert [str(item.message) for item in actual_warnings] == [
+        str(item.message) for item in expected_warnings
+    ]
+    assert [type(item.message).__name__ for item in actual_warnings] == [
+        type(item.message).__name__ for item in expected_warnings
+    ]
+    assert_array_matches(expected, actual)
+
+
+@pytest.mark.parametrize("left_name,left_dtype,_", NUMERIC_DTYPE_CASES)
+@pytest.mark.parametrize("right_name,right_dtype,__", NUMERIC_DTYPE_CASES)
+def test_numeric_dtype_promotion_matrix_matches_numpy(
+    left_name, left_dtype, _, right_name, right_dtype, __
+):
+    expected = np.promote_types(np.dtype(left_name), np.dtype(right_name))
+    actual = raptors.promote_types(left_dtype, right_dtype)
+
+    for attribute in (
+        "name",
+        "kind",
+        "char",
+        "itemsize",
+        "alignment",
+        "byteorder",
+        "isnative",
+        "str",
+    ):
+        assert getattr(actual, attribute) == getattr(expected, attribute), attribute
 
 
 def test_float32_overflow_warning_matches_reference():
@@ -858,12 +1112,16 @@ def test_newbyteorder_metadata_and_equality_match_numpy(dtype_spec, order):
         assert_array_matches(expected_array, actual_array)
 
 
-def test_uint_unsupported_alias_is_rejected():
+def test_non_numpy_dtype_spellings_are_rejected():
     with pytest.raises(TypeError):
         np.dtype("uint_")
     with pytest.raises(ValueError):
         raptors.DType("uint_")
     assert not hasattr(raptors, "uint_")
+    with pytest.raises(TypeError):
+        np.dtype("long_double")
+    with pytest.raises(ValueError):
+        raptors.DType("long_double")
 
 
 def test_scalar_assignment_views_copy_and_overlapping_assignment():

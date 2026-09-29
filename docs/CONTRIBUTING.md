@@ -1,6 +1,6 @@
 # Contributing to Raptors
 
-Raptors targets NumPy's public Python functionality through `import raptors as np`. The local 0.1 implementation is a deliberately small preview; the complete target and release gates are in the [rebuild plan](REBUILD_PLAN.md) and [roadmap](CONVERSION_ROADMAP.md). The old engine is retained for audit, but new 0.1 work belongs in the checked storage and preview path.
+Raptors targets NumPy's public Python functionality through `import raptors as np`. The published 0.1 package remains deliberately small; current work targets the 0.2 numeric foundation. The complete target and release gates are in the [rebuild plan](REBUILD_PLAN.md) and [roadmap](CONVERSION_ROADMAP.md). The old engine is retained for audit; current changes belong in the checked storage and Python binding path.
 
 ## Set up
 
@@ -15,7 +15,7 @@ See [Python development](../raptors-python/DEVELOPMENT.md), [building](../raptor
 
 ## Change workflow
 
-1. Name the NumPy 2.5.3 behavior and the exact 0.1 boundary being changed.
+1. Name the NumPy 2.5.3 behavior and the exact current release boundary being changed.
 2. Add differential and adversarial cases before or with implementation.
 3. Identify layout, ownership, aliasing, initialization, dtype, and Python-lifetime invariants affected.
 4. Implement the smallest coherent change in the new preview path.
@@ -39,7 +39,7 @@ The PR CI also runs the storage tests under Miri and AddressSanitizer and tests 
 
 ## Safety and evidence
 
-The 0.1 storage crate is intentionally free of `unsafe` code. Keep checked bounds and initialization, shared allocation locking, and owner retention at the storage boundary. `Arc` alone does not justify `Send` or `Sync`. Any future unsafe code needs explicit preconditions and review. Miri and sanitizers supplement review; neither proves the entire package safe.
+The numeric storage crate is intentionally free of `unsafe` code. Keep checked bounds and initialization, shared allocation locking, and owner retention at the storage boundary. `Arc` alone does not justify `Send` or `Sync`. Any future unsafe code needs explicit preconditions and review. Miri and sanitizers supplement review; neither proves the entire package safe.
 
 Performance changes need equivalent Python calls and measurements that include conversion and allocation costs. The 0.1 benchmark currently shows slower Raptors timings on several measured operations; do not claim acceleration from Rust, Rayon, or SIMD presence.
 
@@ -47,6 +47,6 @@ Preserve license notices and attribution for any reused upstream material. The c
 
 ## Release status
 
-The 0.1 preview implementation and CPython 3.12–3.14 suites on macOS ARM64 are complete. Its tagged release passed hosted wheel, Linux AddressSanitizer, and publication checks. For later releases, run the current eight-target workflow manually before tagging. See [release evidence](RELEASE_0_1.md).
+The 0.1 preview is published. The 0.2.0 candidate passes local checks and is awaiting the hosted eight-target release workflow; do not tag until that gate passes. See [0.2 release evidence](RELEASE_0_2.md) and the [published 0.1 record](RELEASE_0_1.md).
 
 Use [docs/README.md](README.md) to find the current project guides. Describe current behavior separately from future plans and observed results.

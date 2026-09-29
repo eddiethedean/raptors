@@ -1,9 +1,9 @@
-# Build and release Raptors 0.1
+# Build and release Raptors 0.2
 
-The 0.1 package is a small, NumPy-independent preview backed by the separate
-safe `raptors-storage` crate. It supports GIL-enabled CPython 3.12–3.14 on
-Linux x86-64, macOS x86-64/arm64, and Windows x86-64. See the machine-readable
-[contract](../compat/raptors-0.1.json) for the exact boundary.
+The 0.2 package is the numeric array and dtype foundation backed by the
+separate safe `raptors-storage` crate. Its exact tested boundary is recorded in
+the machine-readable [0.2 contract](../compat/raptors-0.2.json). The published
+0.1 package remains available under its [own contract](../compat/raptors-0.1.json).
 
 The published `0.1.0` release contains twelve version-specific wheels for its
 original four platform targets. The release workflow now builds eight wheels
@@ -44,9 +44,10 @@ uv run --project raptors-python --extra dev --no-sync python scripts/check_clean
 The contract check verifies the `cp312-abi3` tag, platform family and architecture,
 `Requires-Python`, absence of runtime dependencies, native extension, and
 packaged MIT license. The clean install check creates an isolated environment
-with no NumPy and exercises construction, views, and mutation. Raptors 0.1
-publishes wheels only; the source distribution remains disabled until the
-sibling storage crate can be built from a clean source archive.
+with no NumPy and exercises construction, views, and mutation. The 0.2
+release workflow publishes wheels only; the source distribution remains
+disabled until the sibling storage crate can be built from a clean source
+archive.
 
 ## Release
 
@@ -57,6 +58,6 @@ wheels on CPython 3.12, 3.13, and 3.14. Manual runs cannot publish. A valid
 wheels through PyPI Trusted Publishing. The publisher must name repository
 `eddiethedean/raptors`, workflow `release.yml`, and environment `pypi`.
 
-The published compatibility subset and support policy are versioned in
-`compat/raptors-0.1.json`; release readiness also requires the safety and
-cross-platform evidence listed in [RELEASE_0_1.md](../docs/RELEASE_0_1.md).
+The compatibility subset and support policy are versioned in
+`compat/raptors-0.2.json`; release readiness also requires the safety and
+cross-platform evidence listed in [RELEASE_0_2.md](../docs/RELEASE_0_2.md).

@@ -69,12 +69,26 @@ jobs:
           if tagged_version and version != tagged_version:
               raise SystemExit(f"tag v{tagged_version} does not match package version {version}")
 
-          contract = json.loads((root / "compat/raptors-0.1.json").read_text())
+          major_minor = ".".join(version.split(".")[:2])
+          contract_path = root / f"compat/raptors-{major_minor}.json"
+          if not contract_path.is_file():
+              raise SystemExit(f"missing compatibility contract for version {major_minor}: {contract_path}")
+          contract = json.loads(contract_path.read_text())
+          if contract.get("release") != major_minor or contract.get("package_version") != version:
+              raise SystemExit(f"compatibility contract {contract_path} does not match package version {version}")
+          status = contract.get("status")
+          allowed_statuses = {"release_candidate", "published"} if tagged_version else {
+              "in_progress", "release_candidate", "published"
+          }
+          if status not in allowed_statuses:
+              raise SystemExit(f"contract status {status!r} is not eligible for {'tagged release' if tagged_version else 'build-only validation'}")
+          if tagged_version and status != "published" and contract.get("evidence", {}).get("release_gates") != "passed":
+              raise SystemExit("tagged release requires a release-candidate contract with passed gates")
           source_commit = subprocess.check_output(["git", "-C", "numpy-reference", "rev-parse", "HEAD"], text=True).strip()
           if source_commit != contract["reference"]["source_commit"]:
               raise SystemExit(f"NumPy source pin mismatch: {source_commit}")
           if contract["reference"]["version"] != "2.5.3":
-              raise SystemExit("0.1 reference contract must remain pinned to NumPy 2.5.3")
+              raise SystemExit(f"{major_minor} reference contract must remain pinned to NumPy 2.5.3")
           print(f"Validated {tag or 'build-only candidate'} at {version}; NumPy source {source_commit}.")
           PY
 
@@ -129,7 +143,7 @@ jobs:
       - name: Keep raw-pointer code out of preview storage
         run: |
           if rg -n '\bunsafe\b' raptors-storage/src; then
-            echo 'The 0.1 storage crate must remain free of unsafe Rust.' >&2
+            echo 'The preview storage crate must remain free of unsafe Rust.' >&2
             exit 1
           fi
 

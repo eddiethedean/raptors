@@ -1,4 +1,4 @@
-//! Bindings for the deliberately small, NumPy-independent 0.1 preview.
+//! Bindings for the NumPy-independent 0.2 numeric array foundation.
 use pyo3::basic::CompareOp;
 use pyo3::exceptions::{
     PyIndexError, PyKeyError, PyMemoryError, PyOverflowError, PyRuntimeError, PyRuntimeWarning,
@@ -1999,7 +1999,7 @@ fn dtype_from_name(name: &str) -> Option<DType> {
         "float64" | "f8" | "d" | "double" | "float" => Some(DType::Float64),
         "complex64" | "c8" | "F" | "csingle" => Some(DType::Complex64),
         "complex128" | "c16" | "D" | "complex" | "cdouble" => Some(DType::Complex128),
-        "longdouble" | "long_double" | "g" => Some(DType::LongDouble),
+        "longdouble" | "g" => Some(DType::LongDouble),
         "float128" if DType::LongDouble.itemsize() > 8 => Some(DType::LongDouble),
         "clongdouble" | "G" => Some(DType::ComplexLongDouble),
         "complex256" | "c32" if DType::LongDouble.itemsize() > 8 => Some(DType::ComplexLongDouble),

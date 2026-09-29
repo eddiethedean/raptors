@@ -8,7 +8,7 @@ The [rebuild plan](REBUILD_PLAN.md) makes performance a separate acceptance gate
 
 ## Baseline before optimization
 
-Release 0.1 has a Python benchmark harness and a local baseline for creation, slicing, assignment, and copying. It has no speed threshold. Release 0.3 records the first correct numeric path. Release 0.4 profiles and optimizes it against the broader workload matrix below.
+Release 0.1 has a Python benchmark harness and a local baseline for creation, slicing, assignment, and copying. Release 0.2 records a foundation baseline for numeric casts and layout operations. Neither has a speed threshold. Release 0.3 records the first numeric ufunc path. Release 0.4 profiles and optimizes it against the broader workload matrix below.
 
 The [0.1 JSON report](benchmarks/raptors-0.1-baseline.json) contains eight observations from CPython 3.14.3, NumPy 2.5.3, and macOS 26.5.2 ARM64, using 250,000 int64-compatible values and five measured repetitions per operation. The recorded median times were:
 
@@ -21,7 +21,15 @@ The [0.1 JSON report](benchmarks/raptors-0.1-baseline.json) contains eight obser
 
 This single-host measurement shows lower median latency for NumPy on all four operations, although the slice difference is under one microsecond. It is an informational baseline, not a performance claim or a release-quality comparison. Python `tracemalloc` omits native buffer allocations; the process high-water RSS delta is coarse and allocator-dependent.
 
-Reproduce it after installing the locked development environment and building the extension. Write to a temporary path so the committed historical baseline remains unchanged:
+The 0.2 candidate baseline is in [`raptors-0.2.0-baseline.json`](benchmarks/raptors-0.2.0-baseline.json). It records 16 observations for create, slice, cast, reshape, transpose, fancy indexing, assignment, and copy on the same host, input count, and repetition count. Each operation is checked against NumPy on a small input before timing. The report records median call latency, Python `tracemalloc` peak bytes, and a process high-water RSS delta. This is a foundation-level snapshot on one input size and one platform; it does not establish a performance advantage or representative native allocation costs.
+
+Reproduce the 0.2 candidate baseline after building the extension:
+
+```bash
+uv run --project raptors-python --extra dev --no-sync python scripts/bench_0_2.py --count 250000 --repeats 5 --output /tmp/raptors-0.2.0-reproduced.json
+```
+
+The 0.1 measurement can be reproduced after installing the locked development environment and building the extension. Write to a temporary path so the committed historical baseline remains unchanged:
 
 ```bash
 uv run --project raptors-python --extra dev --no-sync python scripts/bench_0_1.py --count 250000 --repeats 5 --output /tmp/raptors-0.1-reproduced.json

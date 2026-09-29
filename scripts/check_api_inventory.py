@@ -57,8 +57,13 @@ def main():
     contract_inventory = contract.get("api_inventory", {})
     if contract_inventory.get("entry_count") != len(entries):
         raise SystemExit("0.1 contract inventory count is stale")
-    if draft_contract.get("release") != "0.2" or draft_contract.get("status") != "in_progress":
-        raise SystemExit("0.2 snapshot must remain an in-progress, unpublished contract")
+    if draft_contract.get("release") != "0.2":
+        raise SystemExit("0.2 compatibility contract has the wrong release identifier")
+    release_status = draft_contract.get("status")
+    if release_status not in {"in_progress", "release_candidate", "published"}:
+        raise SystemExit(f"invalid 0.2 compatibility contract status: {release_status!r}")
+    if draft_contract.get("package_version") != "0.2.0":
+        raise SystemExit("0.2 compatibility contract must identify package version 0.2.0")
     draft_reference = draft_contract.get("reference", {})
     if any(
         draft_reference.get(key) != inventory["reference"].get(key)
@@ -68,8 +73,11 @@ def main():
     numeric_kinds = set(draft_contract.get("scope", {}).get("dtype_kinds", []))
     if numeric_kinds != {"b", "i", "u", "f", "c"}:
         raise SystemExit("0.2 snapshot must remain scoped to the five numeric dtype kinds")
-    if draft_contract.get("evidence", {}).get("release_gates") != "not_passed":
-        raise SystemExit("0.2 snapshot cannot claim passed release gates")
+    release_gates = draft_contract.get("evidence", {}).get("release_gates")
+    if release_status == "in_progress" and release_gates not in {"pending", "not_passed"}:
+        raise SystemExit("0.2 work-in-progress contract has inconsistent release gate evidence")
+    if release_status in {"release_candidate", "published"} and release_gates != "passed":
+        raise SystemExit("0.2 release candidate must have passed release gates")
     planned_kinds = set(
         re.findall(r"(?m)^\|\s*`([biufcmMOSUVT])`\s*\|", DTYPE_PLAN.read_text())
     )

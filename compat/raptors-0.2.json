@@ -1,6 +1,7 @@
 {
   "schema_version": 1,
   "release": "0.2",
+  "package_version": "0.2.0",
   "status": "in_progress",
   "reference": {
     "distribution": "numpy",
@@ -10,94 +11,119 @@
     "source_checkout": "../numpy-reference",
     "python_lock": "../raptors-python/uv.lock"
   },
-  "scope": {
-    "description": "Unreleased implementation snapshot for the numeric array and dtype foundation. No behavior is declared conformant.",
-    "dtype_kinds": ["b", "i", "u", "f", "c"],
-    "platform_dependent_dtypes": ["intp", "uintp", "longdouble", "clongdouble", "float128", "complex256"],
-    "later_dtype_kinds": ["m", "M", "O", "S", "U", "V", "T"]
+  "support": {
+    "python_implementation": "CPython",
+    "python_versions": ["3.12", "3.13", "3.14"],
+    "gil_enabled_only": true,
+    "wheel_abi": "cp312-abi3",
+    "platforms": [
+      "manylinux x86_64",
+      "manylinux aarch64",
+      "macOS x86_64",
+      "macOS arm64",
+      "musllinux x86_64",
+      "musllinux aarch64",
+      "Windows x86_64",
+      "Windows arm64"
+    ],
+    "runtime_dependencies": []
   },
-  "api": {
-    "module": "raptors",
-    "array_function": {
-      "status": "partial",
-      "signature": "array(data, dtype=None, copy=True, order='K')",
-      "implemented_behavior": [
-        "Numeric inference from Python bool, int, float, and complex values",
-        "Rectangular list and tuple inputs, including zero-dimensional and empty inputs",
-        "Explicit numeric dtype names, aliases, and built-in Python numeric type objects",
-        "C and F output order; K/A order selection for Raptors array inputs",
-        "copy=False may reuse a compatible Raptors array"
-      ],
-      "known_limits": [
-        "Ragged, object, string, structured, datetime, and foreign-buffer inputs are unsupported",
-        "copy=False cannot reuse non-Raptors inputs",
-        "K order for non-contiguous inputs has not been checked against NumPy"
-      ]
-    },
-    "zeros_function": {
-      "status": "partial",
-      "signature": "zeros(shape, dtype=None, order='C')",
-      "implemented_behavior": ["Numeric dtype allocation", "C and F memory order"],
-      "known_limits": ["Only C and F order are accepted", "Allocation results are unverified"]
-    },
-    "empty_function": {
-      "status": "partial",
-      "signature": "empty(shape, dtype=None, order='C')",
-      "implemented_behavior": ["Numeric dtype allocation", "C and F memory order"],
-      "known_limits": ["Storage is initialized for Rust safety; returned values are unspecified", "Allocation results are unverified"]
-    },
-    "promote_types_function": {
-      "status": "partial",
-      "signature": "promote_types(left, right)",
-      "known_limits": ["Promotion rules have not been checked against the pinned oracle"]
-    },
+  "scope": {
+    "description": "Numeric array and dtype foundation for the 0.2.0 candidate. The other built-in dtype families are planned in docs/DTYPE_ARCHITECTURE.md and remain outside this release.",
+    "dtype_kinds": ["b", "i", "u", "f", "c"],
     "numeric_dtypes": [
       "bool",
       "int8", "int16", "int32", "int64",
       "uint8", "uint16", "uint32", "uint64",
       "float16", "float32", "float64",
       "complex64", "complex128",
-      "platform aliases including intp, uintp, int_, uint, long, and ulong; pointer codes n/N and p/P",
-      "longdouble and clongdouble where the target exposes an extended representation"
+      "platform aliases including intp, uintp, int_, uint, long, ulong, longlong, and ulonglong",
+      "longdouble and clongdouble with the representation exposed by the target NumPy build"
     ],
+    "platform_dependent_dtypes": ["intp", "uintp", "longdouble", "clongdouble", "float128", "complex256"],
+    "later_dtype_kinds": ["m", "M", "O", "S", "U", "V", "T"]
+  },
+  "api": {
+    "module": "raptors",
+    "scalar_results": {
+      "representation": "typed Raptors scalar wrappers",
+      "supported_behavior": ["dtype inspection", "comparison", "bool conversion", "int/float/complex conversion where implemented", "reuse as array and assignment values"],
+      "known_limits": ["not NumPy scalar classes", "no full scalar arithmetic or protocol compatibility"]
+    },
+    "array_function": {
+      "status": "partial",
+      "signature": "array(data, dtype=None, copy=True, order='K')",
+      "implemented_behavior": [
+        "Numeric inference from Python bool, int, float, and complex values",
+        "Rectangular list and tuple inputs, including zero-dimensional and empty arrays",
+        "Explicit numeric dtype names, aliases, and built-in Python numeric type objects",
+        "Raptors arrays and supported Raptors scalar wrappers as input",
+        "C and F output order; K and A order selection for Raptors array inputs",
+        "copy=False reuses only a compatible Raptors array and errors when copying is required"
+      ],
+      "known_limits": [
+        "Ragged, object, string, structured, datetime, and foreign-buffer inputs are unsupported",
+        "copy=False cannot reuse non-Raptors inputs",
+        "Input conversion protocols such as __array__ and the buffer protocol are unsupported"
+      ]
+    },
+    "zeros_function": {
+      "status": "partial",
+      "signature": "zeros(shape, dtype=None, order='C')",
+      "implemented_behavior": ["Numeric dtype allocation", "C and F memory order", "Zero-dimensional and zero-size shapes"],
+      "known_limits": ["Only C and F order are accepted"]
+    },
+    "empty_function": {
+      "status": "partial",
+      "signature": "empty(shape, dtype=None, order='C')",
+      "implemented_behavior": ["Numeric dtype allocation", "C and F memory order", "Zero-dimensional and zero-size shapes"],
+      "known_limits": ["Storage is initialized for Rust safety; returned element values are unspecified", "Only C and F order are accepted"]
+    },
+    "promote_types_function": {
+      "status": "partial",
+      "signature": "promote_types(left, right)",
+      "implemented_behavior": ["NumPy 2.5.3 dtype promotion for all pairs in the declared numeric dtype set"],
+      "known_limits": ["This function does not implement scalar arithmetic or ufunc promotion"]
+    },
     "dtype_metadata": ["name", "kind", "char", "itemsize", "alignment", "byteorder", "isnative", "str", "type", "newbyteorder"],
     "array_metadata": ["shape", "ndim", "size", "strides", "itemsize", "nbytes", "dtype", "c_contiguous", "f_contiguous", "writeable", "flags"],
-    "array_methods": ["reshape", "transpose", "astype", "copy"],
+    "array_methods": ["reshape", "transpose", "T", "astype", "copy"],
     "indexing": ["integer", "slice", "tuple", "ellipsis", "new axis", "boolean scalar", "boolean mask", "integer fancy arrays", "mixed basic and advanced indices"],
-    "assignment": ["scalar casts", "broadcasted array assignment", "fancy-index assignment", "overlap snapshot"]
+    "assignment": ["scalar casts", "sequence casts", "broadcasted assignment", "boolean-mask assignment", "fancy-index assignment", "duplicate-index writes", "overlap snapshot"]
   },
   "unsupported": [
     "Arithmetic operators, ufuncs, and reductions",
     "datetime64 and timedelta64",
-    "object, bytes string, Unicode string, void, structured, and subarray dtypes",
-    "NumPy 2.x StringDType",
+    "object, bytes string, Unicode string, void, structured, subarray, and StringDType arrays",
+    "Decimal and arbitrary user-defined scalar conversion",
     "Foreign memory, buffer protocol, DLPack, and NumPy interoperation",
     "Full NumPy scalar identity and scalar protocol behavior",
-    "NumPy C ABI compatibility"
+    "NumPy C ABI compatibility",
+    "Free-threaded CPython"
   ],
   "known_gaps": [
-    "Casting overflow, invalid casts, warnings, and all NumPy promotion edge cases need reference coverage",
-    "Extended precision accepts the numeric inputs currently exposed by the Python API but does not accept arbitrary high-precision Python values",
-    "Some advanced-index and non-contiguous reshape sharing cases are unverified",
-    "Miri, AddressSanitizer, the full wheel matrix, cross-version/platform differential runs, and release gates remain pending"
+    "The public input domain is Python bool/int/float/complex values, rectangular lists/tuples, and Raptors arrays/scalars; arbitrary third-party scalar protocols are not implemented",
+    "Extended precision follows the target NumPy platform representation; Apple ARM64 and Windows use the same storage precision as float64/complex128 while retaining longdouble/clongdouble dtype codes and wrappers",
+    "The declared API is a numeric foundation only; methods and behaviors not listed in this contract remain unsupported"
   ],
   "evidence": {
     "environment": {
       "date": "2026-09-28",
       "platform": "macOS 26.5.2 arm64",
       "rust": "1.96.0",
-      "python": "CPython 3.12.13",
-      "numpy": "2.5.3"
+      "numpy": "2.5.3",
+      "python_versions": ["CPython 3.12.13", "CPython 3.13.11", "CPython 3.14.3"]
     },
     "rustfmt": {"status": "passed_locally", "command": "rustfmt --edition 2021 --check raptors-storage/src/lib.rs raptors-python/src/preview.rs raptors-python/src/preview_lib.rs raptors-python/build.rs"},
     "cargo_clippy": {"status": "passed_locally", "command": "cargo clippy --locked -p raptors-storage -p raptors-python --all-targets -- -D warnings"},
     "cargo_check": {"status": "passed_locally", "command": "cargo check --locked -p raptors-python"},
-    "storage_cross_compile": {"status": "passed", "target": "x86_64-apple-darwin", "command": "cargo check --target x86_64-apple-darwin -p raptors-storage"},
-    "python_differential_tests": {"status": "passed_locally", "passed": 159, "skipped": 0, "command": "python -m pytest tests/preview -q"},
+    "python_differential_tests": {"status": "passed_locally", "passed_per_version": 771, "skipped_per_version": 0, "command": "python -m pytest tests/preview -q", "python_versions": ["3.12.13", "3.13.11", "3.14.3"], "platform": "macOS arm64", "wheel": "raptors-0.2.0-cp312-abi3-macosx_11_0_arm64.whl", "case_files": ["raptors-python/tests/preview/test_differential.py", "raptors-python/tests/preview/test_properties.py", "raptors-python/tests/preview/test_harness.py"]},
     "rust_behavioral_tests": {"status": "passed_locally", "passed": 9, "command": "cargo test --locked -p raptors-storage"},
-    "miri": "not_run",
-    "sanitizer": "not_run",
-    "wheel_matrix": "not_run",
+    "miri": {"status": "passed_locally", "passed": 9, "target": "aarch64-apple-darwin", "command": "cargo +nightly miri test --locked -p raptors-storage"},
+    "sanitizer": "pending_hosted_candidate",
+    "local_wheel": {"status": "passed_locally", "artifact": "CPython 3.12+ abi3 macOS arm64 candidate wheel (temporary local build)", "contract": "passed", "twine": "passed", "clean_install_without_numpy": "passed"},
+    "wheel_matrix": "pending_hosted_candidate",
+    "performance_baseline": {"status": "recorded_locally", "path": "docs/benchmarks/raptors-0.2.0-baseline.json", "operations": 8, "input_count": 250000, "repeats": 5, "platform": "macOS 26.5.2 arm64", "python": "CPython 3.14.3", "claim": "informational only; no performance advantage claimed"},
     "release_gates": "not_passed"
   }
 }

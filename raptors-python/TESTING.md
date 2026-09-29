@@ -1,8 +1,8 @@
-# Testing Raptors 0.1
+# Testing Raptors 0.2
 
 The required suite is `tests/preview`; pytest is configured to collect only
 that directory by default. Tests import NumPy 2.5.3 as the pinned oracle and
-compare it with the new Rust-backed preview. Import failures are fatal, and
+compare it with the Rust-backed numeric foundation. Import failures are fatal, and
 required preview tests have no skip or expected-failure markers.
 
 ## Python differential and generated cases
@@ -13,12 +13,15 @@ uv run --project raptors-python --extra dev --no-sync maturin develop --manifest
 uv run --project raptors-python --extra dev --no-sync pytest raptors-python/tests/preview -q
 ```
 
-The deterministic Hypothesis suite generates integer sequences, nested views,
-negative/stepped/empty slices, overlapping assignments, rectangular inputs,
-and owner deletion. `test_harness.py` seeds wrong dtype, shape/broadcast,
-alias, and owner-lifetime backends to verify that the comparator fails when
-those results are wrong. Test provenance and scope live in
-[`compat/raptors-0.1.json`](../compat/raptors-0.1.json); the complete public
+The differential cases cover all declared numeric dtype pairs for casts and
+promotion, plus dtype metadata, reshape copy/view behavior, masks, fancy
+indices, assignment, and aliasing. The deterministic Hypothesis suite
+generates integer sequences, nested views, negative/stepped/empty slices,
+overlapping assignments, rectangular inputs, and owner deletion.
+`test_harness.py` seeds wrong dtype, shape/broadcast, alias, and owner-lifetime
+backends to verify that the comparator fails when those results are wrong.
+Test provenance and scope live in
+[`compat/raptors-0.2.json`](../compat/raptors-0.2.json); the complete public
 NumPy inventory is [`compat/numpy-api-2.5.3.json`](../compat/numpy-api-2.5.3.json).
 
 ## Rust and safety checks
@@ -58,7 +61,7 @@ version-specific wheels across its original four platform targets.
 ## Legacy tests and baseline
 
 The top-level legacy Python tests and the older NumPy-port suite describe the
-retired prototype. They are retained for audit but are not included in the 0.1
-preview run: their expectations cover operations deferred to later phases.
+retired prototype. They are retained for audit but are not included in the 0.2
+test run: their expectations cover operations deferred to later phases.
 The captured pre-rebuild observations and failures are recorded in
 [`NUMPY_TEST_VERIFICATION.md`](../docs/NUMPY_TEST_VERIFICATION.md).

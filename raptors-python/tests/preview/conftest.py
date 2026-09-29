@@ -1,4 +1,4 @@
-"""The v0.1 preview has one pinned NumPy oracle and no optional skips."""
+"""The 0.2 numeric foundation has one pinned NumPy oracle and no skips."""
 import numpy as np
 import pytest
 

@@ -1,6 +1,6 @@
 # Raptors documentation
 
-The [rebuild plan](REBUILD_PLAN.md) is the authoritative statement of direction. Raptors aims to provide NumPy's public functionality through a different Python import. The 0.1 preview is published; its release evidence is recorded. The current release workflow builds eight stable-ABI target wheels for later releases. The legacy engine is retained separately for audit.
+The [rebuild plan](REBUILD_PLAN.md) is the authoritative statement of direction. Raptors aims to provide NumPy's public functionality through a different Python import. Version 0.1 is published; the 0.2 numeric foundation has passed local checks and awaits the hosted release gate. The legacy engine is retained separately for audit.
 
 ## Plan and engineering
 
@@ -11,7 +11,7 @@ The [rebuild plan](REBUILD_PLAN.md) is the authoritative statement of direction.
 | [Release 0.1 execution plan](RELEASE_0_1.md) | Published preview API, validation evidence, and release gate |
 | [Release 0.2 execution plan](RELEASE_0_2.md) | Numeric dtype and array foundation scope, work order, risks, and release gate |
 | [NumPy dtype architecture](DTYPE_ARCHITECTURE.md) | Full built-in dtype family inventory, shared descriptor/storage design, and release dependencies |
-| [Architecture](ARCHITECTURE.md) | Implemented 0.1 storage path, retained legacy code, and proposed later layers |
+| [Architecture](ARCHITECTURE.md) | Implemented 0.2 storage path, retained legacy code, and proposed later layers |
 | [API guide](API_GUIDE.md) | Existing entry points and target compatibility behavior |
 | [Migration guide](CONVERSION_GUIDE.md) | Evaluating Python applications with an import change |
 | [Contributing](CONTRIBUTING.md) | Evidence required for implementation changes |

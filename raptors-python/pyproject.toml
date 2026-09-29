@@ -4,8 +4,8 @@ build-backend = "maturin"
 
 [project]
 name = "raptors"
-version = "0.1.0"
-description = "A safe Rust-backed NumPy-compatible array preview"
+version = "0.2.0"
+description = "A Rust-backed numeric array and dtype foundation"
 readme = "README.md"
 requires-python = ">=3.12,<3.15"
 license = "MIT"

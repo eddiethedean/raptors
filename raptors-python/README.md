@@ -1,42 +1,36 @@
-# Raptors Python 0.1 preview
+# Raptors 0.2 numeric foundation
 
-Raptors is rebuilding toward NumPy's public Python functionality through
-`import raptors as np`. Version 0.1 is a narrow, native Rust preview. It is not
-a general NumPy replacement and makes no performance claim.
+Raptors is a Rust-backed Python array library rebuilding toward NumPy's public
+Python functionality through `import raptors as np`. The 0.2 release covers a
+numeric array and dtype foundation. It is an explicitly limited subset, not a
+general NumPy replacement, and makes no performance claim.
 
-The preview supports explicit `bool`, `int64`, `uint64`, `float32`, and
-`float64` arrays; shape, dtype, size, and signed byte-stride metadata; basic
-integer and slice views; scalar assignment; exact-shape, same-dtype array
-assignment; and independent copies. The supported calls are listed in the
-[0.1 compatibility manifest](../compat/raptors-0.1.json). Arithmetic,
-reductions, dtype inference, casts, broadcasting, reshaping, NumPy interop, and
-the rest of NumPy's API remain outside this preview.
-
-Scalar indexing returns typed Raptors scalar wrappers. They support dtype
-inspection and basic conversion/comparison, but are not NumPy scalar classes
-and do not implement full scalar arithmetic or protocol behavior.
+The supported numeric dtypes are `bool`, signed and unsigned 8/16/32/64-bit
+integers, `float16`/`float32`/`float64`, `complex64`/`complex128`, and the
+platform's `longdouble`/`clongdouble` representations. Dtype aliases, byte
+order, alignment, shape, strides, contiguity, casting, promotion, reshape,
+transpose, integer/slice/boolean/fancy indexing, broadcast assignment, and
+copy behavior are covered by the [0.2 compatibility manifest](../compat/raptors-0.2.json).
 
 ```python
 import raptors
 
-a = raptors.array([[1, 2], [3, 4]], dtype=raptors.int64)
-reverse_column = a[::-1, 1]
-reverse_column[0] = 9
+a = raptors.array([[1, 2], [3, 4]])
+column = a[:, 1]
+as_float = a.astype(raptors.float32)
 ```
 
-The extension uses the separate [`raptors-storage`](../raptors-storage)
-crate. It owns initialized typed Rust vectors, shares views through checked
-reference-counted storage, and does not import NumPy at runtime. NumPy 2.5.3 is
-used only by the test suite as the pinned behavior reference.
+Construction accepts Python boolean, integer, float, and complex values in
+rectangular list/tuple nesting. `zeros` and `empty` allocate numeric arrays in
+C or Fortran order. Scalar indexing returns Raptors scalar wrappers, not
+NumPy scalar classes; wrappers do not implement full scalar arithmetic or
+protocol compatibility.
 
-## Build and test
+Arithmetic operators, ufuncs, reductions, datetime/timedelta, object/string/
+structured dtypes, NumPy interoperation, foreign buffers, and the NumPy C ABI
+remain outside 0.2. NumPy 2.5.3 is used only by the development test suite; the
+installed package has no NumPy runtime dependency.
 
-Use CPython 3.12–3.14. From the repository root, build with maturin against
-`raptors-python/Cargo.toml`, then run the preview suite in
-`raptors-python/tests/preview`. The repository's `uv.lock` pins the oracle and
-test tools. See [BUILD.md](BUILD.md), [TESTING.md](TESTING.md), and the
-[0.1 release gate](../docs/RELEASE_0_1.md).
-
-Only a clean wheel install without NumPy is currently part of the release
-package. Source distributions are not published until a clean source build is
-verified.
+Use CPython 3.12–3.14. Build and test instructions are in [BUILD.md](BUILD.md)
+and [TESTING.md](TESTING.md). See the [0.2 release gate](../docs/RELEASE_0_2.md)
+for the exact support boundary and verification evidence.

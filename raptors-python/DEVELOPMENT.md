@@ -1,6 +1,9 @@
 # Python development setup
 
-The supported development path is the 0.1 preview on GIL-enabled CPython 3.12–3.14. The old binding and test files remain for audit; the preview uses `raptors-storage` and the `preview.rs` PyO3 module.
+The supported development path is the 0.2 numeric foundation on GIL-enabled
+CPython 3.12–3.14. The published 0.1 package has a separate compatibility
+contract. The old binding and test files remain for audit; the current package
+uses `raptors-storage` and the `preview.rs` PyO3 module.
 
 ## Create the locked test environment
 
@@ -38,8 +41,8 @@ CI also runs AddressSanitizer on Linux. See [TESTING.md](TESTING.md) for wheel a
 
 ## Legacy material
 
-The old `raptors-core` engine, Python modules, and `numpy_port` tests are kept for audit and possible validated reuse. They are not the 0.1 implementation or release gate. The pre-preview baseline and known collection failure are in the [verification record](../docs/NUMPY_TEST_VERIFICATION.md).
+The old `raptors-core` engine, Python modules, and `numpy_port` tests are kept for audit and possible validated reuse. They are not the 0.2 implementation or release gate. The pre-preview baseline and known collection failure are in the [verification record](../docs/NUMPY_TEST_VERIFICATION.md).
 
 Choose follow-up work from the [release roadmap](../docs/CONVERSION_ROADMAP.md). Define oracle behavior, add meaningful edge and lifetime cases, review affected invariants, and record the actual result. Preserve unsupported features and failures explicitly.
 
-See [contribution guidance](../docs/CONTRIBUTING.md), [test porting](../docs/TEST_PORTING.md), and the [0.1 release gate](../docs/RELEASE_0_1.md).
+See [contribution guidance](../docs/CONTRIBUTING.md), [test porting](../docs/TEST_PORTING.md), and the [0.2 release gate](../docs/RELEASE_0_2.md).

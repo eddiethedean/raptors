@@ -1,6 +1,6 @@
 # Raptors architecture
 
-**Status: the 0.1 storage and binding slice is implemented and published; the broader execution design remains planned.** The [rebuild plan](REBUILD_PLAN.md) defines the acceptance gates. The 0.1 hosted safety and wheel gates passed; the current eight-target stable-ABI workflow applies to later releases.
+**Status:** 0.1 is published. The 0.2 numeric storage and binding slice is implemented and locally verified; hosted sanitizer and eight-target wheel gates are pending. The broader execution design remains planned. The [rebuild plan](REBUILD_PLAN.md) and [release roadmap](CONVERSION_ROADMAP.md) define the acceptance gates.
 
 ## Public contract
 
@@ -12,10 +12,10 @@ Rust APIs support the Python implementation and may change during the rebuild. A
 
 | Component | Current location | Status |
 | --- | --- | --- |
-| Checked initialized typed vectors, owners, and signed-stride views | [`raptors-storage`](../raptors-storage/) | 0.1 implementation; seven Rust tests pass normally and under local Miri; no `unsafe` in the crate |
-| Narrow Python API and scalar conversion | [`preview.rs`](../raptors-python/src/preview.rs), [`preview_lib.rs`](../raptors-python/src/preview_lib.rs) | 0.1 implementation; explicit dtypes and basic view/mutation operations only |
-| Differential and property checks | [`tests/preview`](../raptors-python/tests/preview/) | 48 local cases pass on CPython 3.12–3.14 against the pinned oracle |
-| Python project and test lock | [`pyproject.toml`](../raptors-python/pyproject.toml), [`uv.lock`](../raptors-python/uv.lock) | CPython 3.12–3.14 metadata; NumPy is development-only |
+| Checked byte-addressed storage, owners, and signed-stride views | [`raptors-storage`](../raptors-storage/) | 0.2 implementation; 9 Rust tests pass normally and under local Miri; no `unsafe` in the crate |
+| Numeric Python API and scalar conversion | [`preview.rs`](../raptors-python/src/preview.rs), [`preview_lib.rs`](../raptors-python/src/preview_lib.rs) | 0.2 candidate; numeric dtype inference, casts, views, indexing, and assignment |
+| Differential and generated checks | [`tests/preview`](../raptors-python/tests/preview/) | 771 cases pass with no skips on CPython 3.12–3.14 against the pinned oracle |
+| Python project and test lock | [`pyproject.toml`](../raptors-python/pyproject.toml), [`uv.lock`](../raptors-python/uv.lock) | Version 0.2.0; NumPy is development-only |
 
 The supported Python path no longer imports the old Rust array engine. That engine remains in the repository for audit and future reference:
 
@@ -45,7 +45,7 @@ Shared storage, checked layouts, and guarded access
 
 Python-specific exceptions, dispatch, and callbacks stay at the binding boundary. Array semantics determine output types and layout before execution. Scalar reference kernels provide an oracle for optimized implementations, alongside NumPy comparisons.
 
-The 0.1 implementation is intentionally narrower than this full design: it has no arithmetic execution plan, broadcasting, kernel layer, or numerical backend. Use maintained numerical components when their semantics, licensing, platform support, and safety boundaries fit the contract. The [v0.1 preview](RELEASE_0_1.md) validates the first storage choice; v0.2 completes the array foundation.
+The 0.1 package is intentionally narrower than this full design. The 0.2 candidate adds the numeric foundation but has no arithmetic execution plan, ufunc kernel layer, or numerical backend. Use maintained numerical components when their semantics, licensing, platform support, and safety boundaries fit the contract. The [0.2 release record](RELEASE_0_2.md) defines its numeric boundary and current gates.
 
 ## Storage and layout invariants
 

@@ -17,14 +17,41 @@ def _coordinates(shape):
 
 
 def _python_value(value):
+    # Extended scalar wrappers cannot return a built-in value from ``item``.
+    # Preserve long-double precision by parsing its decimal representation;
+    # complex-long-double ``__complex__`` is sufficient for the exactly
+    # representable values used by the broad dtype/cast matrix. The dedicated
+    # long-double case checks extended integer precision where the platform
+    # exposes it.
+    scalar_name = type(value).__name__
+    if scalar_name == "LongDoubleScalar":
+        return np.longdouble(str(value))
+    if scalar_name == "ComplexLongDoubleScalar":
+        return complex(value)
     return value.item() if hasattr(value, "item") else value
 
 
 def assert_array_matches(reference, candidate, *, values=True):
     """Compare type, layout, scalar classes, values, and signed zero exactly."""
-    assert candidate.dtype.name == reference.dtype.name, "dtype mismatch"
+    for attribute in (
+        "name",
+        "kind",
+        "char",
+        "itemsize",
+        "alignment",
+        "byteorder",
+        "isnative",
+        "str",
+    ):
+        assert getattr(candidate.dtype, attribute) == getattr(reference.dtype, attribute), (
+            f"dtype mismatch: {attribute}"
+        )
     assert tuple(candidate.shape) == tuple(reference.shape), "shape mismatch"
     assert tuple(candidate.strides) == tuple(reference.strides), "stride mismatch"
+    for attribute in ("c_contiguous", "f_contiguous", "writeable"):
+        assert getattr(candidate.flags, attribute) == getattr(reference.flags, attribute), (
+            f"array {attribute} flag mismatch"
+        )
     if not values:
         return
     for coordinates in _coordinates(reference.shape):
