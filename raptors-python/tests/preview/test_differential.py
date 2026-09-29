@@ -1,4 +1,5 @@
 import gc
+import sys
 
 import numpy as np
 import pytest
@@ -249,6 +250,62 @@ def test_array_copy_none_accepts_copy_if_needed_semantics():
 
     copied_from_sequence = raptors.array([1, 2, 3], dtype=raptors.int64, copy=None)
     assert_array_matches(np.array([1, 2, 3], dtype=np.int64), copied_from_sequence)
+
+
+@pytest.mark.parametrize("copy", [False, None])
+def test_array_reuses_equivalent_native_byteorder_descriptor(copy):
+    order = "<" if sys.byteorder == "little" else ">"
+    target_dtype = np.dtype("i2").newbyteorder(order)
+    source = raptors.array([1, 2], dtype=raptors.DType("=i2"))
+    expected_source = np.array([1, 2], dtype=np.dtype("=i2"))
+
+    actual = raptors.array(
+        source,
+        dtype=raptors.DType("i2").newbyteorder(order),
+        copy=copy,
+    )
+    expected = np.array(expected_source, dtype=target_dtype, copy=copy)
+    assert_array_matches(expected, actual)
+    assert actual.dtype.byteorder == expected.dtype.byteorder
+
+    actual[0] = 41
+    assert source[0] == 41
+    source[1] = 73
+    assert actual[1] == 73
+
+
+@pytest.mark.parametrize("copy", [False, None])
+@pytest.mark.parametrize(
+    "source_dtype,target_dtype,values,replacement,convert",
+    [
+        ("float64", "longdouble", [1.25, -2.5], 7.5, float),
+        ("complex128", "clongdouble", [1 + 2j, 3 - 4j], 7 + 8j, complex),
+    ],
+)
+def test_array_reuses_equal_width_float_dtype_aliases(
+    copy, source_dtype, target_dtype, values, replacement, convert
+):
+    if np.dtype(source_dtype) != np.dtype(target_dtype):
+        pytest.skip("this platform uses distinct storage for long double")
+
+    source = raptors.array(values, dtype=raptors.DType(source_dtype))
+    actual = raptors.array(source, dtype=raptors.DType(target_dtype), copy=copy)
+    expected_dtype = np.dtype(target_dtype)
+    assert actual.dtype.name == expected_dtype.name
+    assert actual.dtype.char == expected_dtype.char
+    assert actual.dtype.byteorder == expected_dtype.byteorder
+    assert type(actual[0]).__name__ == (
+        "LongDoubleScalar" if expected_dtype.kind == "f" else "ComplexLongDoubleScalar"
+    )
+
+    actual[0] = replacement
+    assert convert(source[0]) == convert(replacement)
+    source[1] = replacement
+    assert convert(actual[1]) == convert(replacement)
+
+    for derived in (actual.copy(), actual[[1, 0]]):
+        assert derived.dtype.char == expected_dtype.char
+        assert convert(derived[0]) == convert(replacement)
 
 
 def test_astype_preserves_fortran_layout_by_default():

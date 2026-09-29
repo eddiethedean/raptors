@@ -917,10 +917,17 @@ impl Buffer {
             .ok_or(StorageError::InvalidLayout)
     }
 
-    fn read(&self, index: usize) -> Result<Scalar, StorageError> {
+    fn read_as(
+        &self,
+        index: usize,
+        dtype: DType,
+        order: ByteOrder,
+    ) -> Result<Scalar, StorageError> {
+        if !storage_dtypes_compatible(self.dtype, dtype) {
+            return Err(StorageError::DTypeMismatch);
+        }
         let bytes = self.element_bytes(index)?;
-        let order = self.byte_order;
-        Ok(match self.dtype {
+        Ok(match dtype {
             DType::Bool => Scalar::Bool(bytes[0] != 0),
             DType::Int8 => Scalar::Int8(bytes[0] as i8),
             DType::UInt8 => Scalar::UInt8(bytes[0]),
@@ -962,10 +969,22 @@ impl Buffer {
     }
 
     fn write(&mut self, index: usize, value: Scalar) -> Result<(), StorageError> {
-        if self.dtype != value.dtype() {
+        self.write_as(index, self.dtype, self.byte_order, value)
+    }
+
+    fn write_as(
+        &mut self,
+        index: usize,
+        dtype: DType,
+        order: ByteOrder,
+        value: Scalar,
+    ) -> Result<(), StorageError> {
+        if !storage_dtypes_compatible(self.dtype, dtype) {
             return Err(StorageError::DTypeMismatch);
         }
-        let order = self.byte_order;
+        if dtype != value.dtype() {
+            return Err(StorageError::DTypeMismatch);
+        }
         let bytes = self.element_bytes_mut(index)?;
         match value {
             Scalar::Bool(value) => bytes[0] = u8::from(value),
@@ -1010,6 +1029,28 @@ fn is_big_endian(order: ByteOrder) -> bool {
         ByteOrder::Little => false,
         ByteOrder::Native | ByteOrder::NotApplicable => cfg!(target_endian = "big"),
     }
+}
+
+fn storage_dtypes_compatible(left: DType, right: DType) -> bool {
+    if left == right {
+        return true;
+    }
+    if long_double_size() != 8 {
+        return false;
+    }
+    matches!(
+        (left, right),
+        (DType::LongDouble, DType::Float64)
+            | (DType::Float64, DType::LongDouble)
+            | (DType::ComplexLongDouble, DType::Complex128)
+            | (DType::Complex128, DType::ComplexLongDouble)
+    )
+}
+
+fn byte_orders_have_same_representation(left: ByteOrder, right: ByteOrder) -> bool {
+    left != ByteOrder::NotApplicable
+        && right != ByteOrder::NotApplicable
+        && left.is_native() == right.is_native()
 }
 
 fn read_unsigned(bytes: &[u8], order: ByteOrder) -> Result<u128, StorageError> {
@@ -1582,6 +1623,40 @@ impl View {
         Arc::ptr_eq(&self.storage, &other.storage)
     }
 
+    /// Returns a shared view with equivalent scalar and byte-order metadata.
+    /// This is used for dtype aliases and native-endian descriptors whose
+    /// bytes already have the requested representation.
+    pub fn view_with_dtype_and_order(
+        &self,
+        dtype: DType,
+        byte_order: ByteOrder,
+    ) -> Result<Self, StorageError> {
+        if !storage_dtypes_compatible(self.dtype, dtype) {
+            return Err(StorageError::DTypeMismatch);
+        }
+        let byte_order = if dtype.itemsize() == 1 {
+            ByteOrder::NotApplicable
+        } else {
+            if byte_order == ByteOrder::NotApplicable
+                || !byte_orders_have_same_representation(self.byte_order, byte_order)
+            {
+                return Err(StorageError::InvalidLayout);
+            }
+            byte_order
+        };
+        let view = Self {
+            storage: Arc::clone(&self.storage),
+            dtype,
+            byte_order,
+            shape: self.shape.clone(),
+            strides: self.strides.clone(),
+            offset: self.offset,
+            allocation_len: self.allocation_len,
+        };
+        view.validate_layout()?;
+        Ok(view)
+    }
+
     pub fn is_c_contiguous(&self) -> bool {
         if self.size().unwrap_or(0) == 0 {
             return true;
@@ -1794,7 +1869,7 @@ impl View {
                 .map_err(|_| StorageError::LockPoisoned)?;
             let values = offsets
                 .into_iter()
-                .map(|offset| storage.read(offset))
+                .map(|offset| storage.read_as(offset, self.dtype, self.byte_order))
                 .collect::<Result<Vec<_>, _>>()?;
             return Self::from_values_with_strides(
                 self.dtype,
@@ -1941,7 +2016,7 @@ impl View {
         self.storage
             .read()
             .map_err(|_| StorageError::LockPoisoned)?
-            .read(offset)
+            .read_as(offset, self.dtype, self.byte_order)
     }
     pub fn write_at(&self, coordinates: &[usize], value: Scalar) -> Result<(), StorageError> {
         if value.dtype() != self.dtype {
@@ -1957,7 +2032,7 @@ impl View {
         self.storage
             .write()
             .map_err(|_| StorageError::LockPoisoned)?
-            .write(offset, value)
+            .write_as(offset, self.dtype, self.byte_order, value)
     }
     pub fn read_linear(&self, index: usize) -> Result<Scalar, StorageError> {
         self.read_at(&self.coordinates(index)?)
@@ -1973,7 +2048,7 @@ impl View {
             .write()
             .map_err(|_| StorageError::LockPoisoned)?;
         for offset in offsets {
-            storage.write(offset, value.clone())?;
+            storage.write_as(offset, self.dtype, self.byte_order, value.clone())?;
         }
         Ok(())
     }
@@ -2014,7 +2089,7 @@ impl View {
             .write()
             .map_err(|_| StorageError::LockPoisoned)?;
         for (offset, value) in offsets.into_iter().zip(values) {
-            storage.write(offset, value)?;
+            storage.write_as(offset, self.dtype, self.byte_order, value)?;
         }
         Ok(())
     }
@@ -2030,7 +2105,7 @@ impl View {
             .write()
             .map_err(|_| StorageError::LockPoisoned)?;
         for offset in offsets {
-            storage.write(offset, value.clone())?;
+            storage.write_as(offset, self.dtype, self.byte_order, value.clone())?;
         }
         Ok(())
     }
@@ -2075,7 +2150,7 @@ impl View {
             .write()
             .map_err(|_| StorageError::LockPoisoned)?;
         for (offset, value) in offsets.into_iter().zip(values) {
-            storage.write(offset, value)?;
+            storage.write_as(offset, self.dtype, self.byte_order, value)?;
         }
         Ok(())
     }
@@ -2421,7 +2496,7 @@ impl View {
             .map_err(|_| StorageError::LockPoisoned)?;
         offsets
             .into_iter()
-            .map(|offset| storage.read(offset))
+            .map(|offset| storage.read_as(offset, self.dtype, self.byte_order))
             .collect()
     }
 

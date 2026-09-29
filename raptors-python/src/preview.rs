@@ -943,12 +943,27 @@ fn array(
             "A" | "K" => true,
             _ => unreachable!("array order has already been validated"),
         };
-        let can_reuse = target_dtype == source.inner.dtype()
-            && target_byte_order == source.inner.byte_order()
+        let can_reuse = dtypes_equivalent(target_dtype, source.inner.dtype())
+            && byte_orders_equivalent(
+                target_dtype,
+                target_byte_order,
+                source.inner.dtype(),
+                source.inner.byte_order(),
+            )
             && order_matches;
         if can_reuse && copy != Some(true) {
+            let inner = if target_dtype == source.inner.dtype()
+                && target_byte_order == source.inner.byte_order()
+            {
+                source.inner.clone()
+            } else {
+                source
+                    .inner
+                    .view_with_dtype_and_order(target_dtype, target_byte_order)
+                    .map_err(map_storage_error)?
+            };
             return Ok(PyArray {
-                inner: source.inner.clone(),
+                inner,
                 scalar_alias,
             });
         }
