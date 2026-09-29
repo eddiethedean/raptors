@@ -1498,6 +1498,13 @@ fn assign_basic_sequence(
         }
         return Ok(());
     }
+    if source_shape != target.shape() {
+        // NumPy prepares broadcasted sequence values before mutating the
+        // destination. A failed cast must therefore leave it untouched.
+        for (index, atom) in source_values.iter().enumerate() {
+            converted_source[index] = Some(convert_assignment_atom(atom, target.dtype())?);
+        }
+    }
 
     let mut converted_target = Vec::new();
     converted_target

@@ -93,7 +93,7 @@
     "cargo_clippy": {"status": "passed_locally", "command": "cargo clippy --locked -p raptors-storage -p raptors-python --all-targets -- -D warnings"},
     "cargo_check": {"status": "passed_locally", "command": "cargo check --locked -p raptors-python"},
     "storage_cross_compile": {"status": "passed", "target": "x86_64-apple-darwin", "command": "cargo check --target x86_64-apple-darwin -p raptors-storage"},
-    "python_differential_tests": {"status": "passed_locally", "passed": 158, "skipped": 0, "command": "python -m pytest tests/preview -q"},
+    "python_differential_tests": {"status": "passed_locally", "passed": 159, "skipped": 0, "command": "python -m pytest tests/preview -q"},
     "rust_behavioral_tests": {"status": "passed_locally", "passed": 9, "command": "cargo test --locked -p raptors-storage"},
     "miri": "not_run",
     "sanitizer": "not_run",
