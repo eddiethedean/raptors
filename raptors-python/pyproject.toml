@@ -32,6 +32,7 @@ dev = [
     "maturin==1.14.1",
     "numpy==2.5.3",
     "pytest>=9,<10",
+    "pytest-xdist>=3.8,<4",
     "twine>=6,<7",
 ]
 
@@ -54,6 +55,3 @@ include = [
     "LICENSE",
     "src/**/*.rs",
 ]
-
-[tool.pytest.ini_options]
-testpaths = ["tests/preview"]

@@ -3216,6 +3216,21 @@ fn f_strides(dtype: DType, shape: &[usize]) -> Result<Vec<isize>, StorageError> 
 mod tests {
     use super::{DType, IndexItem, Scalar, StorageError, View};
     use std::sync::Arc;
+
+    #[test]
+    fn extended_longdouble_loops_keep_platform_precision() {
+        if DType::LongDouble.itemsize() <= DType::Float64.itemsize() {
+            return;
+        }
+
+        let (inputs, outputs) =
+            super::ufunc::resolve_loop("add", &[DType::Complex128, DType::LongDouble]).unwrap();
+        assert!(inputs
+            .iter()
+            .all(|dtype| matches!(dtype, DType::LongDouble | DType::ComplexLongDouble)));
+        assert_eq!(outputs, vec![DType::ComplexLongDouble]);
+    }
+
     fn array(values: &[i64]) -> View {
         View::from_values(
             DType::Int64,

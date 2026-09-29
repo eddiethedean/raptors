@@ -2691,7 +2691,7 @@
     "Longdouble and clongdouble scalar kernels currently compute through binary64 conversions on platforms where those formats are wider.",
     "Fresh outputs with false where positions are zero-initialized internally; those positions remain outside the result-value contract.",
     "Complex inverse-trig differential cases cover branch cuts, signed zero, small imaginary values, and large finite values; exact bit-for-bit equality across platform libm implementations is not promised.",
-    "Floating-error flag detection uses scalar result heuristics and still needs NumPy differential coverage for all error modes.",
+    "Floating-error flag detection uses scalar result heuristics; exact subnormal cases are covered for common real operations, while the full operation-by-mode matrix remains pending.",
     "Combined dtype/signature, casting, where, out, and order cases are covered for single- and multi-output ufuncs; the full invalid-argument precedence matrix remains pending.",
     "Raptors has no ndarray subclasses, so subok does not alter results; third-party dispatch remains outside the 0.3 input domain."
   ],
@@ -2705,20 +2705,26 @@
     },
     "differential_cases": {
       "status": "passed",
-      "passed": 8420,
+      "passed": 8423,
       "skipped": 0,
       "binary_dtype_pairs": 7335,
       "command": "./raptors-python/run_tests.sh (test_ufunc_differential.py)"
     },
     "python_preview_suite": {
       "status": "passed_locally",
-      "passed": 9194,
+      "passed": 9197,
       "skipped": 0,
+      "command": "./raptors-python/run_tests.sh"
+    },
+    "python_xdist": {
+      "status": "passed_locally",
+      "workers": 12,
+      "pytest_seconds": 6.18,
       "command": "./raptors-python/run_tests.sh"
     },
     "rust_workspace_tests": {
       "status": "passed_locally",
-      "test_cases": 1547,
+      "test_cases": 1548,
       "test_binaries": 56,
       "command": "cargo test --offline --locked --manifest-path Cargo.toml --workspace -- --test-threads=1"
     },
@@ -2732,7 +2738,7 @@
     },
     "miri": {
       "status": "passed_locally",
-      "passed": 9,
+      "passed": 10,
       "command": "cargo +nightly miri test --offline --locked -p raptors-storage"
     },
     "benchmark": {

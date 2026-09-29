@@ -225,7 +225,28 @@ pub fn resolve_loop(
         return Ok((inputs.to_vec(), vec![DType::Bool]));
     }
     let resolved = loop_resolver::resolve(canonical, inputs).ok_or(StorageError::InvalidScalar)?;
-    Ok((resolved[..nin].to_vec(), resolved[nin..].to_vec()))
+    let mut loop_inputs = resolved[..nin].to_vec();
+    let mut outputs = resolved[nin..].to_vec();
+
+    // The checked-in loop table is generated on macOS ARM64, where C
+    // longdouble is an alias for binary64. Preserve its loop choices there,
+    // but restore the wider dtype promotion NumPy uses on targets with a real
+    // extended longdouble format.
+    if DType::LongDouble.itemsize() > DType::Float64.itemsize()
+        && inputs
+            .iter()
+            .any(|dtype| matches!(dtype, DType::LongDouble | DType::ComplexLongDouble))
+    {
+        for dtype in loop_inputs.iter_mut().chain(outputs.iter_mut()) {
+            *dtype = match dtype.kind() {
+                "f" => DType::LongDouble,
+                "c" => DType::ComplexLongDouble,
+                _ => *dtype,
+            };
+        }
+    }
+
+    Ok((loop_inputs, outputs))
 }
 
 fn signature_name(name: &str) -> &str {

@@ -4,6 +4,8 @@ The required Python suite is `tests/preview`; pytest is configured to collect
 only that directory by default. Tests import NumPy 2.5.3 as the pinned oracle
 and compare it with the Rust-backed numeric foundation. Import failures are
 fatal, and required preview tests have no skip or expected-failure markers.
+The locked dev environment includes pytest-xdist, and pytest starts one worker
+per available CPU by default. Pass `-n 0` to run serially while debugging.
 
 ## Python differential and generated cases
 

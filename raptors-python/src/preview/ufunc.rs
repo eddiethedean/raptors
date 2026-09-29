@@ -785,8 +785,10 @@ fn classify_errors(name: &str, inputs: &[Scalar], outputs: &[Scalar]) -> ErrorFl
         if output_infinite && input_finite && !flags.divide {
             flags.over = true;
         }
-        if (real != 0.0 && real.abs() < smallest_normal(output.dtype()))
-            || (imag != 0.0 && imag.abs() < smallest_normal(output.dtype()))
+        let real_is_subnormal = real != 0.0 && real.abs() < smallest_normal(output.dtype());
+        let imag_is_subnormal = imag != 0.0 && imag.abs() < smallest_normal(output.dtype());
+        if (real_is_subnormal || imag_is_subnormal)
+            && !exact_subnormal_result(name, inputs, output, imag)
         {
             flags.under = true;
         }
@@ -846,6 +848,162 @@ fn smallest_normal(dtype: DType) -> f64 {
         DType::LongDouble | DType::ComplexLongDouble => f64::MIN_POSITIVE,
         _ => 0.0,
     }
+}
+
+fn exact_subnormal_result(name: &str, inputs: &[Scalar], output: &Scalar, imag: f64) -> bool {
+    if output.dtype().kind() != "f" || imag != 0.0 {
+        return false;
+    }
+    let Some(result) = output.as_f64().ok() else {
+        return false;
+    };
+    match (name, inputs) {
+        ("add", [left, right]) => exact_sum_matches(left, right, result),
+        ("subtract", [left, right]) => exact_sum_matches(left, &negated_scalar(right), result),
+        ("multiply", [left, right]) => exact_product_matches(left, right, result),
+        ("square", [value]) => exact_product_matches(value, value, result),
+        ("divide" | "true_divide", [numerator, denominator]) => {
+            exact_product_matches(output, denominator, numerator.as_f64().unwrap_or(f64::NAN))
+        }
+        ("reciprocal", [value]) => exact_product_matches(output, value, 1.0),
+        ("exp2", [exponent]) => exact_exp2_matches(exponent, result),
+        ("ldexp", [value, exponent]) => exact_ldexp_matches(value, exponent, result),
+        ("positive" | "conjugate" | "conj", [value]) => {
+            value.as_f64().is_ok_and(|value| value == result)
+        }
+        ("negative", [value]) => value.as_f64().is_ok_and(|value| -value == result),
+        ("absolute" | "abs" | "fabs", [value]) => {
+            value.as_f64().is_ok_and(|value| value.abs() == result)
+        }
+        ("maximum" | "minimum" | "fmax" | "fmin", [left, right]) => {
+            left.as_f64().is_ok_and(|value| value == result)
+                || right.as_f64().is_ok_and(|value| value == result)
+        }
+        ("copysign", [magnitude, sign]) => magnitude
+            .as_f64()
+            .and_then(|magnitude| sign.as_f64().map(|sign| magnitude.abs().copysign(sign)))
+            .is_ok_and(|expected| expected == result),
+        _ => false,
+    }
+}
+
+fn negated_scalar(value: &Scalar) -> Scalar {
+    match value.as_f64() {
+        Ok(value) => Scalar::Float64(-value),
+        Err(_) => Scalar::Float64(f64::NAN),
+    }
+}
+
+fn exact_sum_matches(left: &Scalar, right: &Scalar, result: f64) -> bool {
+    let (Ok(left), Ok(right)) = (left.as_f64(), right.as_f64()) else {
+        return false;
+    };
+    let sum = left + right;
+    if sum != result || !sum.is_finite() {
+        return false;
+    }
+
+    // Knuth's TwoSum returns the exact rounding residual. Binary floating
+    // inputs and a subnormal result are integer multiples of the least
+    // subnormal, so this residual is representable whenever it is nonzero.
+    let right_virtual = sum - left;
+    let left_virtual = sum - right_virtual;
+    let right_roundoff = right - right_virtual;
+    let left_roundoff = left - left_virtual;
+    left_roundoff + right_roundoff == 0.0
+}
+
+fn exact_product_matches(left: &Scalar, right: &Scalar, result: f64) -> bool {
+    let (Ok(left), Ok(right)) = (left.as_f64(), right.as_f64()) else {
+        return false;
+    };
+    let (Some(left), Some(right), Some(result)) =
+        (dyadic_f64(left), dyadic_f64(right), dyadic_f64(result))
+    else {
+        return false;
+    };
+    let (left_negative, left_significand, left_exponent) = left;
+    let (right_negative, right_significand, right_exponent) = right;
+    let (result_negative, result_significand, result_exponent) = result;
+    let product = left_significand * right_significand;
+    let product = normalize_dyadic(
+        left_negative ^ right_negative,
+        product,
+        left_exponent + right_exponent,
+    );
+    product == normalize_dyadic(result_negative, result_significand, result_exponent)
+}
+
+fn exact_exp2_matches(exponent: &Scalar, result: f64) -> bool {
+    let Ok(exponent) = exponent.as_f64() else {
+        return false;
+    };
+    if exponent.fract() != 0.0 || !(-1074.0..=1023.0).contains(&exponent) {
+        return false;
+    }
+    power_of_two_f64(exponent as i32) == Some(result)
+}
+
+fn power_of_two_f64(exponent: i32) -> Option<f64> {
+    if !(-1074..=1023).contains(&exponent) {
+        return None;
+    }
+    let bits = if exponent < -1022 {
+        1_u64 << (exponent + 1074)
+    } else {
+        ((exponent + 1023) as u64) << 52
+    };
+    Some(f64::from_bits(bits))
+}
+
+fn exact_ldexp_matches(value: &Scalar, exponent: &Scalar, result: f64) -> bool {
+    let (Ok(value), Ok(exponent)) = (value.as_f64(), exponent.as_f64()) else {
+        return false;
+    };
+    if exponent.fract() != 0.0 || !(-4096.0..=4096.0).contains(&exponent) {
+        return false;
+    }
+    let (Some(value), Some(result)) = (dyadic_f64(value), dyadic_f64(result)) else {
+        return false;
+    };
+    let (value_negative, value_significand, value_exponent) = value;
+    let (result_negative, result_significand, result_exponent) = result;
+    normalize_dyadic(
+        value_negative,
+        value_significand,
+        value_exponent + exponent as i32,
+    ) == normalize_dyadic(result_negative, result_significand, result_exponent)
+}
+
+fn dyadic_f64(value: f64) -> Option<(bool, u128, i32)> {
+    if !value.is_finite() {
+        return None;
+    }
+    let bits = value.to_bits();
+    let negative = bits >> 63 != 0;
+    let exponent = ((bits >> 52) & 0x7ff) as i32;
+    let fraction = bits & ((1_u64 << 52) - 1);
+    if exponent == 0 {
+        Some((negative, fraction as u128, -1074))
+    } else {
+        Some((
+            negative,
+            ((1_u64 << 52) | fraction) as u128,
+            exponent - 1023 - 52,
+        ))
+    }
+}
+
+fn normalize_dyadic(negative: bool, significand: u128, exponent: i32) -> (bool, u128, i32) {
+    if significand == 0 {
+        return (false, 0, 0);
+    }
+    let trailing_zeros = significand.trailing_zeros();
+    (
+        negative,
+        significand >> trailing_zeros,
+        exponent + trailing_zeros as i32,
+    )
 }
 
 fn report_errors(py: Python<'_>, name: &str, flags: ErrorFlags) -> PyResult<()> {

@@ -1020,6 +1020,63 @@ def test_floating_error_modes_cover_divide_overflow_underflow_and_invalid(
         raptors.seterr(**actual_state)
 
 
+def test_exact_subnormal_results_do_not_report_underflow():
+    tiny = np.nextafter(np.float64(0), np.float64(1))
+    cases = [
+        ("add", [tiny], [0.0]),
+        ("multiply", [tiny], [1.0]),
+        ("multiply", [tiny], [2.0]),
+        ("divide", [tiny], [1.0]),
+        ("exp2", [-1074.0], None),
+        ("ldexp", [1.0], [-1074]),
+    ]
+
+    for name, left, right in cases:
+        expected_left = np.array(left, dtype=np.float64)
+        actual_left = raptors.array(left, dtype=raptors.float64)
+        if right is not None:
+            expected_right = np.array(right, dtype=np.int64 if name == "ldexp" else np.float64)
+            actual_right = raptors.array(
+                right,
+                dtype=raptors.int64 if name == "ldexp" else raptors.float64,
+            )
+
+        with np.errstate(under="raise"):
+            expected = (
+                getattr(np, name)(expected_left)
+                if right is None
+                else getattr(np, name)(expected_left, expected_right)
+            )
+        with raptors.errstate(under="raise"):
+            actual = (
+                getattr(raptors, name)(actual_left)
+                if right is None
+                else getattr(raptors, name)(actual_left, actual_right)
+            )
+        _assert_ufunc_result_matches(expected, actual)
+
+
+@pytest.mark.parametrize(
+    "name,left,right",
+    [
+        ("multiply", [np.nextafter(0.0, 1.0)], [1.5]),
+        ("divide", [np.nextafter(0.0, 1.0)], [2.0]),
+    ],
+)
+def test_inexact_subnormal_results_report_underflow(name, left, right):
+    expected_left = np.array(left, dtype=np.float64)
+    expected_right = np.array(right, dtype=np.float64)
+    actual_left = raptors.array(left, dtype=raptors.float64)
+    actual_right = raptors.array(right, dtype=raptors.float64)
+
+    with np.errstate(under="raise"), pytest.raises(FloatingPointError, match="underflow"):
+        getattr(np, name)(expected_left, expected_right)
+    with raptors.errstate(under="raise"), pytest.raises(
+        FloatingPointError, match="underflow"
+    ):
+        getattr(raptors, name)(actual_left, actual_right)
+
+
 def test_floating_error_print_log_and_errstate_decorator_match_numpy(capfd):
     import io
 
