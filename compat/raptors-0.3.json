@@ -2705,7 +2705,7 @@
     "differential_cases": {
       "status": "passed",
       "passed": 8681,
-      "skipped": 3,
+      "skipped": 0,
       "platform_conditional_skips": 3,
       "platform_conditional_skip_reason": "Cases requiring native extended long double are skipped on Darwin arm64, where long double aliases binary64.",
       "binary_dtype_pairs": 7335,
