@@ -1115,11 +1115,17 @@ fn complex_atanh_f64(z: Complex<f64>) -> Complex<f64> {
         let denominator_distance = (1.0 - z.re).hypot(z.im);
         0.5 * (numerator_distance.ln() - denominator_distance.ln())
     };
+    let principal_imaginary = (2.0 * z.im).atan2(1.0 - z.re * z.re - z.im * z.im) * 0.5;
+    // NumPy's Apple complex loop returns pi/4 at exact branch endpoints;
+    // other platforms preserve atan2's signed-zero result there.
+    #[cfg(target_os = "macos")]
     let imaginary = if z.im == 0.0 && z.re.abs() == 1.0 {
         std::f64::consts::FRAC_PI_4.copysign(z.im)
     } else {
-        (2.0 * z.im).atan2(1.0 - z.re * z.re - z.im * z.im) * 0.5
+        principal_imaginary
     };
+    #[cfg(not(target_os = "macos"))]
+    let imaginary = principal_imaginary;
     Complex::new(real, imaginary)
 }
 

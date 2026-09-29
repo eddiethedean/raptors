@@ -202,10 +202,16 @@ static long double complex complex_atanh(long double real, long double imag) {
         real_result = 0.5L * (logl(numerator_distance) - logl(denominator_distance));
     }
     long double imaginary_result;
-    if (imag == 0.0L && fabsl(real) == 1.0L)
+    if (imag == 0.0L && fabsl(real) == 1.0L) {
+#if defined(__APPLE__)
+        /* NumPy's Apple complex loop selects pi/4 at exact branch endpoints. */
         imaginary_result = copysignl(acosl(-1.0L) / 4.0L, imag);
-    else
+#else
         imaginary_result = 0.5L * atan2l(2.0L * imag, 1.0L - real * real - imag * imag);
+#endif
+    } else {
+        imaginary_result = 0.5L * atan2l(2.0L * imag, 1.0L - real * real - imag * imag);
+    }
     return CMPLXL(real_result, imaginary_result);
 }
 
