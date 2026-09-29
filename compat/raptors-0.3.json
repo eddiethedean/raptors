@@ -2,7 +2,7 @@
   "schema_version": 1,
   "release": "0.3",
   "package_version": "0.3.0",
-  "status": "implementation_in_progress",
+  "status": "release_candidate",
   "reference": {
     "distribution": "numpy",
     "version": "2.5.3",
@@ -2755,9 +2755,9 @@
       "raptors-python/tests/preview/test_harness.py",
       "raptors-longdouble/src/lib.rs"
     ],
-    "release_gate": "pending",
+    "release_gate": "passed",
     "native_longdouble_bridge": {
-      "status": "pending_hosted_wheel_matrix",
+      "status": "passed_hosted_wheel_matrix",
       "rust_tests": 2,
       "targets": [
         "Linux x86_64 (extended x87 long double)",
@@ -2802,15 +2802,57 @@
       "command": "./raptors-python/run_tests.sh (test_ufunc_differential.py)"
     },
     "hosted_validation": {
-      "status": "pending",
-      "source_commit": null,
+      "status": "passed",
+      "source_commit": "f3904cf371a061b154cfa87938a01b08e76e000f",
       "ci": {
-        "status": "pending",
-        "run_url": null
+        "status": "passed",
+        "run_url": "https://github.com/eddiethedean/raptors/actions/runs/36614984578"
       },
       "wheel_matrix": {
-        "status": "pending",
-        "run_url": null
+        "status": "passed",
+        "run_url": "https://github.com/eddiethedean/raptors/actions/runs/36614685701",
+        "artifacts": [
+          {
+            "name": "dist-linux-aarch64-manylinux_2_28",
+            "artifact_id": "11055057143",
+            "url": "https://github.com/eddiethedean/raptors/actions/runs/36614685701/artifacts/11055057143"
+          },
+          {
+            "name": "dist-macos-x86_64",
+            "artifact_id": "11054569515",
+            "url": "https://github.com/eddiethedean/raptors/actions/runs/36614685701/artifacts/11054569515"
+          },
+          {
+            "name": "dist-macos-arm64",
+            "artifact_id": "11054543857",
+            "url": "https://github.com/eddiethedean/raptors/actions/runs/36614685701/artifacts/11054543857"
+          },
+          {
+            "name": "dist-windows-arm64",
+            "artifact_id": "11054464163",
+            "url": "https://github.com/eddiethedean/raptors/actions/runs/36614685701/artifacts/11054464163"
+          },
+          {
+            "name": "dist-linux-x86_64-manylinux2014",
+            "artifact_id": "11054403996",
+            "url": "https://github.com/eddiethedean/raptors/actions/runs/36614685701/artifacts/11054403996"
+          },
+          {
+            "name": "dist-linux-x86_64-musllinux_1_2",
+            "artifact_id": "11054064422",
+            "url": "https://github.com/eddiethedean/raptors/actions/runs/36614685701/artifacts/11054064422"
+          },
+          {
+            "name": "dist-linux-aarch64-musllinux_1_2",
+            "artifact_id": "11053944428",
+            "url": "https://github.com/eddiethedean/raptors/actions/runs/36614685701/artifacts/11053944428"
+          },
+          {
+            "name": "dist-windows-x86_64",
+            "artifact_id": "11053899410",
+            "url": "https://github.com/eddiethedean/raptors/actions/runs/36614685701/artifacts/11053899410"
+          }
+        ]
       }
     }
   }
