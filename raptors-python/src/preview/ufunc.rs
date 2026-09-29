@@ -929,13 +929,13 @@ fn exact_subnormal_result(name: &str, inputs: &[Scalar], output: &Scalar, imag: 
 fn cos_intermediate_underflow(input: &Scalar, output: &Scalar) -> bool {
     let threshold = match output.dtype() {
         DType::Float16 | DType::Float32 => f32::MIN_POSITIVE.sqrt() as f64,
-        #[cfg(target_os = "macos")]
+        #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
         DType::Float64 => f64::MIN_POSITIVE.sqrt(),
-        #[cfg(not(target_os = "macos"))]
+        #[cfg(not(all(target_os = "macos", target_arch = "aarch64")))]
         DType::Float64 => return false,
-        #[cfg(target_os = "macos")]
+        #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
         DType::LongDouble if DType::LongDouble.itemsize() == 8 => f64::MIN_POSITIVE.sqrt(),
-        #[cfg(not(target_os = "macos"))]
+        #[cfg(not(all(target_os = "macos", target_arch = "aarch64")))]
         DType::LongDouble if DType::LongDouble.itemsize() == 8 => return false,
         _ => return false,
     };
