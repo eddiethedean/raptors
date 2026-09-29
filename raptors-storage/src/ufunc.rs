@@ -480,7 +480,13 @@ pub fn binary(
             "subtract" => a - b,
             "multiply" => a * b,
             "divide" | "true_divide" => a / b,
-            "power" | "pow" | "float_power" => a.powc(b),
+            "power" | "pow" | "float_power" => {
+                if a.re == 0.0 && a.im == 0.0 && b.re < 0.0 {
+                    Complex::new(f64::NAN, f64::NAN)
+                } else {
+                    a.powc(b)
+                }
+            }
             "maximum" | "minimum" | "fmax" | "fmin" => complex_extreme(name, a, b)?,
             "mod" | "remainder" | "fmod" | "floor_divide" | "heaviside" => {
                 return Err(StorageError::InvalidScalar)
@@ -504,6 +510,16 @@ pub fn binary(
                 a
             } else if b.is_nan() {
                 b
+            } else if a == 0.0 && b == 0.0 {
+                if cfg!(target_os = "macos") {
+                    if a.is_sign_negative() {
+                        b
+                    } else {
+                        a
+                    }
+                } else {
+                    b
+                }
             } else if a >= b {
                 a
             } else {
@@ -515,6 +531,16 @@ pub fn binary(
                 a
             } else if b.is_nan() {
                 b
+            } else if a == 0.0 && b == 0.0 {
+                if cfg!(target_os = "macos") {
+                    if a.is_sign_negative() {
+                        a
+                    } else {
+                        b
+                    }
+                } else {
+                    b
+                }
             } else if a <= b {
                 a
             } else {
@@ -527,8 +553,12 @@ pub fn binary(
             } else if a.is_nan() {
                 b
             } else if a == 0.0 && b == 0.0 {
-                if a.is_sign_negative() {
-                    b
+                if cfg!(target_os = "macos") {
+                    if a.is_sign_negative() {
+                        b
+                    } else {
+                        a
+                    }
                 } else {
                     a
                 }
@@ -544,10 +574,14 @@ pub fn binary(
             } else if a.is_nan() {
                 b
             } else if a == 0.0 && b == 0.0 {
-                if a.is_sign_negative() {
-                    a
+                if cfg!(target_os = "macos") {
+                    if a.is_sign_negative() {
+                        a
+                    } else {
+                        b
+                    }
                 } else {
-                    b
+                    a
                 }
             } else if a <= b {
                 a
@@ -1196,6 +1230,16 @@ fn binary_float32(name: &str, a: f32, b: f32) -> Result<f32, StorageError> {
                 a
             } else if b.is_nan() {
                 b
+            } else if a == 0.0 && b == 0.0 {
+                if cfg!(target_os = "macos") {
+                    if a.is_sign_negative() {
+                        b
+                    } else {
+                        a
+                    }
+                } else {
+                    b
+                }
             } else if a >= b {
                 a
             } else {
@@ -1207,6 +1251,16 @@ fn binary_float32(name: &str, a: f32, b: f32) -> Result<f32, StorageError> {
                 a
             } else if b.is_nan() {
                 b
+            } else if a == 0.0 && b == 0.0 {
+                if cfg!(target_os = "macos") {
+                    if a.is_sign_negative() {
+                        a
+                    } else {
+                        b
+                    }
+                } else {
+                    b
+                }
             } else if a <= b {
                 a
             } else {
@@ -1219,8 +1273,12 @@ fn binary_float32(name: &str, a: f32, b: f32) -> Result<f32, StorageError> {
             } else if a.is_nan() {
                 b
             } else if a == 0.0 && b == 0.0 {
-                if a.is_sign_negative() {
-                    b
+                if cfg!(target_os = "macos") {
+                    if a.is_sign_negative() {
+                        b
+                    } else {
+                        a
+                    }
                 } else {
                     a
                 }
@@ -1236,10 +1294,14 @@ fn binary_float32(name: &str, a: f32, b: f32) -> Result<f32, StorageError> {
             } else if a.is_nan() {
                 b
             } else if a == 0.0 && b == 0.0 {
-                if a.is_sign_negative() {
-                    a
+                if cfg!(target_os = "macos") {
+                    if a.is_sign_negative() {
+                        a
+                    } else {
+                        b
+                    }
                 } else {
-                    b
+                    a
                 }
             } else if a <= b {
                 a
@@ -1275,7 +1337,13 @@ fn binary_complex64(name: &str, a: Complex<f32>, b: Complex<f32>) -> Result<Scal
         "subtract" => a - b,
         "multiply" => a * b,
         "divide" | "true_divide" => a / b,
-        "power" | "pow" | "float_power" => a.powc(b),
+        "power" | "pow" | "float_power" => {
+            if a.re == 0.0 && a.im == 0.0 && b.re < 0.0 {
+                Complex::new(f32::NAN, f32::NAN)
+            } else {
+                a.powc(b)
+            }
+        }
         "maximum" | "minimum" | "fmax" | "fmin" => complex_extreme_f32(name, a, b)?,
         _ => return Err(StorageError::InvalidScalar),
     };

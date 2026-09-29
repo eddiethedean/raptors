@@ -480,6 +480,48 @@ def test_ufunc_methods_support_scalar_and_broadcast_advanced_at_indices():
     _assert_ufunc_result_matches(expected, actual, exact=True)
 
 
+@pytest.mark.parametrize("index_kind", ["basic", "fancy"])
+@pytest.mark.parametrize("update,expected_value", [(128, -8), (1.2, 11)])
+def test_ufunc_at_casts_python_scalars_to_target_dtype(index_kind, update, expected_value):
+    expected = np.array([120 if update == 128 else 10], dtype=np.int8)
+    actual = raptors.array(expected.tolist(), dtype=raptors.int8)
+    if index_kind == "basic":
+        expected_index, actual_index = 0, 0
+    else:
+        expected_index = np.array([0], dtype=np.int64)
+        actual_index = raptors.array([0], dtype=raptors.int64)
+
+    np.add.at(expected, expected_index, update)
+    raptors.add.at(actual, actual_index, update)
+    _assert_ufunc_result_matches(expected, actual, exact=True)
+    assert int(expected[0]) == expected_value
+
+
+@pytest.mark.parametrize("subok", [1, None])
+def test_outer_requires_boolean_subok_like_numpy(subok):
+    expected_left = np.array([1, 2], dtype=np.int64)
+    expected_right = np.array([3], dtype=np.int64)
+    actual_left = raptors.array([1, 2], dtype=raptors.int64)
+    actual_right = raptors.array([3], dtype=raptors.int64)
+    with pytest.raises(TypeError):
+        np.add.outer(expected_left, expected_right, subok=subok)
+    with pytest.raises(TypeError):
+        raptors.add.outer(actual_left, actual_right, subok=subok)
+
+    expected = np.add.outer(expected_left, expected_right, subok=True)
+    actual = raptors.add.outer(actual_left, actual_right, subok=True)
+    _assert_ufunc_result_matches(expected, actual, exact=True)
+
+
+def test_reduce_axis_lists_are_rejected_like_numpy():
+    expected_values = np.arange(6, dtype=np.int64).reshape(2, 3)
+    actual_values = raptors.array(expected_values.tolist(), dtype=raptors.int64)
+    with pytest.raises(TypeError):
+        np.add.reduce(expected_values, axis=[0])
+    with pytest.raises(TypeError):
+        raptors.add.reduce(actual_values, axis=[0])
+
+
 @pytest.mark.parametrize(
     "name,values",
     [
@@ -498,6 +540,44 @@ def test_extrema_nan_and_signed_zero_semantics_match_numpy(name, values):
         expected = getattr(np, name)(expected_left, expected_right)
         actual = getattr(raptors, name)(actual_left, actual_right)
     _assert_ufunc_result_matches(expected, actual, exact=True)
+
+
+@pytest.mark.parametrize("dtype", [np.dtype("float32"), np.dtype("float64"), np.dtype("longdouble")])
+@pytest.mark.parametrize("name", ["maximum", "minimum", "fmax", "fmin"])
+@pytest.mark.parametrize("left,right", [(-0.0, 0.0), (0.0, -0.0)])
+def test_extrema_signed_zero_selection_matches_numpy(dtype, name, left, right):
+    expected_left = np.array([left], dtype=dtype)
+    expected_right = np.array([right], dtype=dtype)
+    candidate_dtype = _raptors_dtype_for_numpy(dtype)
+    actual_left = raptors.array([left], dtype=candidate_dtype)
+    actual_right = raptors.array([right], dtype=candidate_dtype)
+    expected = getattr(np, name)(expected_left, expected_right)
+    actual = getattr(raptors, name)(actual_left, actual_right)
+    _assert_ufunc_result_matches(expected, actual, exact=True)
+
+
+@pytest.mark.parametrize("dtype", [np.dtype("complex64"), np.dtype("complex128")])
+def test_complex_power_zero_to_negative_is_invalid_not_divide(dtype):
+    candidate_dtype = _raptors_dtype_for_numpy(dtype)
+    expected_base = np.array([0.0 + 0.0j], dtype=dtype)
+    expected_exponent = np.array([-1.0 + 0.0j], dtype=dtype)
+    actual_base = raptors.array([0.0 + 0.0j], dtype=candidate_dtype)
+    actual_exponent = raptors.array([-1.0 + 0.0j], dtype=candidate_dtype)
+
+    with np.errstate(all="ignore"), raptors.errstate(all="ignore"):
+        expected = np.power(expected_base, expected_exponent)
+        actual = raptors.power(actual_base, actual_exponent)
+    assert_array_matches(expected, actual, values=False)
+    assert np.isnan(expected.real[0]) and np.isnan(expected.imag[0])
+    actual_value = complex(_as_comparable(actual[0]))
+    assert np.isnan(actual_value.real) and np.isnan(actual_value.imag)
+
+    with np.errstate(invalid="raise"), pytest.raises(FloatingPointError, match="invalid"):
+        np.power(expected_base, expected_exponent)
+    with raptors.errstate(invalid="raise"), pytest.raises(
+        FloatingPointError, match="invalid"
+    ):
+        raptors.power(actual_base, actual_exponent)
 
 
 @pytest.mark.parametrize("name", ["remainder", "fmod", "floor_divide"])
@@ -1025,6 +1105,17 @@ def test_output_order_controls_match_numpy(order):
     assert tuple(actual.strides) == expected.strides
 
 
+def test_output_order_k_preserves_arbitrary_permuted_input_axes():
+    expected_base = np.arange(24, dtype=np.float64).reshape(2, 3, 4)
+    expected_input = expected_base.transpose(1, 2, 0)
+    actual_base = raptors.array(expected_base.tolist(), dtype=raptors.float64)
+    actual_input = actual_base.transpose(1, 2, 0)
+    expected = np.add(expected_input, expected_input, order="K")
+    actual = raptors.add(actual_input, actual_input, order="K")
+    _assert_ufunc_result_matches(expected, actual, exact=True)
+    assert tuple(actual.strides) == expected.strides
+
+
 def test_non_native_byteorder_inputs_and_outputs_follow_casting_rules():
     native_dtype = np.dtype("int32")
     swapped_dtype = native_dtype.newbyteorder("S")
@@ -1277,6 +1368,8 @@ def test_exact_subnormal_flags_match_numpy():
         ("multiply", [tiny], [2.0]),
         ("divide", [tiny], [1.0]),
         ("ldexp", [1.0], [-1074]),
+        ("expm1", [tiny], None),
+        ("expm1", [-tiny], None),
     ]
 
     for name, left, right in cases:
@@ -1311,6 +1404,19 @@ def test_exact_subnormal_flags_match_numpy():
         except FloatingPointError:
             actual_underflow = True
 
+        if name == "expm1":
+            # expm1(tiny) is mathematically inexact even though it rounds to
+            # tiny. NumPy's underflow flag for this case varies by Python
+            # wheel, so assert Raptors' consistent IEEE underflow result and
+            # compare the numerical output with flags ignored.
+            assert actual_underflow
+            with np.errstate(under="ignore"):
+                expected = np.expm1(expected_left)
+            with raptors.errstate(under="ignore"):
+                actual = raptors.expm1(actual_left)
+            _assert_ufunc_result_matches(expected, actual)
+            continue
+
         assert actual_underflow == expected_underflow, name
         if expected_underflow:
             continue
@@ -1324,6 +1430,32 @@ def test_exact_subnormal_flags_match_numpy():
     with raptors.errstate(under="ignore"):
         actual = raptors.exp2(raptors.array([-1074.0], dtype=raptors.float64))
     _assert_ufunc_result_matches(expected, actual)
+
+
+@pytest.mark.parametrize(
+    "dtype,value",
+    [(np.dtype("float32"), 1e-20), (np.dtype("float64"), 1e-300)],
+)
+def test_cos_reports_underflow_when_its_internal_square_underflows(dtype, value):
+    candidate_dtype = _raptors_dtype_for_numpy(dtype)
+    expected_input = np.array([value], dtype=dtype)
+    actual_input = raptors.array([value], dtype=candidate_dtype)
+    try:
+        with np.errstate(under="raise"):
+            expected = np.cos(expected_input)
+        expected_underflow = False
+    except FloatingPointError:
+        expected_underflow = True
+    try:
+        with raptors.errstate(under="raise"):
+            actual = raptors.cos(actual_input)
+        actual_underflow = False
+    except FloatingPointError:
+        actual_underflow = True
+
+    assert actual_underflow == expected_underflow
+    if not expected_underflow:
+        _assert_ufunc_result_matches(expected, actual, exact=True)
 
 
 @pytest.mark.parametrize("dtype", [np.dtype("longdouble"), np.dtype("clongdouble")])
@@ -1371,6 +1503,22 @@ def test_wide_longdouble_exp_uses_extended_exponent_range():
     assert actual_overflow == expected_overflow
     if not expected_overflow:
         assert bool(raptors.isfinite(actual)[0]) == bool(np.isfinite(expected[0]))
+
+
+def test_wide_longdouble_ldexp_clamps_exponents_outside_c_int_range():
+    dtype = np.dtype("longdouble")
+    if np.finfo(dtype).nmant <= np.finfo(np.float64).nmant:
+        pytest.skip("requires native extended long double")
+    candidate_dtype = _raptors_dtype_for_numpy(dtype)
+    expected_input = np.array([1.0], dtype=dtype)
+    actual_input = raptors.array([1.0], dtype=candidate_dtype)
+    for exponent in (2**31, -(2**31) - 1):
+        expected_exponent = np.array([exponent], dtype=np.int64)
+        actual_exponent = raptors.array([exponent], dtype=raptors.int64)
+        with np.errstate(all="ignore"), raptors.errstate(all="ignore"):
+            expected = np.ldexp(expected_input, expected_exponent)
+            actual = raptors.ldexp(actual_input, actual_exponent)
+        _assert_ufunc_result_matches(expected, actual, exact=True)
 
 
 @pytest.mark.parametrize(

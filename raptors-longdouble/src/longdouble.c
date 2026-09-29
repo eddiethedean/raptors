@@ -1,5 +1,6 @@
 #include <complex.h>
 #include <float.h>
+#include <limits.h>
 #include <math.h>
 #include <stddef.h>
 #include <stdint.h>
@@ -121,8 +122,10 @@ static int binary_values(const char *name, long double a, long double b, long do
     else if (strcmp(name, "maximum") == 0 || strcmp(name, "minimum") == 0) {
         if (isnan(a)) *first = a;
         else if (isnan(b)) *first = b;
-        else if (strcmp(name, "maximum") == 0) *first = a >= b ? a : b;
-        else *first = a <= b ? a : b;
+        /* NumPy's native longdouble loop keeps the first operand on ties. */
+        else if (a == 0.0L && b == 0.0L) *first = a;
+        else if (strcmp(name, "maximum") == 0) *first = a > b ? a : b;
+        else *first = a < b ? a : b;
     }
     else if (strcmp(name, "fmax") == 0) *first = fmaxl(a, b);
     else if (strcmp(name, "fmin") == 0) *first = fminl(a, b);
@@ -141,7 +144,13 @@ static int binary_values(const char *name, long double a, long double b, long do
         else *first = b + log2l(1.0L + exp2l(a - b));
     }
     else if (strcmp(name, "nextafter") == 0) *first = nextafterl(a, b);
-    else if (strcmp(name, "ldexp") == 0) *first = scalbnl(a, (int)b);
+    else if (strcmp(name, "ldexp") == 0) {
+        int exponent;
+        if (b >= (long double)INT_MAX) exponent = INT_MAX;
+        else if (b <= (long double)INT_MIN) exponent = INT_MIN;
+        else exponent = (int)b;
+        *first = scalbnl(a, exponent);
+    }
     else return 0;
     if (strcmp(name, "divmod") != 0) *second = 0.0L;
     return 1;
@@ -269,7 +278,11 @@ int raptors_ld_binary_complex(const char *name, const char *left_real, const cha
     else if (strcmp(name, "subtract") == 0) result = a - b;
     else if (strcmp(name, "multiply") == 0) result = a * b;
     else if (strcmp(name, "divide") == 0 || strcmp(name, "true_divide") == 0) result = a / b;
-    else if (strcmp(name, "power") == 0 || strcmp(name, "pow") == 0 || strcmp(name, "float_power") == 0) result = cpowl(a, b);
+    else if (strcmp(name, "power") == 0 || strcmp(name, "pow") == 0 || strcmp(name, "float_power") == 0) {
+        if (creall(a) == 0.0L && cimagl(a) == 0.0L && creall(b) < 0.0L)
+            result = CMPLXL(nanl(""), nanl(""));
+        else result = cpowl(a, b);
+    }
     else return 0;
     return write_complex(result, out_real, real_cap, out_imag, imag_cap);
 }

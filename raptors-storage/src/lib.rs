@@ -2607,7 +2607,7 @@ impl View {
                         _ => Err(StorageError::InvalidFancyIndex),
                     })
                     .collect::<Result<Vec<_>, _>>()?;
-                let axis_order = advanced_keep_order_axes(&advanced_shape, &index_strides)?;
+                let axis_order = keep_order_axes(&advanced_shape, &index_strides)?;
                 let mut advanced_stride = isize::try_from(self.dtype.itemsize())
                     .map_err(|_| StorageError::ShapeOverflow)?;
                 for axis in axis_order {
@@ -3025,9 +3025,11 @@ fn broadcast_index_shapes(shapes: &[Vec<usize>]) -> Result<Vec<usize>, StorageEr
     Ok(result)
 }
 
-/// Reproduces the stable axis ordering NumPy's NpyIter uses for KEEPORDER.
-/// The returned axes are ordered from fastest to slowest in memory.
-fn advanced_keep_order_axes(
+/// Returns the stable axis ordering NumPy's NpyIter uses for KEEPORDER.
+///
+/// Each operand is represented by its shape and byte strides. Shapes may
+/// broadcast to `shape`; the returned axes are ordered fastest to slowest.
+pub fn keep_order_axes(
     shape: &[usize],
     operands: &[(Vec<usize>, Vec<isize>)],
 ) -> Result<Vec<usize>, StorageError> {
