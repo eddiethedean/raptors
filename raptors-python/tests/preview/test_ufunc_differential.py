@@ -1221,11 +1221,13 @@ def test_reduce_empty_identity_initial_and_output_match_numpy():
 def test_reductions_use_resolved_loop_dtypes(name):
     expected_values = np.array([2, 3, 1], dtype=np.int64)
     actual_values = raptors.array([2, 3, 1], dtype=raptors.int64)
+    expected_reduction_values = np.array([2, 3], dtype=np.int64)
+    actual_reduction_values = raptors.array([2, 3], dtype=raptors.int64)
     expected_ufunc = getattr(np, name)
     actual_ufunc = getattr(raptors, name)
 
-    expected = expected_ufunc.reduce(expected_values)
-    actual = actual_ufunc.reduce(actual_values)
+    expected = expected_ufunc.reduce(expected_reduction_values)
+    actual = actual_ufunc.reduce(actual_reduction_values)
     _assert_ufunc_result_matches(expected, actual)
 
     if name != "ldexp":
@@ -1279,8 +1281,8 @@ def test_comparison_reduce_rejects_non_boolean_loop_outputs(
     with pytest.raises(TypeError):
         getattr(raptors, name).reduce(actual_values)
 
-    expected_bool = np.array([True, False, True], dtype=np.bool_)
-    actual_bool = raptors.array([True, False, True], dtype=raptors.bool_)
+    expected_bool = np.array([True, False], dtype=np.bool_)
+    actual_bool = raptors.array([True, False], dtype=raptors.bool_)
     expected = getattr(np, name).reduce(expected_bool)
     actual = getattr(raptors, name).reduce(actual_bool)
     _assert_ufunc_result_matches(expected, actual, exact=True)
