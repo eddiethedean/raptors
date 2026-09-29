@@ -1,6 +1,6 @@
 # Python binding tests
 
-The required 0.2 candidate suite lives in [`preview/`](preview/) and is configured as the default pytest path. It runs against the NumPy 2.5.3 oracle and covers the declared numeric boundary, generated operation sequences, and seeded harness faults. Missing package imports fail the run.
+The required 0.2 release suite lives in [`preview/`](preview/) and is configured as the default pytest path. It runs against the NumPy 2.5.3 oracle and covers the declared numeric boundary, generated operation sequences, and seeded harness faults. Missing package imports fail the run.
 
 Run the supported suite from the repository root after following the [development setup](../DEVELOPMENT.md):
 
@@ -18,4 +18,4 @@ The top-level legacy Python and Rust tests are retained for audit. Their directo
 | `test_array.py`, `test_dtype.py`, `test_ufunc.py`, `test_numpy_interop.py` | Legacy prototype cases; not 0.2 coverage |
 | `numpy_port/*.py`, `*_test.rs` | Historical compatibility-oriented tests; audit source and assertion provenance before reuse |
 
-The [verification record](../../docs/NUMPY_TEST_VERIFICATION.md) distinguishes legacy observations from the current preview results. Do not change expected values to fit Raptors or count generated placeholders as coverage.
+The [0.2 release record](../../docs/RELEASE_0_2.md) documents current preview results; the [verification record](../../docs/NUMPY_TEST_VERIFICATION.md) preserves 0.1 and legacy observations. Do not change expected values to fit Raptors or count generated placeholders as coverage.

@@ -6,7 +6,7 @@ This document replaces the previous async-service README concept. Use the [root 
 
 Raptors is rebuilding a Rust-backed Python package with the goal of providing NumPy's public functionality through `import raptors as np`, with a sound memory model and measured performance improvements.
 
-The published 0.1 preview is implemented on a separate checked storage path. It is a small supported subset, not a full NumPy replacement. Its hosted release gates passed, no general memory-safety guarantee is made, and the current benchmark shows no speed advantage.
+The published 0.2.0 numeric foundation is implemented on a separate checked storage path. It is a small supported subset, not a full NumPy replacement. Its hosted release gates passed; no general memory-safety guarantee or performance advantage is claimed.
 
 ## Intended audience
 
@@ -29,4 +29,4 @@ State goals as goals until the evidence exists. Avoid completion percentages bas
 
 Async job APIs, GPU support, JIT compilation, and distributed execution are outside the initial rebuild milestones. The retained [async design note](raptors_vs_numpy_async_design.md) describes their status without promising unavailable methods.
 
-The project and Python package declare MIT; see the root and package `LICENSE` files. Preserve upstream attribution for any code or tests reused later. The current preview tests are authored against NumPy and do not copy upstream test code.
+The project and Python package declare MIT; see the root and package `LICENSE` files. Preserve upstream attribution for any code or tests reused later. The 0.2 release tests are authored against NumPy and do not copy upstream test code.

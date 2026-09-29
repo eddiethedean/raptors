@@ -2,7 +2,7 @@
 
 Updated: 2026-09-28.
 
-**The 0.1 preview has local evidence, not full NumPy conformance.** The baseline for the legacy implementation, current preview results, and remaining hosted gates are separated below. Earlier claims that broad NumPy suites had been ported and passed are withdrawn.
+**This document records the 0.1 preview, not full NumPy conformance.** See the [0.2 release record](RELEASE_0_2.md) for the current published contract. The legacy baseline, 0.1 preview results, and historical hosted gates are separated below. Earlier claims that broad NumPy suites had been ported and passed are withdrawn.
 
 ## Legacy baseline before the preview implementation
 
@@ -18,7 +18,7 @@ Repository revision: `42df6d680b629556e8c1dbccf10e3caea072e3d6`. Local inspectio
 
 The earlier repository inspection at revision `9fbe407` also recorded five passing `raptors-core` array integration tests and zero library-only tests. Those observations do not repair the missing full baseline. The old implementation and its tests remain audit material, not 0.1 preview coverage.
 
-## Current 0.1 preview results
+## 0.1 preview results
 
 Local environment: macOS 26.5.2 ARM64, CPython 3.12.13/3.13.11/3.14.3, NumPy 2.5.3, Rust 1.96.0, and uv 0.11.3. The NumPy source submodule is checked out at `dd88c0c19b54ad9ed3533224221285bf0873249a`; the Python oracle/test dependencies are in `raptors-python/uv.lock`.
 

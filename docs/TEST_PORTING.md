@@ -1,6 +1,6 @@
 # Differential testing and upstream test reuse
 
-The [rebuild plan](REBUILD_PLAN.md) requires a behavioral oracle before broad implementation. Version 0.1 pins NumPy 2.5.3, source commit `dd88c0c19b54ad9ed3533224221285bf0873249a`, and its Python test dependencies. The new differential harness, Hypothesis cases, preview manifest, and generated API inventory are in the repository. The current 48-case suite is authored against NumPy; it does not reuse upstream test code.
+The [rebuild plan](REBUILD_PLAN.md) requires a behavioral oracle before broad implementation. Version 0.1 pins NumPy 2.5.3, source commit `dd88c0c19b54ad9ed3533224221285bf0873249a`, and its Python test dependencies. The new differential harness, Hypothesis cases, preview manifest, and generated API inventory are in the repository. The 0.1 suite's 48 cases are authored against NumPy; the published 0.2 suite expands that coverage and also does not reuse upstream test code.
 
 The 0.1 required cases cover its explicit-dtype construction, metadata, integer/slice views, assignment, and copy. Harness fault probes can use synthetic backends for later behavior such as broadcasting; a passing probe does not claim that Raptors implements that behavior.
 

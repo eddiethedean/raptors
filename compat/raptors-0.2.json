@@ -2,7 +2,7 @@
   "schema_version": 1,
   "release": "0.2",
   "package_version": "0.2.0",
-  "status": "release_candidate",
+  "status": "published",
   "reference": {
     "distribution": "numpy",
     "version": "2.5.3",
@@ -29,7 +29,7 @@
     "runtime_dependencies": []
   },
   "scope": {
-    "description": "Numeric array and dtype foundation for the 0.2.0 candidate. The other built-in dtype families are planned in docs/DTYPE_ARCHITECTURE.md and remain outside this release.",
+    "description": "Numeric array and dtype foundation published in 0.2.0. The other built-in dtype families are planned in docs/DTYPE_ARCHITECTURE.md and remain outside this release.",
     "dtype_kinds": ["b", "i", "u", "f", "c"],
     "numeric_dtypes": [
       "bool",
@@ -120,13 +120,28 @@
     "python_differential_tests": {"status": "passed_locally", "passed_per_version": 774, "skipped_per_version": 0, "command": "python -m pytest tests/preview -q", "python_versions": ["3.12.13", "3.13.11", "3.14.3"], "platform": "macOS arm64", "wheel": "raptors-0.2.0-cp312-abi3-macosx_11_0_arm64.whl", "case_files": ["raptors-python/tests/preview/test_differential.py", "raptors-python/tests/preview/test_properties.py", "raptors-python/tests/preview/test_harness.py"]},
     "rust_behavioral_tests": {"status": "passed_locally", "passed": 9, "command": "cargo test --locked -p raptors-storage"},
     "miri": {"status": "passed_locally", "passed": 9, "target": "aarch64-apple-darwin", "command": "cargo +nightly miri test --locked -p raptors-storage"},
-    "sanitizer": {"status": "passed_hosted", "run_url": "https://github.com/eddiethedean/raptors/actions/runs/36509524590"},
-    "local_wheel": {"status": "passed_locally", "artifact": "CPython 3.12+ abi3 macOS arm64 candidate wheel (temporary local build)", "contract": "passed", "twine": "passed", "clean_install_without_numpy": "passed"},
-    "wheel_matrix": {"status": "passed_hosted", "target_count": 8, "targets": ["linux-x86_64-manylinux2014", "linux-aarch64-manylinux_2_28", "macos-x86_64", "macos-arm64", "linux-x86_64-musllinux_1_2", "linux-aarch64-musllinux_1_2", "windows-x86_64", "windows-arm64"], "python_versions": ["3.12", "3.13", "3.14"], "passed_per_target_version": 774, "skipped_per_target_version": 0, "run_url": "https://github.com/eddiethedean/raptors/actions/runs/36509524590"},
-    "main_ci": {"status": "passed_hosted", "run_url": "https://github.com/eddiethedean/raptors/actions/runs/36509516584"},
-    "candidate_commit": "a8ca70487e647a74fb737857f152757899d38341",
-    "release_preflight": {"status": "passed_build_only", "run_url": "https://github.com/eddiethedean/raptors/actions/runs/36509524590", "publish_job": "skipped_for_workflow_dispatch"},
+    "sanitizer": {"status": "passed_hosted", "run_url": "https://github.com/eddiethedean/raptors/actions/runs/36511142066"},
+    "local_wheel": {"status": "passed_locally", "artifact": "CPython 3.12+ abi3 macOS arm64 local build", "contract": "passed", "twine": "passed", "clean_install_without_numpy": "passed"},
+    "wheel_matrix": {"status": "published", "target_count": 8, "targets": ["linux-x86_64-manylinux2014", "linux-aarch64-manylinux_2_28", "macos-x86_64", "macos-arm64", "linux-x86_64-musllinux_1_2", "linux-aarch64-musllinux_1_2", "windows-x86_64", "windows-arm64"], "python_versions": ["3.12", "3.13", "3.14"], "passed_per_target_version": 774, "skipped_per_target_version": 0, "run_url": "https://github.com/eddiethedean/raptors/actions/runs/36511142066"},
+    "main_ci": {"status": "passed_hosted", "run_url": "https://github.com/eddiethedean/raptors/actions/runs/36509962693"},
     "performance_baseline": {"status": "recorded_locally", "path": "docs/benchmarks/raptors-0.2.0-baseline.json", "operations": 8, "input_count": 250000, "repeats": 5, "platform": "macOS 26.5.2 arm64", "python": "CPython 3.14.3", "claim": "informational only; no performance advantage claimed"},
-    "release_gates": "passed"
-  }
+    "release_gates": "passed",
+    "release_commit": "3b143968c7c44b4ba77e26e4fbd6fbdfc7976b9d",
+    "tagged_release": {"tag": "v0.2.0", "commit": "3b143968c7c44b4ba77e26e4fbd6fbdfc7976b9d", "status": "published", "run_url": "https://github.com/eddiethedean/raptors/actions/runs/36511142066", "publish_job": "success", "pypi_url": "https://pypi.org/project/raptors/0.2.0/"},
+    "published_artifacts": {
+      "distribution": "raptors==0.2.0",
+      "source_distributions": 0,
+      "wheels": [
+        "raptors-0.2.0-cp312-abi3-macosx_11_0_arm64.whl",
+        "raptors-0.2.0-cp312-abi3-macosx_11_0_x86_64.whl",
+        "raptors-0.2.0-cp312-abi3-manylinux_2_17_x86_64.manylinux2014_x86_64.whl",
+        "raptors-0.2.0-cp312-abi3-manylinux_2_28_aarch64.whl",
+        "raptors-0.2.0-cp312-abi3-musllinux_1_2_aarch64.whl",
+        "raptors-0.2.0-cp312-abi3-musllinux_1_2_x86_64.whl",
+        "raptors-0.2.0-cp312-abi3-win_amd64.whl",
+        "raptors-0.2.0-cp312-abi3-win_arm64.whl"
+      ]
+    }
+  },
+  "api_inventory": {"path": "compat/numpy-api-2.5.3.json", "entry_count": 13481, "semantic_review": "preliminary phase assignments and generic case plans; not behavioral evidence"}
 }

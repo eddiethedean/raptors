@@ -1,12 +1,12 @@
 # Evaluating migration from NumPy
 
-Raptors' long-term target is Python applications that can change `import numpy as np` to `import raptors as np` while retaining the public functionality they use. Version 0.1 is a narrow preview and is not suitable for general migration. Read the [compatibility manifest](../compat/raptors-0.1.json) before trying it.
+Raptors' long-term target is Python applications that can change `import numpy as np` to `import raptors as np` while retaining the public functionality they use. Version 0.2.0 is a limited numeric foundation and is not suitable for general migration. Read the [0.2 compatibility contract](../compat/raptors-0.2.json) before evaluating it; the [0.1 contract](../compat/raptors-0.1.json) documents the earlier release.
 
 The rebuild supersedes the former guide to rewriting Python code as Rust. The Rust API is an implementation interface; ordinary NumPy-style application code should not need to be rewritten as pointer operations.
 
-## Current preview boundary
+## Published 0.2 preview boundary
 
-The 0.1 package supports explicit `bool`, `int64`, `uint64`, `float32`, and `float64` construction; metadata; basic integer and slice views; scalar assignment; exact-shape, same-dtype assignment from another Raptors array; and copies. Dtype inference, arithmetic, reductions, broadcasting, reshape/transpose, advanced indexing, full NumPy scalar behavior, NumPy interoperation, and most public APIs are not implemented.
+The 0.2 package supports numeric dtype inference and casts; boolean, signed and unsigned integer, floating-point, and complex dtypes; promotion; metadata; reshape and transpose; integer, slice, boolean, and fancy indexing; broadcast assignment; and copies. Arithmetic, ufuncs, reductions, non-numeric dtype families, NumPy interoperation, full NumPy scalar behavior, and most public APIs are not implemented. Use the [API guide](API_GUIDE.md) for details.
 
 Changing the import is a future adoption path, not a compatibility guarantee today:
 
@@ -31,7 +31,7 @@ import numpy as np
 
 A package that checks for `numpy.ndarray` or uses NumPy's binary interface may require real NumPy arrays. Future explicit adapters must specify their copy, dtype, ownership, and lifetime behavior. Import compatibility in application code does not replace NumPy underneath SciPy, pandas, or compiled extensions.
 
-The retained legacy source contains methods named `from_numpy` and `to_numpy`; they are not exposed by the 0.1 preview and do not establish zero-copy support or protocol conformance.
+The retained legacy source contains methods named `from_numpy` and `to_numpy`; they are not exposed by the 0.2 package and do not establish zero-copy support or protocol conformance.
 
 ## Application cases to include later
 

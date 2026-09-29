@@ -1,6 +1,6 @@
 # Compatibility inventory and release manifests
 
-[`raptors-0.1.json`](raptors-0.1.json) is the executable description of the published preview. [`raptors-0.2.json`](raptors-0.2.json) is an unreleased implementation snapshot; it makes no conformance or package-version claim. README release stats use only manifests whose status is `published`. [`numpy-api-2.5.3.json`](numpy-api-2.5.3.json) records the NumPy 2.5.3 public names and members discovered by the pinned inventory generator.
+[`raptors-0.2.json`](raptors-0.2.json) is the executable description of the published numeric foundation. [`raptors-0.1.json`](raptors-0.1.json) records the earlier, narrower preview. README release stats use only manifests whose status is `published`. [`numpy-api-2.5.3.json`](numpy-api-2.5.3.json) records the NumPy 2.5.3 public names and members discovered by the pinned inventory generator; it is a planning inventory, not behavioral conformance evidence.
 
 ## Inventory scope
 
@@ -16,7 +16,7 @@ Each entry records:
 - `case_plan_status`: `authored` for the 0.1 preview calls and `planned_not_authored` for later work;
 - `known_limits`: the specific preview boundary or a reminder to review per-entry semantics before implementation.
 
-The release assignments have been narrowed so the 0.2 bucket contains numeric dtype descriptors and the array foundation, rather than every `ndarray`, scalar, and ufunc member. Later assignments and generic case plans remain preliminary. Review and specialize them against versioned NumPy documentation before implementing each API family. A plan entry is not a test case, a conformance claim, or evidence for a release gate. `required_cases` points only to the current 0.1 tests.
+The release assignments have been narrowed so the 0.2 bucket contains numeric dtype descriptors and the array foundation, rather than every `ndarray`, scalar, and ufunc member. Later assignments and generic case plans remain preliminary. Review and specialize them against versioned NumPy documentation before implementing each API family. A plan entry is not a test case, a conformance claim, or evidence for a release gate. `required_cases` is populated only for the three 0.1 preview calls; it does not imply coverage of the full inventory.
 
 ## Regeneration
 

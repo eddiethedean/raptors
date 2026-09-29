@@ -1,6 +1,6 @@
 # Raptors documentation
 
-The [rebuild plan](REBUILD_PLAN.md) is the authoritative statement of direction. Raptors aims to provide NumPy's public functionality through a different Python import. Version 0.1 is published; the 0.2 numeric foundation passed local and hosted release gates and is ready as a release candidate. The legacy engine is retained separately for audit.
+The [rebuild plan](REBUILD_PLAN.md) is the authoritative statement of direction. Raptors aims to provide NumPy's public functionality through a different Python import. Version 0.2.0 is published as a numeric foundation; its exact supported surface is in the [release record](RELEASE_0_2.md) and [compatibility contract](../compat/raptors-0.2.json). The legacy engine is retained separately for audit.
 
 ## Plan and engineering
 

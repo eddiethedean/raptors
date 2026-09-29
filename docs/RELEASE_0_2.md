@@ -1,6 +1,6 @@
 # Release 0.2: numeric array and dtype foundation
 
-**Release status:** 0.2.0 is a release candidate. Local checks and the hosted release preflight passed on commit `a8ca70487e647a74fb737857f152757899d38341`, including all eight wheel targets. The [hosted run](https://github.com/eddiethedean/raptors/actions/runs/36509524590) was build-only; it did not publish. The published [0.1 preview](RELEASE_0_1.md) remains the latest release.
+**Release status:** `v0.2.0` is published to [PyPI](https://pypi.org/project/raptors/0.2.0/). The annotated tag points to commit `3b143968c7c44b4ba77e26e4fbd6fbdfc7976b9d`. The [tagged release workflow](https://github.com/eddiethedean/raptors/actions/runs/36511142066) passed its validation, safety, API inventory, and eight-target wheel gates, then published eight wheels. PyPI lists all eight `cp312-abi3` wheels and no source distribution.
 
 NumPy 2.5.3 is the pinned behavior reference at source commit `dd88c0c19b54ad9ed3533224221285bf0873249a`. The 0.2 implementation is the fixed-width numeric slice of the [full dtype plan](DTYPE_ARCHITECTURE.md); that plan maps all eleven classic dtype groups and NumPy 2.x `StringDType` to their later release phases.
 
@@ -29,7 +29,7 @@ Local verification on macOS 26.5.2 arm64, Rust 1.96.0, NumPy 2.5.3, and CPython 
 - The local wheel passed `scripts/check_wheel_contract.py`, `twine check`, and `scripts/check_clean_install.py`; the clean install imported and exercised the wheel without NumPy.
 - An informational baseline for eight foundation operations is recorded in [`raptors-0.2.0-baseline.json`](benchmarks/raptors-0.2.0-baseline.json). It reports timing, traced Python allocation peak bytes, and coarse process RSS deltas. It makes no performance claim.
 
-The hosted [main CI run](https://github.com/eddiethedean/raptors/actions/runs/36509516584) and [release preflight](https://github.com/eddiethedean/raptors/actions/runs/36509524590) passed on the candidate commit. The preflight passed hosted Miri and AddressSanitizer, API inventory validation, Rust checks, and the eight-target `cp312-abi3` wheel build/test matrix on CPython 3.12–3.14. The candidate is ready for a release tag. The manual `Release to PyPI` run skipped its publish job, so no tag or package publication was made.
+The hosted [main CI run](https://github.com/eddiethedean/raptors/actions/runs/36509962693) and [tagged release workflow](https://github.com/eddiethedean/raptors/actions/runs/36511142066) passed on the release commit. The tagged workflow passed hosted Miri and AddressSanitizer, API inventory validation, Rust checks, and the eight-target `cp312-abi3` wheel build/test matrix on CPython 3.12–3.14. Its PyPI publish job succeeded. The published files are recorded in the [0.2 compatibility contract](../compat/raptors-0.2.json).
 
 ## Explicitly deferred work
 

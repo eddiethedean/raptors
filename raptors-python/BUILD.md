@@ -6,8 +6,8 @@ the machine-readable [0.2 contract](../compat/raptors-0.2.json). The published
 0.1 package remains available under its [own contract](../compat/raptors-0.1.json).
 
 The published `0.1.0` release contains twelve version-specific wheels for its
-original four platform targets. The release workflow now builds eight wheels
-for future releases, one stable-ABI wheel for each of these targets:
+original four platform targets. The published `0.2.0` release contains eight
+stable-ABI wheels, one for each of these targets:
 
 - manylinux x86-64 and ARM64
 - macOS x86-64 and ARM64

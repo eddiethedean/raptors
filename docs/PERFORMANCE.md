@@ -21,9 +21,9 @@ The [0.1 JSON report](benchmarks/raptors-0.1-baseline.json) contains eight obser
 
 This single-host measurement shows lower median latency for NumPy on all four operations, although the slice difference is under one microsecond. It is an informational baseline, not a performance claim or a release-quality comparison. Python `tracemalloc` omits native buffer allocations; the process high-water RSS delta is coarse and allocator-dependent.
 
-The 0.2 candidate baseline is in [`raptors-0.2.0-baseline.json`](benchmarks/raptors-0.2.0-baseline.json). It records 16 observations for create, slice, cast, reshape, transpose, fancy indexing, assignment, and copy on the same host, input count, and repetition count. Each operation is checked against NumPy on a small input before timing. The report records median call latency, Python `tracemalloc` peak bytes, and a process high-water RSS delta. This is a foundation-level snapshot on one input size and one platform; it does not establish a performance advantage or representative native allocation costs.
+The 0.2 release baseline is in [`raptors-0.2.0-baseline.json`](benchmarks/raptors-0.2.0-baseline.json). It records 16 observations for create, slice, cast, reshape, transpose, fancy indexing, assignment, and copy on the same host, input count, and repetition count. Each operation is checked against NumPy on a small input before timing. The report records median call latency, Python `tracemalloc` peak bytes, and a process high-water RSS delta. This is a foundation-level snapshot on one input size and one platform; it does not establish a performance advantage or representative native allocation costs.
 
-Reproduce the 0.2 candidate baseline after building the extension:
+Reproduce the 0.2 release baseline after building the extension:
 
 ```bash
 uv run --project raptors-python --extra dev --no-sync python scripts/bench_0_2.py --count 250000 --repeats 5 --output /tmp/raptors-0.2.0-reproduced.json

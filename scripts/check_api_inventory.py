@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Validate the generated NumPy inventory and its link to the 0.1 contract."""
+"""Validate the generated NumPy inventory and the 0.1/0.2 release contracts."""
 import json
 import re
 from pathlib import Path
@@ -64,6 +64,9 @@ def main():
         raise SystemExit(f"invalid 0.2 compatibility contract status: {release_status!r}")
     if draft_contract.get("package_version") != "0.2.0":
         raise SystemExit("0.2 compatibility contract must identify package version 0.2.0")
+    draft_inventory = draft_contract.get("api_inventory", {})
+    if draft_inventory.get("entry_count") != len(entries):
+        raise SystemExit("0.2 contract inventory count is stale")
     draft_reference = draft_contract.get("reference", {})
     if any(
         draft_reference.get(key) != inventory["reference"].get(key)
@@ -77,7 +80,23 @@ def main():
     if release_status == "in_progress" and release_gates not in {"pending", "not_passed"}:
         raise SystemExit("0.2 work-in-progress contract has inconsistent release gate evidence")
     if release_status in {"release_candidate", "published"} and release_gates != "passed":
-        raise SystemExit("0.2 release candidate must have passed release gates")
+        raise SystemExit("0.2 release candidate or published release must have passed release gates")
+    if release_status == "published":
+        evidence = draft_contract.get("evidence", {})
+        commit = evidence.get("release_commit", "")
+        release = evidence.get("tagged_release", {})
+        artifacts = evidence.get("published_artifacts", {})
+        wheels = artifacts.get("wheels", [])
+        if not re.fullmatch(r"[0-9a-f]{40}", commit):
+            raise SystemExit("published 0.2 contract must identify its 40-character release commit")
+        if release.get("tag") != "v0.2.0" or release.get("commit") != commit:
+            raise SystemExit("published 0.2 tag and release commit evidence are inconsistent")
+        if release.get("status") != "published" or release.get("publish_job") != "success":
+            raise SystemExit("published 0.2 contract must record a successful PyPI publish job")
+        if artifacts.get("distribution") != "raptors==0.2.0" or len(wheels) != 8:
+            raise SystemExit("published 0.2 contract must list all eight published wheels")
+        if len(set(wheels)) != 8 or any(not wheel.endswith(".whl") for wheel in wheels):
+            raise SystemExit("published 0.2 wheel filenames must be unique wheel artifacts")
     planned_kinds = set(
         re.findall(r"(?m)^\|\s*`([biufcmMOSUVT])`\s*\|", DTYPE_PLAN.read_text())
     )

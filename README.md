@@ -4,40 +4,44 @@ Raptors is building a Rust-backed Python package for NumPy's public functionalit
 
 ## Current status
 
-Version 0.1.0 is published as a narrow native preview. It supports explicit `bool`, `int64`, `uint64`, `float32`, and `float64` arrays; metadata; basic integer and slice views; scalar and exact-shape, same-dtype assignment; and independent copies. It does not implement arithmetic or general NumPy compatibility and makes no broad performance claim.
+Version 0.2.0 is published as a numeric array and dtype foundation. It adds the numeric dtype families, casting and promotion, layout operations, indexing, and assignment described in the [0.2 contract](compat/raptors-0.2.json). It remains a limited subset of NumPy and does not implement arithmetic or general NumPy compatibility.
 
-The tagged `v0.1.0` workflow passed Rust, Miri, AddressSanitizer, and twelve version-specific wheel builds and published them to PyPI. This does not establish general NumPy compatibility, a general memory-safety guarantee, or a performance advantage. See the [verification record](docs/NUMPY_TEST_VERIFICATION.md) and [0.1 release record](docs/RELEASE_0_1.md).
+The tagged `v0.2.0` workflow passed Rust, Miri, AddressSanitizer, and the eight-target wheel matrix, then published the wheels to PyPI. Each stable-ABI wheel was tested on CPython 3.12, 3.13, and 3.14. These gates do not establish general NumPy compatibility or a general memory-safety guarantee. See the [0.2 release record](docs/RELEASE_0_2.md) and the historical [0.1 release record](docs/RELEASE_0_1.md).
 
 ## NumPy parity and performance
 
 <!-- BEGIN GENERATED RELEASE STATS -->
 
-**Latest published release: [`v0.1.0`](https://github.com/eddiethedean/raptors/releases/tag/v0.1.0)** ([PyPI](https://pypi.org/project/raptors/0.1.0/)).
+**Latest published release: [`v0.2.0`](https://github.com/eddiethedean/raptors/tree/v0.2.0)** ([PyPI](https://pypi.org/project/raptors/0.2.0/)).
 
 ### Compatibility
 
-Raptors 0.1.0 is a narrow preview, not a drop-in NumPy replacement. Its verified surface includes explicit `bool`, `int64`, `uint64`, `float32`, `float64` arrays; `array(data, dtype)`, `zeros(shape, dtype=None)`, `empty(shape, dtype=None)`; metadata (`shape`, `ndim`, `size`, `dtype`, `strides`); indexing (integer, slice, tuple of integer and slice indices, negative index, negative step, empty slice); and mutation/copy behavior (scalar assignment, same-dtype exact-shape array assignment, overlap snapshot, copy).
+Raptors 0.2.0 is a narrow preview, not a drop-in NumPy replacement. Its verified surface includes support for the dtypes `bool`, `int8`, `int16`, `int32`, `int64`, `uint8`, `uint16`, `uint32`, `uint64`, `float16`, `float32`, `float64`, `complex64`, `complex128`, platform aliases including `intp`, `uintp`, `int_`, `uint`, `long`, `ulong`, `longlong`, and `ulonglong`, `longdouble` and `clongdouble` with the representation exposed by the target NumPy build; `array(data, dtype=None, copy=True, order='K')`, `zeros(shape, dtype=None, order='C')`, `empty(shape, dtype=None, order='C')`; metadata (`shape`, `ndim`, `size`, `strides`, `itemsize`, `nbytes`, `dtype`, `c_contiguous`, `f_contiguous`, `writeable`, `flags`, `name`, `kind`, `char`, `alignment`, `byteorder`, `isnative`, `str`, `type`, `newbyteorder`); indexing (integer, slice, tuple, ellipsis, new axis, boolean scalar, boolean mask, integer fancy arrays, mixed basic and advanced indices); and array methods (`reshape`, `transpose`, `T`, `astype`, `copy`) and assignment behavior (scalar casts, sequence casts, broadcasted assignment, boolean-mask assignment, fancy-index assignment, duplicate-index writes, overlap snapshot).
 
-The preview differential/property suite reports **48 passed and 0 skipped per Python version** on CPython 3.12.13, CPython 3.13.11, CPython 3.14.3, compared with NumPy 2.5.3. Those tests cover only the declared preview contract. Unsupported areas: dtype inference, string/object input conversion, arithmetic and ufuncs, broadcasting, reductions, casts and dtype promotion, reshape and transpose, fancy/boolean indexing and ellipsis, foreign buffers and NumPy interoperation, NumPy dispatch protocols, NumPy scalar class identity and full scalar protocol behavior, NumPy C ABI compatibility.
+The preview differential/property suite reports **774 passed and 0 skipped per Python version** on CPython 3.12.13, CPython 3.13.11, CPython 3.14.3, compared with NumPy 2.5.3. Those tests cover only the declared preview contract. Unsupported areas include: Arithmetic operators, ufuncs, and reductions; datetime64 and timedelta64; object, bytes string, Unicode string, void, structured, subarray, and StringDType arrays; Decimal and arbitrary user-defined scalar conversion; Foreign memory, buffer protocol, DLPack, and NumPy interoperation; Full NumPy scalar identity and scalar protocol behavior; NumPy C ABI compatibility; Free-threaded CPython.
 
-There is **no meaningful whole-NumPy parity percentage**. The 13,481-entry API inventory is a preliminary name/member and planning inventory, not behavioral conformance evidence. See the [release contract](compat/raptors-0.1.json) and [inventory limits](compat/README.md).
+There is **no meaningful whole-NumPy parity percentage**. The 13,481-entry API inventory is a preliminary name/member and planning inventory, not behavioral conformance evidence. See the [release contract](compat/raptors-0.2.json) and [inventory limits](compat/README.md).
 
 ### Performance
 
-On one macOS 26.5.2 ARM64 host (CPython 3.14.3, NumPy 2.5.3), with 250,000 int64-compatible values and 5 repetitions, NumPy had the lower median latency on **all 4 measured operations**:
+On one macOS 26.5.2 ARM64 host (CPython 3.14.3, NumPy 2.5.3), with 250,000 int64-compatible values and 5 repetitions, NumPy had the lower median latency on **all 8 measured operations**:
 
-| Operation | NumPy 2.5.3 median | Raptors 0.1.0 median | Raptors vs NumPy |
+| Operation | NumPy 2.5.3 median | Raptors 0.2.0 median | Raptors vs NumPy |
 | --- | ---: | ---: | ---: |
-| Create from the same Python list | 3.75 ms | 7.68 ms | 2.05× slower (3.93 ms extra) |
-| Slice a view | 667 ns | 959 ns | 1.44× slower (292 ns extra) |
-| Overlapping assignment | 34.2 µs | 7.56 ms | 221× slower (7.52 ms extra) |
-| Independent copy | 112 µs | 4.25 ms | 38.0× slower (4.14 ms extra) |
+| Create from the same Python list | 3.56 ms | 66.8 ms | 18.7× slower (63.2 ms extra) |
+| Slice a view | 750 ns | 958 ns | 1.28× slower (208 ns extra) |
+| Cast | 78.5 µs | 21.3 ms | 271× slower (21.2 ms extra) |
+| Reshape | 1.04 µs | 1.12 µs | 1.08× slower (84 ns extra) |
+| Transpose | 1.42 µs | 1.58 µs | 1.12× slower (166 ns extra) |
+| Fancy index | 84.9 µs | 12.5 ms | 147× slower (12.4 ms extra) |
+| Overlapping assignment | 32.2 µs | 2.19 ms | 67.9× slower (2.16 ms extra) |
+| Independent copy | 89.8 µs | 7.85 ms | 87.4× slower (7.76 ms extra) |
 
-This is one local host and one input size; it does not establish performance for other workloads. The slice delta is 292 ns in absolute terms. Memory is not claimed as a win: `tracemalloc` omits Rust/native buffers, and the recorded process RSS deltas are too coarse for a reliable comparison.
+This is one local host and one input size; it does not establish performance for other workloads. The slice delta is 208 ns in absolute terms. Memory is not claimed as a win: `tracemalloc` omits Rust/native buffers, and the recorded process RSS deltas are too coarse for a reliable comparison.
 
-See the [raw benchmark report](docs/benchmarks/raptors-0.1-baseline.json) and [benchmark methodology](docs/PERFORMANCE.md).
+See the [raw benchmark report](docs/benchmarks/raptors-0.2.0-baseline.json) and [benchmark methodology](docs/PERFORMANCE.md).
 
-Evidence is pinned by [the 0.1.0 compatibility contract](compat/raptors-0.1.json); this section is generated by [`scripts/update_readme_release_stats.py`](scripts/update_readme_release_stats.py).
+Evidence is pinned by [the 0.2.0 compatibility contract](compat/raptors-0.2.json); this section is generated by [`scripts/update_readme_release_stats.py`](scripts/update_readme_release_stats.py).
 
 <!-- END GENERATED RELEASE STATS -->
 
@@ -50,7 +54,7 @@ Stats are pinned to the newest release marked `published` in its compatibility c
 | [raptors-storage](raptors-storage/) | New checked, initialized storage and signed-stride views for the preview; no unsafe Rust |
 | [raptors-python](raptors-python/) | PyO3 preview, package metadata, and differential/property tests |
 | [raptors-core](raptors-core/) | Legacy engine retained for audit and future reference; not used by the preview |
-| [compat](compat/) | NumPy 2.5.3 API inventory and executable 0.1 subset contract |
+| [compat](compat/) | NumPy 2.5.3 API inventory and executable 0.2 numeric contract |
 | [numpy-reference](numpy-reference/) | Pinned NumPy 2.5.3 source checkout used for reference and provenance |
 | [docs](docs/README.md) | Rebuild plan, release roadmap, implementation evidence, and development guides |
 
@@ -73,8 +77,8 @@ See [Python build](raptors-python/BUILD.md), [Python testing](raptors-python/TES
 
 `.github/workflows/release.yml` validates the tag and package versions, runs Rust safety checks, builds and tests eight target wheels, then publishes those wheels to PyPI through the configured trusted publisher. Each `cp312-abi3` wheel is tested on CPython 3.12, 3.13, and 3.14. It triggers on exact `vX.Y.Z` tags. A manual run performs the validation/build path without publishing.
 
-The published 0.1.0 wheel set predates this eight-target strategy. The updated build-only workflow passed on commit `ab0b4d8` ([run](https://github.com/eddiethedean/raptors/actions/runs/36468681074)); rerun it after release changes and before creating a later tag. Source distributions remain disabled until a clean source build is verified.
+The published 0.2.0 wheel set was built and tested by the [tagged release workflow](https://github.com/eddiethedean/raptors/actions/runs/36511142066). Source distributions remain disabled until a clean source build is verified.
 
 ## Documentation
 
-Start with the [documentation index](docs/README.md), [rebuild plan](docs/REBUILD_PLAN.md), [release 0.1 evidence](docs/RELEASE_0_1.md), and [0.2 execution plan](docs/RELEASE_0_2.md). The project is MIT licensed; see [LICENSE](LICENSE).
+Start with the [documentation index](docs/README.md), [rebuild plan](docs/REBUILD_PLAN.md), [0.2 release record](docs/RELEASE_0_2.md), and [release roadmap](docs/CONVERSION_ROADMAP.md). The project is MIT licensed; see [LICENSE](LICENSE).

@@ -2,9 +2,9 @@
 
 Date: 2026-09-28
 
-Status: accepted project direction; the 0.1 preview is published, with its hosted release gates passed. Releases 0.2–0.9 remain planned. See the [0.x release roadmap](CONVERSION_ROADMAP.md) for versioned deliverables and the [documentation index](README.md) for aligned development and validation guides. This plan supersedes the legacy completion roadmap and async-service positioning.
+Status: accepted project direction; 0.1 and 0.2.0 are published, with their hosted release gates passed. Releases 0.3–0.9 remain planned. See the [0.x release roadmap](CONVERSION_ROADMAP.md) for versioned deliverables and the [documentation index](README.md) for aligned development and validation guides. This plan supersedes the legacy completion roadmap and async-service positioning.
 
-The 0.1 result includes the pinned NumPy oracle, generated API inventory, compatibility manifest, legacy baseline record, differential/property harness, new safe storage crate, PyO3 preview, wheel checks, benchmark, Miri job, and tag-triggered trusted-publisher workflow. CPython 3.12–3.14 suites pass locally on macOS ARM64; the tagged release passed hosted platform and AddressSanitizer jobs. The current workflow builds eight `cp312-abi3` target wheels for later releases, and its build-only matrix passed in [run 36468681074](https://github.com/eddiethedean/raptors/actions/runs/36468681074). See [release 0.1](RELEASE_0_1.md) for exact scope and evidence.
+Version 0.1 established the pinned NumPy oracle, generated API inventory, compatibility manifest, differential/property harness, checked storage crate, PyO3 preview, and tagged release workflow. Version 0.2.0 added the numeric dtype and array foundation and passed the complete [tagged release workflow](https://github.com/eddiethedean/raptors/actions/runs/36511142066), which published eight `cp312-abi3` wheels. See the [0.1](RELEASE_0_1.md) and [0.2](RELEASE_0_2.md) records for their separate scope and evidence.
 
 ## Goal and recommendation
 
@@ -35,7 +35,7 @@ Prior local checks established that five core array integration tests pass and t
 
 ## Compatibility contract
 
-The [0.1 execution plan](RELEASE_0_1.md) pins NumPy **2.5.3** at `dd88c0c19b54ad9ed3533224221285bf0873249a` and GIL-enabled CPython **3.12–3.14** as the first support range. The Python dependency lock and source submodule match that reference. Version 0.1.0 shipped twelve version-specific wheels for Linux x86-64, macOS x86-64/ARM64, and Windows x86-64. The current release workflow expands later releases to eight `cp312-abi3` wheels across manylinux, musllinux, macOS, and Windows x86-64/ARM64. Keep a separate compatibility job for a newer NumPy release so upstream changes cannot silently change the reference.
+The [0.1 execution plan](RELEASE_0_1.md) pins NumPy **2.5.3** at `dd88c0c19b54ad9ed3533224221285bf0873249a` and GIL-enabled CPython **3.12–3.14** as the first support range. The Python dependency lock and source submodule match that reference. Version 0.1.0 shipped twelve version-specific wheels for Linux x86-64, macOS x86-64/ARM64, and Windows x86-64. The published 0.2.0 release uses eight `cp312-abi3` wheels across manylinux, musllinux, macOS, and Windows x86-64/ARM64. Keep a separate compatibility job for a newer NumPy release so upstream changes cannot silently change the reference.
 
 The eventual inventory includes:
 
@@ -88,8 +88,8 @@ The detailed engineering work below rolls up into the versioned releases in [CON
 | Engineering work stream | Release |
 | --- | --- |
 | A: baseline, pinned contract, and API inventory; B: differential harness | 0.1 |
-| C: safe storage preview and array foundation | 0.1-0.2 |
-| D: complete dtype and numeric behavior | 0.2-0.3 |
+| C: safe storage preview and array foundation (complete) | 0.1-0.2 |
+| D: complete dtype and numeric behavior | 0.3 |
 | E: measured optimization | 0.4 |
 | F: expand the public API and specialized modules | 0.5-0.8 |
 | G: conformance closure, applications, and release validation | 0.9 |
@@ -116,17 +116,17 @@ Use curated upstream tests with their provenance and license notices preserved. 
 
 **Exit gate:** the harness detects intentional faults in dtype selection, broadcasting, overlap, and view ownership. It fails for a missing extension and reports all skipped/unsupported cases explicitly. The 0.1 preview's harness probes passed locally and its tagged release passed hosted wheel tests on CPython 3.12–3.14.
 
-### Work stream C — Prove the safe array foundation (v0.1 preview, v0.2 completion)
+### Work stream C — Prove the safe array foundation (v0.1-v0.2; complete)
 
-Implement the new storage/layout design with a deliberately small dtype set: boolean, signed and unsigned 64-bit integers, and 32/64-bit floats. The [0.1 preview](RELEASE_0_1.md) covers explicit-dtype construction, scalar and empty arrays, integer/basic-slice views, same-dtype assignment, and copy. Complete transpose, reshape, broader assignment and layout behavior in 0.2.
+The [0.1 preview](RELEASE_0_1.md) introduced checked storage with explicit-dtype construction, scalar and empty arrays, integer/basic-slice views, same-dtype assignment, and copy. The published [0.2 release](RELEASE_0_2.md) completes the numeric storage/layout foundation with transpose, reshape, broader assignment, and the declared numeric dtypes.
 
 Test allocation bounds, invalid metadata, negative and zero strides, non-contiguous access, parent destruction, repeated aliases, overlapping assignment, and read/write conflicts. Use Miri on isolated Rust storage/layout code, fuzz its constructors and operation sequences, and run sanitizer builds where supported. Test Python lifetimes through the actual extension.
 
-**Exit gate:** the 0.1 preview passes its declared owner-lifetime, stride, overlap, bounds, and initialization cases with documented invariants, reviewed unsafe boundaries, and recorded Miri/sanitizer results. Local Rust/Miri tests and hosted sanitizer/wheel checks passed for 0.1. Complete the remaining foundation cases in 0.2 before growing the operation catalog.
+**Exit gate:** the 0.1 preview passed its declared owner-lifetime, stride, overlap, bounds, and initialization cases with documented invariants and reviewed unsafe boundaries. The remaining numeric foundation cases passed locally and in the tagged 0.2 Miri, sanitizer, and wheel gates. Work stream C is complete; later API families follow work stream D.
 
-### Work stream D — Deliver one complete numeric path (v0.2-v0.3)
+### Work stream D — Deliver one complete numeric path (v0.3, building on v0.2)
 
-Implement construction → view/slice → broadcast arithmetic → reduction → conversion back to Python, all through the same execution and dtype machinery. Include scalar promotion, tuple/negative axes, `keepdims`, and the applicable ufunc keywords. Extend to the remaining numeric widths and complex types before declaring numeric compatibility.
+Extend the published construction → view/slice foundation with broadcast arithmetic → reduction → conversion back to Python, all through the same execution and dtype machinery. Include scalar promotion, tuple/negative axes, `keepdims`, and the applicable ufunc keywords. Complete the remaining numeric operations and scalar behavior before declaring broader numeric compatibility.
 
 Required demonstrations include:
 
@@ -192,7 +192,7 @@ Do not weaken expected results, add blanket skips, catch all errors to return pl
 
 ## Current implementation checkpoint
 
-The 0.1 work streams have local and hosted artifacts and results recorded in [RELEASE_0_1.md](RELEASE_0_1.md) and [NUMPY_TEST_VERIFICATION.md](NUMPY_TEST_VERIFICATION.md). Version 0.1.0 passed its twelve-cell OS/Python wheel matrix and Linux AddressSanitizer gate before publication. Run the current eight-target stable-ABI workflow before each later release. Estimate later work from the reviewed inventory and the measured difficulty of each complete numeric path. Full NumPy functionality is a sustained library engineering effort; a fixed short rewrite schedule would be speculation.
+The 0.1 work streams have local and hosted artifacts and results recorded in [RELEASE_0_1.md](RELEASE_0_1.md) and [NUMPY_TEST_VERIFICATION.md](NUMPY_TEST_VERIFICATION.md). Version 0.1.0 passed its twelve-cell OS/Python wheel matrix and Linux AddressSanitizer gate before publication. Version 0.2.0 passed the eight-target stable-ABI workflow and published its wheels; run that workflow before each later release. Estimate later work from the reviewed inventory and the measured difficulty of each complete numeric path. Full NumPy functionality is a sustained library engineering effort; a fixed short rewrite schedule would be speculation.
 
 ## Reference material
 

@@ -157,24 +157,44 @@ def compact_platform(platform: str, machine: str) -> str:
     return f"{label.replace('-', ' ')} {machine.upper()}"
 
 
+def format_dtype(dtype: str) -> str:
+    if re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", dtype):
+        return f"`{dtype}`"
+    return re.sub(
+        r"\b(intp|uintp|int_|uint|long|ulong|longlong|ulonglong|longdouble|clongdouble)\b",
+        r"`\1`",
+        dtype,
+    )
+
+
 def render_stats() -> str:
     version, contract_path, contract = latest_published_contract()
     numpy_version = contract["reference"]["version"]
     contract_link = contract_path.relative_to(ROOT).as_posix()
-    release_url = f"https://github.com/eddiethedean/raptors/releases/tag/v{version}"
+    release_url = f"https://github.com/eddiethedean/raptors/tree/v{version}"
     pypi_url = f"https://pypi.org/project/raptors/{version}/"
 
     api = contract.get("api", {})
-    dtypes = ", ".join(f"`{dtype}`" for dtype in api.get("dtypes", []))
+    dtype_items = api.get("dtypes") or contract.get("scope", {}).get("numeric_dtypes", [])
+    dtypes = ", ".join(format_dtype(dtype) for dtype in dtype_items)
     creation = [
         item["signature"]
         for key in ("array_function", "zeros_function", "empty_function")
-        if (item := api.get(key, {})).get("status") == "implemented" and item.get("signature")
+        if (item := api.get(key, {})).get("status") in {"implemented", "partial"} and item.get("signature")
     ]
     creation_text = ", ".join(f"`{item}`" for item in creation)
-    metadata = ", ".join(f"`{item}`" for item in api.get("metadata", []))
+    metadata_items = api.get("metadata")
+    if metadata_items is None:
+        metadata_items = api.get("array_metadata", []) + api.get("dtype_metadata", [])
+    metadata_items = list(dict.fromkeys(metadata_items))
+    metadata = ", ".join(f"`{item}`" for item in metadata_items)
     indexing = ", ".join(api.get("indexing", []))
-    mutation = ", ".join(api.get("mutation", []))
+    if "mutation" in api:
+        behavior_text = f"mutation/copy behavior ({', '.join(api['mutation'])})"
+    else:
+        methods = ", ".join(f"`{item}`" for item in api.get("array_methods", []))
+        assignments = ", ".join(api.get("assignment", []))
+        behavior_text = f"array methods ({methods}) and assignment behavior ({assignments})"
     unsupported = ", ".join(contract.get("unsupported", []))
     tests = contract.get("evidence", {}).get("python_differential_tests", {})
     python_versions = tests.get("python_versions", [])
@@ -186,12 +206,12 @@ def render_stats() -> str:
     inventory = contract.get("api_inventory", {})
     inventory_count = inventory.get("entry_count")
 
-    if not dtypes or not creation_text or not metadata or not indexing or not mutation:
+    if not dtypes or not creation_text or not metadata or not indexing or not behavior_text:
         raise SystemExit(f"published contract v{version} is missing declared API scope")
     if not isinstance(inventory_count, int):
         raise SystemExit(f"published contract v{version} is missing the API inventory entry count")
     unsupported_text = (
-        f"Unsupported areas: {unsupported}."
+        f"Unsupported areas include: {'; '.join(contract.get('unsupported', []))}."
         if unsupported
         else "The contract lists no explicitly unsupported areas."
     )
@@ -201,7 +221,7 @@ def render_stats() -> str:
         "",
         "### Compatibility",
         "",
-        f"Raptors {version} is a narrow preview, not a drop-in NumPy replacement. Its verified surface includes explicit {dtypes} arrays; {creation_text}; metadata ({metadata}); indexing ({indexing}); and mutation/copy behavior ({mutation}).",
+        f"Raptors {version} is a narrow preview, not a drop-in NumPy replacement. Its verified surface includes support for the dtypes {dtypes}; {creation_text}; metadata ({metadata}); indexing ({indexing}); and {behavior_text}.",
         "",
         f"The preview differential/property suite reports **{passed} passed and {skipped} skipped per Python version** on {versions_text}, compared with NumPy {numpy_version}. Those tests cover only the declared preview contract. {unsupported_text}",
         "",

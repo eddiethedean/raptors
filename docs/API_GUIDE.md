@@ -1,8 +1,8 @@
 # API guide
 
-**Status:** 0.1 remains the published package. The 0.2.0 release candidate passed local checks, main CI, and the hosted eight-target release preflight. The [0.1 manifest](../compat/raptors-0.1.json) defines the published package. The [0.2 contract](../compat/raptors-0.2.json) defines the candidate and its supported boundary. The generated NumPy inventory is a backlog map, not a conformance reference.
+**Status:** 0.2.0 is the latest published package. The [0.2 contract](../compat/raptors-0.2.json) defines its supported boundary; the [0.1 manifest](../compat/raptors-0.1.json) describes the previous, narrower release. The generated NumPy inventory is a backlog map, not a conformance reference.
 
-## Published 0.1 package
+## Previous published 0.1 package
 
 The package uses a different import from NumPy:
 
@@ -18,13 +18,13 @@ The published package exposes `array(data, dtype)`, `zeros(shape, dtype=None)`, 
 
 The published 0.1 package does not expose arithmetic, broadcasting, reductions, dtype inference, reshape/transpose, advanced indexing, or NumPy interoperation. Scalar indexing returns typed Raptors wrappers, not NumPy scalar classes. Check the 0.1 manifest before using that published package in an application.
 
-## 0.2.0 candidate worktree surface
+## Published 0.2.0 package
 
-The worktree adds fixed-width numeric dtypes and aliases, numeric inference and promotion, casts, C/F construction and reshape order, transpose, integer/slice/boolean/fancy indexing, broadcast assignment, and endian-aware storage. Its signatures are `array(data, dtype=None, copy=True, order='K')`, `zeros(shape, dtype=None, order='C')`, and `empty(shape, dtype=None, order='C')`. Dtype objects expose `kind`, `char`, `itemsize`, `alignment`, `byteorder`, `isnative`, `str`, and `type`. The local suite has 774 passing cases with no skips on each supported CPython version; the hosted preflight passed for all eight wheel targets. See the [0.2 contract](../compat/raptors-0.2.json) and [release gate](RELEASE_0_2.md).
+The package adds fixed-width numeric dtypes and aliases, numeric inference and promotion, casts, C/F construction and reshape order, transpose, integer/slice/boolean/fancy indexing, broadcast assignment, and endian-aware storage. Its signatures are `array(data, dtype=None, copy=True, order='K')`, `zeros(shape, dtype=None, order='C')`, and `empty(shape, dtype=None, order='C')`. Dtype objects expose `kind`, `char`, `itemsize`, `alignment`, `byteorder`, `isnative`, `str`, and `type`. The local suite has 774 passing cases with no skips on each supported CPython version; all eight hosted wheel targets passed and were published. See the [0.2 contract](../compat/raptors-0.2.json) and [release record](RELEASE_0_2.md).
 
 ## Legacy source tree
 
-The old extension source remains for audit, but the built 0.2 Python module does not register or call it. These files are not evidence that the current candidate supports the corresponding operations:
+The old extension source remains for audit, but the published 0.2 Python module does not register or call it. These files are not evidence that the package supports the corresponding operations:
 
 | Legacy area | Source | Current interpretation |
 | --- | --- | --- |
