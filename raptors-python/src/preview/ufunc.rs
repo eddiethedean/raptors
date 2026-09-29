@@ -1408,8 +1408,12 @@ fn call(
     } else {
         vec![operands[0].dtype, operands[1].dtype]
     };
-    let (mut resolved_inputs, mut outputs) =
-        kernels::resolve_loop(name, &input_dtypes).map_err(map_storage_error)?;
+    let (mut resolved_inputs, mut outputs) = resolve_operand_loop(
+        name,
+        &input_dtypes,
+        operands.get(1).and_then(|operand| operand.scalar_alias),
+    )
+    .map_err(map_storage_error)?;
     for (index, (source, destination)) in input_dtypes.iter().zip(&resolved_inputs).enumerate() {
         if !can_cast_ufunc_operand(name, &operands[index], *source, *destination, casting) {
             return Err(PyTypeError::new_err(format!(
@@ -1599,7 +1603,7 @@ fn call(
                         py,
                         PyArray {
                             inner: view,
-                            scalar_alias: inferred_output_alias(&operands, outputs[index]),
+                            scalar_alias: inferred_output_alias(name, &operands, outputs[index]),
                         },
                     )?
                     .into_any(),
@@ -1625,7 +1629,7 @@ fn call(
         )?;
         arrays.push(PyArray {
             inner: view,
-            scalar_alias: inferred_output_alias(&operands, dtype),
+            scalar_alias: inferred_output_alias(name, &operands, dtype),
         });
     }
     report_errors(py, name, error_flags)?;
@@ -1638,14 +1642,14 @@ fn call(
             return scalar_to_python(
                 py,
                 output_scalars[0].clone(),
-                inferred_output_alias(&operands, outputs[0]),
+                inferred_output_alias(name, &operands, outputs[0]),
             );
         }
         let py_values = output_scalars
             .into_iter()
             .zip(&outputs)
             .map(|(value, dtype)| {
-                scalar_to_python(py, value, inferred_output_alias(&operands, *dtype))
+                scalar_to_python(py, value, inferred_output_alias(name, &operands, *dtype))
             })
             .collect::<PyResult<Vec<_>>>()?;
         return Ok(PyTuple::new(py, py_values)?.into_any().unbind());
@@ -1661,7 +1665,7 @@ fn call(
     }
 }
 
-fn inferred_output_alias(operands: &[Operand], output: DType) -> Option<ScalarAlias> {
+fn inferred_output_alias(name: &str, operands: &[Operand], output: DType) -> Option<ScalarAlias> {
     #[cfg(target_os = "windows")]
     {
         let aliases = operands
@@ -1674,10 +1678,22 @@ fn inferred_output_alias(operands: &[Operand], output: DType) -> Option<ScalarAl
                 if aliases.contains(&ScalarAlias::Long) {
                     return Some(ScalarAlias::Long);
                 }
+                if aliases.contains(&ScalarAlias::IntC) {
+                    return Some(ScalarAlias::IntC);
+                }
+                if windows_result_uses_c_long(name, operands, output) {
+                    return Some(ScalarAlias::Long);
+                }
                 return Some(ScalarAlias::IntC);
             }
             DType::UInt32 => {
                 if aliases.contains(&ScalarAlias::ULong) {
+                    return Some(ScalarAlias::ULong);
+                }
+                if aliases.contains(&ScalarAlias::UIntC) {
+                    return Some(ScalarAlias::UIntC);
+                }
+                if windows_result_uses_c_long(name, operands, output) {
                     return Some(ScalarAlias::ULong);
                 }
                 return Some(ScalarAlias::UIntC);
@@ -1685,6 +1701,8 @@ fn inferred_output_alias(operands: &[Operand], output: DType) -> Option<ScalarAl
             _ => {}
         }
     }
+    #[cfg(not(target_os = "windows"))]
+    let _ = name;
     let mut alias = None;
     for operand in operands {
         if let Some(candidate) = operand.scalar_alias {
@@ -1695,6 +1713,60 @@ fn inferred_output_alias(operands: &[Operand], output: DType) -> Option<ScalarAl
         }
     }
     alias.filter(|alias| alias.dtype() == output)
+}
+
+#[cfg(target_os = "windows")]
+fn windows_result_uses_c_long(name: &str, operands: &[Operand], output: DType) -> bool {
+    // Storage keeps one 32-bit integer dtype, while NumPy's Windows ufunc
+    // loops distinguish C int from C long. Match the pinned resolver's loop
+    // choice for the operation and input combination before exposing char.
+    let long_output_ufuncs = matches!(
+        name,
+        "add" | "subtract" | "multiply" | "fmax" | "fmin" | "maximum" | "minimum" | "gcd" | "lcm"
+    );
+    let same_type_output_ufuncs = matches!(
+        name,
+        "bitwise_and"
+            | "bitwise_or"
+            | "bitwise_xor"
+            | "divmod"
+            | "floor_divide"
+            | "fmod"
+            | "left_shift"
+            | "right_shift"
+            | "power"
+            | "remainder"
+    );
+    (long_output_ufuncs && operands.iter().any(|operand| operand.dtype == output))
+        || (same_type_output_ufuncs
+            && operands.len() == 2
+            && operands.iter().all(|operand| operand.dtype == output))
+}
+
+fn resolve_operand_loop(
+    name: &str,
+    input_dtypes: &[DType],
+    exponent_alias: Option<ScalarAlias>,
+) -> Result<(Vec<DType>, Vec<DType>), raptors_storage::StorageError> {
+    let resolved = kernels::resolve_loop(name, input_dtypes)?;
+    #[cfg(target_os = "windows")]
+    if windows_ldexp_uses_double_loop(name, input_dtypes, exponent_alias) {
+        return Ok((vec![DType::Float64, DType::Int32], vec![DType::Float64]));
+    }
+    #[cfg(not(target_os = "windows"))]
+    let _ = exponent_alias;
+    Ok(resolved)
+}
+
+#[cfg(any(target_os = "windows", test))]
+fn windows_ldexp_uses_double_loop(
+    name: &str,
+    input_dtypes: &[DType],
+    exponent_alias: Option<ScalarAlias>,
+) -> bool {
+    // An explicit C-int exponent selects the visible `gi->g` loop. NumPy's
+    // canonical int32 descriptor instead resolves through its double alias.
+    name == "ldexp" && input_dtypes == [DType::LongDouble, DType::Int32] && exponent_alias.is_none()
 }
 
 fn weak_promote(left: &Operand, right: &Operand) -> PyResult<DType> {
@@ -2431,7 +2503,7 @@ fn reduce(
         output_shape,
         result_dtype,
         values,
-        inferred_output_alias(std::slice::from_ref(&source), result_dtype),
+        inferred_output_alias(name, std::slice::from_ref(&source), result_dtype),
         out,
         !keepdims,
     )?;
@@ -2507,7 +2579,7 @@ fn accumulate(
         shape,
         result_dtype,
         output,
-        inferred_output_alias(std::slice::from_ref(&source), result_dtype),
+        inferred_output_alias(name, std::slice::from_ref(&source), result_dtype),
         out,
         false,
     )?;
@@ -2619,7 +2691,7 @@ fn reduceat(
         output_shape,
         result_dtype,
         output,
-        inferred_output_alias(std::slice::from_ref(&source), result_dtype),
+        inferred_output_alias(name, std::slice::from_ref(&source), result_dtype),
         out,
         false,
     )?;
@@ -2750,8 +2822,12 @@ fn outer(
     } else {
         [left.dtype, right.dtype]
     };
-    let (mut resolved_inputs, mut outputs) =
-        kernels::resolve_loop(name, &input_dtypes).map_err(map_storage_error)?;
+    let (mut resolved_inputs, mut outputs) = resolve_operand_loop(
+        name,
+        &input_dtypes,
+        operands.get(1).and_then(|operand| operand.scalar_alias),
+    )
+    .map_err(map_storage_error)?;
     for (index, (source, destination)) in input_dtypes.iter().zip(&resolved_inputs).enumerate() {
         if !can_cast_ufunc_operand(name, &operands[index], *source, *destination, casting) {
             return Err(PyTypeError::new_err(format!(
@@ -2919,7 +2995,7 @@ fn outer(
                 py,
                 PyArray {
                     inner: view,
-                    scalar_alias: inferred_output_alias(&operands, outputs[index]),
+                    scalar_alias: inferred_output_alias(name, &operands, outputs[index]),
                 },
             )?
             .into_any();
@@ -3009,8 +3085,9 @@ fn at(
         } else {
             [target.inner.dtype(), target.inner.dtype()]
         };
-        let (loop_inputs, loop_outputs) = if rhs_operand.is_some() {
-            kernels::resolve_loop(name, &input_dtypes).map_err(map_storage_error)?
+        let (loop_inputs, loop_outputs) = if let Some(rhs) = rhs_operand {
+            resolve_operand_loop(name, &input_dtypes, rhs.scalar_alias)
+                .map_err(map_storage_error)?
         } else {
             kernels::resolve_loop(name, &input_dtypes[..1]).map_err(map_storage_error)?
         };
@@ -3105,8 +3182,8 @@ fn at(
     } else {
         [target.inner.dtype(), target.inner.dtype()]
     };
-    let (loop_inputs, loop_outputs) = if rhs_operand.is_some() {
-        kernels::resolve_loop(name, &input_dtypes).map_err(map_storage_error)?
+    let (loop_inputs, loop_outputs) = if let Some(rhs) = rhs_operand {
+        resolve_operand_loop(name, &input_dtypes, rhs.scalar_alias).map_err(map_storage_error)?
     } else {
         kernels::resolve_loop(name, &input_dtypes[..1]).map_err(map_storage_error)?
     };
@@ -3199,4 +3276,22 @@ fn linear_for_shape(shape: &[usize], coordinates: &[usize]) -> PyResult<usize> {
                 .and_then(|x| x.checked_add(coordinate))
                 .ok_or_else(|| PyValueError::new_err("array shape exceeds supported limits"))
         })
+}
+
+#[cfg(test)]
+mod platform_loop_tests {
+    use super::{windows_ldexp_uses_double_loop, ScalarAlias};
+    use raptors_storage::DType;
+
+    #[test]
+    fn windows_ldexp_uses_double_only_for_canonical_exponent_dtype() {
+        let dtypes = [DType::LongDouble, DType::Int32];
+        assert!(windows_ldexp_uses_double_loop("ldexp", &dtypes, None));
+        assert!(!windows_ldexp_uses_double_loop(
+            "ldexp",
+            &dtypes,
+            Some(ScalarAlias::LongLong)
+        ));
+        assert!(!windows_ldexp_uses_double_loop("add", &dtypes, None));
+    }
 }

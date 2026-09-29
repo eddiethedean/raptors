@@ -580,10 +580,10 @@ def test_fixed_width_int32_uses_c_int_typecode_on_windows():
     if sys.platform != "win32":
         pytest.skip("Windows distinguishes C int from C long typecodes")
 
-    expected_int = np.dtype("int32")
-    expected_uint = np.dtype("uint32")
-    assert raptors.DType("int32").char == expected_int.char == "i"
-    assert raptors.DType("uint32").char == expected_uint.char == "I"
+    assert raptors.DType("int32").char == np.dtype("int32").char
+    assert raptors.DType("uint32").char == np.dtype("uint32").char
+    assert raptors.DType("intc").char == np.dtype("intc").char == "i"
+    assert raptors.DType("uintc").char == np.dtype("uintc").char == "I"
     assert raptors.DType("long").char == np.dtype("long").char == "l"
     assert raptors.DType("ulong").char == np.dtype("ulong").char == "L"
 

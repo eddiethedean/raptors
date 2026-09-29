@@ -217,13 +217,6 @@ pub fn resolve_loop(
     if inputs.len() != nin {
         return Err(StorageError::InvalidScalar);
     }
-    // Windows exposes longdouble as an 8-byte alias for float64. NumPy's
-    // ldexp resolver selects its double/int32 loop for this aliased input,
-    // even though the standalone `g` loop remains visible in `ufunc.types`.
-    #[cfg(target_os = "windows")]
-    if canonical == "ldexp" && inputs == [DType::LongDouble, DType::Int32] {
-        return Ok((vec![DType::Float64, DType::Int32], vec![DType::Float64]));
-    }
     if matches!(canonical, "logical_and" | "logical_or" | "logical_xor") {
         // NumPy's logical ufuncs accept numeric operands of different kinds
         // and apply truth testing before producing boolean output. Their

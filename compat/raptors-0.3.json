@@ -2718,12 +2718,12 @@
     "python_xdist": {
       "status": "passed_locally",
       "workers": 12,
-      "pytest_seconds": 7.73,
+      "pytest_seconds": 8.22,
       "command": "./raptors-python/run_tests.sh"
     },
     "rust_workspace_tests": {
       "status": "passed_locally",
-      "test_cases": 1554,
+      "test_cases": 1555,
       "test_binaries": 58,
       "command": "cargo test --offline --locked --manifest-path Cargo.toml --workspace -- --test-threads=1"
     },

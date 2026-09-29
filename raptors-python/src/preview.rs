@@ -1279,6 +1279,12 @@ fn promote_types(left: &Bound<'_, PyAny>, right: &Bound<'_, PyAny>) -> PyResult<
     let (left, _, left_alias) = parse_dtype_spec(left)?;
     let (right, _, right_alias) = parse_dtype_spec(right)?;
     let inner = left.promote(right);
+    #[cfg(target_os = "windows")]
+    let scalar_alias = merge_scalar_aliases(left_alias, right_alias, inner).or_else(|| {
+        (inner == DType::Int32 && left != DType::Int32 && right != DType::Int32)
+            .then_some(ScalarAlias::IntC)
+    });
+    #[cfg(not(target_os = "windows"))]
     let scalar_alias = merge_scalar_aliases(left_alias, right_alias, inner);
     Ok(PyDType {
         inner,

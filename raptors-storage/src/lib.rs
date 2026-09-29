@@ -82,7 +82,13 @@ impl DType {
             Self::UInt8 => 'B',
             Self::Int16 => 'h',
             Self::UInt16 => 'H',
+            #[cfg(target_os = "windows")]
+            Self::Int32 => 'l',
+            #[cfg(not(target_os = "windows"))]
             Self::Int32 => 'i',
+            #[cfg(target_os = "windows")]
+            Self::UInt32 => 'L',
+            #[cfg(not(target_os = "windows"))]
             Self::UInt32 => 'I',
             #[cfg(target_os = "windows")]
             Self::Int64 => 'q',
@@ -3391,9 +3397,17 @@ mod tests {
     }
 
     #[test]
-    fn c_integer_typecodes_are_platform_independent() {
-        assert_eq!(DType::Int32.char(), 'i');
-        assert_eq!(DType::UInt32.char(), 'I');
+    fn int32_typecodes_follow_target_aliases() {
+        #[cfg(target_os = "windows")]
+        {
+            assert_eq!(DType::Int32.char(), 'l');
+            assert_eq!(DType::UInt32.char(), 'L');
+        }
+        #[cfg(not(target_os = "windows"))]
+        {
+            assert_eq!(DType::Int32.char(), 'i');
+            assert_eq!(DType::UInt32.char(), 'I');
+        }
     }
 
     #[test]
@@ -3408,15 +3422,6 @@ mod tests {
             .iter()
             .all(|dtype| matches!(dtype, DType::LongDouble | DType::ComplexLongDouble)));
         assert_eq!(outputs, vec![DType::ComplexLongDouble]);
-    }
-
-    #[cfg(target_os = "windows")]
-    #[test]
-    fn windows_ldexp_uses_double_loop_for_longdouble_and_c_int() {
-        let (inputs, outputs) =
-            super::ufunc::resolve_loop("ldexp", &[DType::LongDouble, DType::Int32]).unwrap();
-        assert_eq!(inputs, vec![DType::Float64, DType::Int32]);
-        assert_eq!(outputs, vec![DType::Float64]);
     }
 
     fn array(values: &[i64]) -> View {
