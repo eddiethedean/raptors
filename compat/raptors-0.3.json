@@ -2691,7 +2691,7 @@
     "Longdouble and clongdouble scalar kernels currently compute through binary64 conversions on platforms where those formats are wider.",
     "Fresh outputs with false where positions are zero-initialized internally; those positions remain outside the result-value contract.",
     "Complex inverse-trig differential cases cover branch cuts, signed zero, small imaginary values, and large finite values; exact bit-for-bit equality across platform libm implementations is not promised.",
-    "Floating-error flag detection uses scalar result heuristics; exact subnormal cases are covered for common real operations, while the full operation-by-mode matrix remains pending.",
+    "Floating-error flag detection uses scalar result heuristics; exact subnormal cases are covered for common real operations. NumPy's exp2 underflow flag for exact subnormal powers varies across supported platform wheels, and the full operation-by-mode matrix remains pending.",
     "Combined dtype/signature, casting, where, out, and order cases are covered for single- and multi-output ufuncs; the full invalid-argument precedence matrix remains pending.",
     "Raptors has no ndarray subclasses, so subok does not alter results; third-party dispatch remains outside the 0.3 input domain."
   ],
