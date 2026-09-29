@@ -207,8 +207,10 @@ def main():
         raise SystemExit("0.3 ufunc contract must use the five supported numeric dtype kinds")
     if ufunc_scope.get("runtime_numpy_dependency") is not False:
         raise SystemExit("0.3 ufunc contract must keep the runtime NumPy dependency disabled")
-    if not ufunc_contract.get("known_gaps"):
-        raise SystemExit("0.3 ufunc contract must list unresolved compatibility gaps")
+    if not isinstance(ufunc_contract.get("known_gaps"), list):
+        raise SystemExit("0.3 ufunc contract known_gaps must be a JSON array")
+    if not isinstance(ufunc_contract.get("known_limits"), list):
+        raise SystemExit("0.3 ufunc contract known_limits must be a JSON array")
     ufunc_evidence = ufunc_contract.get("evidence", {})
     if ufunc_evidence.get("cargo_check", {}).get("status") not in {"not_run", "passed_locally"}:
         raise SystemExit("0.3 contract has invalid Cargo check evidence")

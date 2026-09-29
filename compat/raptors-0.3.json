@@ -2,7 +2,7 @@
   "schema_version": 1,
   "release": "0.3",
   "package_version": "0.3.0",
-  "status": "implementation_in_progress",
+  "status": "release_candidate",
   "reference": {
     "distribution": "numpy",
     "version": "2.5.3",
@@ -2687,12 +2687,12 @@
     ],
     "runtime_numpy_dependency": false
   },
-  "known_gaps": [
-    "Fresh outputs with false where positions are zero-initialized internally; those positions remain outside the result-value contract.",
-    "Complex inverse-trig differential cases cover branch cuts, signed zero, small imaginary values, and large finite values; exact bit-for-bit equality across platform libm implementations is not promised.",
-    "Floating-error flags are classified from supported scalar inputs and outputs; differential tests cover all four flag categories under all six policies and combined callback flags.",
-    "Combined dtype/signature, casting, where, out, and order cases are covered for single- and multi-output ufuncs; precedence tests cover arity, conflicting controls, casting and order, subok validation, and multi-output count/type/shape checks.",
-    "Raptors has no ndarray subclasses, so subok does not alter results; third-party dispatch remains outside the 0.3 input domain."
+  "known_gaps": [],
+  "known_limits": [
+    "Values at masked positions in newly allocated outputs are outside the result-value contract.",
+    "Complex inverse-trigonometric results are checked across covered branch cases; bit-for-bit equality across platform libm implementations is not promised.",
+    "Floating-error tests cover each flag category and policy plus combined callback flags for supported scalar-kernel results.",
+    "Raptors has no ndarray subclasses; subok does not alter results, and third-party dispatch is outside the 0.3 input domain."
   ],
   "evidence": {
     "generation_platform": "Darwin arm64",
@@ -2753,9 +2753,9 @@
       "raptors-python/tests/preview/test_harness.py",
       "raptors-longdouble/src/lib.rs"
     ],
-    "release_gate": "pending",
+    "release_gate": "passed",
     "native_longdouble_bridge": {
-      "status": "implemented_locally; hosted native-ABI qualification pending",
+      "status": "passed_hosted_wheel_matrix",
       "rust_tests": 2,
       "targets": [
         "Linux x86_64 (extended x87 long double)",
@@ -2766,7 +2766,8 @@
         "Windows",
         "macOS arm64"
       ],
-      "command": "cargo test --offline --locked -p raptors-longdouble; cc -std=c11 -Wall -Wextra -Werror -c raptors-longdouble/src/longdouble.c"
+      "command": "cargo test --offline --locked -p raptors-longdouble; cc -std=c11 -Wall -Wextra -Werror -c raptors-longdouble/src/longdouble.c",
+      "workflow_url": "https://github.com/eddiethedean/raptors/actions/runs/36601951112"
     },
     "source_distribution": {
       "status": "passed_locally",
@@ -2798,6 +2799,41 @@
       "status": "passed_locally",
       "cases": 7,
       "command": "./raptors-python/run_tests.sh (test_ufunc_differential.py)"
+    },
+    "hosted_validation": {
+      "source_commit": "a28303884c3902295457432ebc41f4aaee748d53",
+      "ci": {
+        "status": "passed",
+        "run_url": "https://github.com/eddiethedean/raptors/actions/runs/36601951074",
+        "coverage": [
+          "Rust formatting, tests, binding checks, and Clippy",
+          "Miri storage tests",
+          "AddressSanitizer storage tests",
+          "Pinned NumPy API inventory",
+          "CPython 3.12, 3.13, and 3.14 preview tests"
+        ]
+      },
+      "wheel_matrix": {
+        "status": "passed",
+        "run_url": "https://github.com/eddiethedean/raptors/actions/runs/36601951112",
+        "targets": [
+          "linux-x86_64-manylinux2014",
+          "linux-aarch64-manylinux_2_28",
+          "macos-x86_64",
+          "macos-arm64",
+          "linux-x86_64-musllinux_1_2",
+          "linux-aarch64-musllinux_1_2",
+          "windows-x86_64",
+          "windows-arm64"
+        ],
+        "python_versions": [
+          "3.12",
+          "3.13",
+          "3.14"
+        ],
+        "windows_integer_typecode_tests": "passed on x86_64 and arm64",
+        "publish_job": "skipped for branch workflow_dispatch; no publication"
+      }
     }
   }
 }
