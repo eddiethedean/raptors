@@ -1058,11 +1058,27 @@ def test_complex_divide_by_zero_matches_numpy_values_and_error_flags(dtype):
     ]
 
 
-def test_float16_spacing_negative_values_matches_numpy():
-    values = np.array([-1.0, -0.0, 0.0, 1.0], dtype=np.float16)
-    actual_values = raptors.array(values.tolist(), dtype=raptors.float16)
+@pytest.mark.parametrize("dtype", [np.float16, np.float32, np.float64])
+def test_spacing_negative_values_and_signed_zero_match_numpy(dtype):
+    values = np.array([-1.0, -0.0, 0.0, 1.0], dtype=dtype)
+    actual_values = raptors.array(
+        values.tolist(), dtype=_raptors_dtype_for_numpy(values.dtype)
+    )
     expected = np.spacing(values)
     actual = raptors.spacing(actual_values)
+    _assert_ufunc_result_matches(expected, actual, exact=True)
+
+
+@pytest.mark.parametrize("dtype", [np.float32, np.float64])
+def test_large_python_integer_uses_float_array_loop_without_integer_overflow(dtype):
+    expected_values = np.array([1.0, 2.0], dtype=dtype)
+    actual_values = raptors.array(
+        expected_values.tolist(), dtype=_raptors_dtype_for_numpy(expected_values.dtype)
+    )
+
+    expected = np.add(expected_values, 10**20)
+    actual = raptors.add(actual_values, 10**20)
+
     _assert_ufunc_result_matches(expected, actual, exact=True)
 
 
@@ -1359,6 +1375,40 @@ def test_where_false_preserves_outputs_and_rejects_invalid_masks_and_outputs():
         np.add(np.arange(3), 1, out=np.empty(2, dtype=np.int64))
     with pytest.raises(ValueError):
         raptors.add(raptors.array([0, 1, 2]), 1, out=raptors.empty(2, dtype=raptors.int64))
+
+
+def test_where_numeric_python_scalars_and_sequences_are_cast_to_boolean():
+    expected_values = np.array([1.0, 2.0], dtype=np.float64)
+    actual_values = raptors.array([1.0, 2.0], dtype=raptors.float64)
+
+    for where in (1, [1, 0]):
+        expected_out = np.full(2, -7.0, dtype=np.float64)
+        actual_out = raptors.array([-7.0, -7.0], dtype=raptors.float64)
+        expected = np.add(expected_values, 1.0, out=expected_out, where=where)
+        actual = raptors.add(actual_values, 1.0, out=actual_out, where=where)
+        assert actual is actual_out
+        _assert_ufunc_result_matches(expected, actual, exact=True)
+
+    expected_reduction = np.add.reduce(np.array([1, 2, 3]), where=[1, 0, 1])
+    actual_reduction = raptors.add.reduce(
+        raptors.array([1, 2, 3], dtype=raptors.int64), where=[1, 0, 1]
+    )
+    _assert_ufunc_result_matches(expected_reduction, actual_reduction, exact=True)
+
+    expected_outer_out = np.full((2, 2), -9, dtype=np.int64)
+    actual_outer_out = raptors.array([[-9, -9], [-9, -9]], dtype=raptors.int64)
+    expected_outer = np.add.outer(
+        np.array([1, 2]), np.array([10, 20]), out=expected_outer_out,
+        where=[[1, 0], [0, 1]],
+    )
+    actual_outer = raptors.add.outer(
+        raptors.array([1, 2], dtype=raptors.int64),
+        raptors.array([10, 20], dtype=raptors.int64),
+        out=actual_outer_out,
+        where=[[1, 0], [0, 1]],
+    )
+    assert actual_outer is actual_outer_out
+    _assert_ufunc_result_matches(expected_outer, actual_outer, exact=True)
 
 
 @pytest.mark.parametrize(

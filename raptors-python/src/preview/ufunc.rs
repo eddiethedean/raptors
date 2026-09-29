@@ -262,6 +262,7 @@ struct Operand {
     scalar_alias: Option<ScalarAlias>,
     is_array: bool,
     weak_scalar: bool,
+    large_python_integer: bool,
 }
 
 impl Operand {
@@ -274,6 +275,7 @@ impl Operand {
                 scalar_alias: array.scalar_alias,
                 is_array: true,
                 weak_scalar: false,
+                large_python_integer: false,
             });
         }
         if value.is_instance_of::<PyList>() || value.is_instance_of::<PyTuple>() {
@@ -286,20 +288,32 @@ impl Operand {
                 scalar_alias: array.scalar_alias,
                 is_array: true,
                 weak_scalar: false,
+                large_python_integer: false,
             });
         }
-        let scalar = super::value_to_untyped_scalar(value)?;
+        let large_python_integer = value.is_instance_of::<PyInt>()
+            && !value.is_instance_of::<PyBool>()
+            && value.extract::<i64>().is_err()
+            && value.extract::<u64>().is_err();
+        let (dtype, scalar) = if large_python_integer {
+            let decimal = value.str()?.to_string_lossy().into_owned();
+            (DType::Int64, Scalar::LongDouble(decimal))
+        } else {
+            let scalar = super::value_to_untyped_scalar(value)?;
+            (scalar.dtype(), scalar)
+        };
         let weak_scalar = value.is_instance_of::<pyo3::types::PyBool>()
             || value.is_instance_of::<pyo3::types::PyInt>()
             || value.is_instance_of::<pyo3::types::PyFloat>()
             || value.is_instance_of::<pyo3::types::PyComplex>();
         Ok(Self {
-            dtype: scalar.dtype(),
+            dtype,
             scalar: Some(scalar),
             view: None,
             scalar_alias: scalar_alias_from_value(value),
             is_array: false,
             weak_scalar,
+            large_python_integer,
         })
     }
     fn from_mask(value: &Bound<'_, PyAny>) -> PyResult<Self> {
@@ -311,9 +325,38 @@ impl Operand {
                 scalar_alias: None,
                 is_array: false,
                 weak_scalar: true,
+                large_python_integer: false,
             });
         }
-        Self::from_python(value)
+        if value.extract::<PyRef<'_, PyArray>>().is_ok() {
+            return Self::from_python(value);
+        }
+        if value.is_instance_of::<PyList>() || value.is_instance_of::<PyTuple>() {
+            let dtype = PyString::new(value.py(), "bool");
+            let array = array(value, Some(&dtype.as_any()), Some(true), "K")?;
+            return Ok(Self {
+                view: Some(array.inner),
+                scalar: None,
+                dtype: DType::Bool,
+                scalar_alias: None,
+                is_array: true,
+                weak_scalar: false,
+                large_python_integer: false,
+            });
+        }
+        let operand = Self::from_python(value)?;
+        let scalar = operand
+            .scalar
+            .ok_or_else(|| PyTypeError::new_err("where must be a boolean array or scalar"))?;
+        Ok(Self {
+            view: None,
+            scalar: Some(Scalar::Bool(scalar.truthy())),
+            dtype: DType::Bool,
+            scalar_alias: None,
+            is_array: false,
+            weak_scalar: true,
+            large_python_integer: false,
+        })
     }
     fn shape(&self) -> &[usize] {
         self.view.as_ref().map(View::shape).unwrap_or(&[])
@@ -341,6 +384,11 @@ impl Operand {
         result_shape: &[usize],
         dtype: DType,
     ) -> PyResult<Scalar> {
+        if self.large_python_integer && matches!(dtype.kind(), "b" | "i" | "u") {
+            return Err(PyOverflowError::new_err(
+                "Python int is outside the supported 64-bit numeric range",
+            ));
+        }
         self.read(coordinates, result_shape)?
             .cast(dtype)
             .map_err(map_storage_error)
@@ -2075,6 +2123,15 @@ fn weak_promote(left: &Operand, right: &Operand) -> PyResult<DType> {
 }
 
 fn weak_scalar_dtype(array: DType, scalar: &Operand) -> PyResult<DType> {
+    if scalar.large_python_integer {
+        if matches!(array.kind(), "f" | "c") {
+            return Ok(array);
+        }
+        return Err(PyOverflowError::new_err(format!(
+            "Python integer does not fit in array dtype {}",
+            array.name()
+        )));
+    }
     let Some(value) = scalar.scalar.as_ref() else {
         return Ok(array);
     };

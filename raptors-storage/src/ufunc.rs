@@ -970,7 +970,7 @@ fn unary_float_or_complex(name: &str, value: Scalar, dtype: DType) -> Result<Sca
         "trunc" => x.trunc(),
         "spacing" if !x.is_finite() => f64::NAN,
         "spacing" => {
-            let direction = if x.is_sign_negative() {
+            let direction = if x.is_sign_negative() && x != 0.0 {
                 f64::NEG_INFINITY
             } else {
                 f64::INFINITY
@@ -1016,7 +1016,14 @@ fn unary_float32(name: &str, x: f32) -> Result<f32, StorageError> {
         "tanh" => x.tanh(),
         "trunc" => x.trunc(),
         "spacing" if !x.is_finite() => f32::NAN,
-        "spacing" => next_after_f32(x, f32::INFINITY.copysign(x)) - x,
+        "spacing" => {
+            let direction = if x.is_sign_negative() && x != 0.0 {
+                f32::NEG_INFINITY
+            } else {
+                f32::INFINITY
+            };
+            next_after_f32(x, direction) - x
+        }
         _ => return Err(StorageError::InvalidScalar),
     })
 }
