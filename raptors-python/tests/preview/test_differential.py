@@ -907,6 +907,24 @@ def test_zero_dimensional_ellipsis_assignment_preserves_array_semantics():
     assert_array_matches(reference, candidate)
 
 
+@pytest.mark.parametrize(
+    "dtype,value",
+    [
+        (raptors.int8, [1e100]),
+        (raptors.float32, [1 + 2j]),
+    ],
+)
+def test_zero_dimensional_array_rank_error_precedes_value_cast(dtype, value):
+    reference = np.zeros((), dtype=dtype.name)
+    candidate = raptors.zeros((), dtype=dtype)
+
+    with pytest.raises(ValueError):
+        reference[...] = value
+    with pytest.raises(ValueError):
+        candidate[...] = value
+    assert_array_matches(reference, candidate)
+
+
 def test_sequence_assignment_conversion_error_precedes_broadcast_error():
     reference = np.zeros(3, dtype=np.int64)
     candidate = raptors.zeros(3, dtype=raptors.int64)

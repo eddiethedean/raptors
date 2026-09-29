@@ -1464,6 +1464,11 @@ fn assign_basic_sequence(
             _ => unreachable!("numeric dtype kind is known"),
         };
     }
+    if target.ndim() == 0 {
+        return Err(PyValueError::new_err(
+            "setting an array element with a sequence. The requested array would exceed the maximum number of dimension of 0.",
+        ));
+    }
     validate_rectangular_input(value, 0)?;
     let (source_shape, source_values) = flatten_assignment_sequence(value, target.dtype(), 0)?;
     if assignment_sequence_size(&source_shape)? != source_values.len() {
