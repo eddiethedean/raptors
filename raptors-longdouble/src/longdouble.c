@@ -1,4 +1,5 @@
 #include <complex.h>
+#include <fenv.h>
 #include <float.h>
 #include <limits.h>
 #include <math.h>
@@ -338,8 +339,19 @@ int raptors_ld_logaddexp_intermediate_underflow(const char *left_text, const cha
     if (!parse_ld(left_text, &left) || !parse_ld(right_text, &right)) return -1;
     if (!isfinite(left) || !isfinite(right)) return 0;
     long double difference = fabsl(left - right);
-    long double exponent = base2 ? -difference * logl(2.0L) : -difference;
-    return exponent < logl(LDBL_MIN);
+    fenv_t environment;
+    if (feholdexcept(&environment) != 0) {
+        long double exponent = base2 ? -difference * logl(2.0L) : -difference;
+        return exponent < logl(LDBL_MIN);
+    }
+    volatile long double intermediate = base2 ? exp2l(-difference) : expl(-difference);
+    int underflow = fetestexcept(FE_UNDERFLOW) != 0;
+    (void)intermediate;
+    if (fesetenv(&environment) != 0) {
+        long double exponent = base2 ? -difference * logl(2.0L) : -difference;
+        return exponent < logl(LDBL_MIN);
+    }
+    return underflow;
 }
 
 int raptors_ld_classify(const char *text, int property) {
