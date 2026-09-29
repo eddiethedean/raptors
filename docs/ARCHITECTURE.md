@@ -1,6 +1,6 @@
 # Raptors architecture
 
-**Status:** 0.1 is published. The 0.2 numeric storage and binding slice is implemented and locally verified; hosted sanitizer and eight-target wheel gates are pending. The broader execution design remains planned. The [rebuild plan](REBUILD_PLAN.md) and [release roadmap](CONVERSION_ROADMAP.md) define the acceptance gates.
+**Status:** 0.1 is published. The 0.2 numeric storage and binding slice passed local and hosted checks, including sanitizer and all eight wheel targets. The broader execution design remains planned. The [rebuild plan](REBUILD_PLAN.md) and [release roadmap](CONVERSION_ROADMAP.md) define the acceptance gates.
 
 ## Public contract
 
@@ -14,7 +14,7 @@ Rust APIs support the Python implementation and may change during the rebuild. A
 | --- | --- | --- |
 | Checked byte-addressed storage, owners, and signed-stride views | [`raptors-storage`](../raptors-storage/) | 0.2 implementation; 9 Rust tests pass normally and under local Miri; no `unsafe` in the crate |
 | Numeric Python API and scalar conversion | [`preview.rs`](../raptors-python/src/preview.rs), [`preview_lib.rs`](../raptors-python/src/preview_lib.rs) | 0.2 candidate; numeric dtype inference, casts, views, indexing, and assignment |
-| Differential and generated checks | [`tests/preview`](../raptors-python/tests/preview/) | 771 cases pass with no skips on CPython 3.12–3.14 against the pinned oracle |
+| Differential and generated checks | [`tests/preview`](../raptors-python/tests/preview/) | 774 cases pass with no skips on CPython 3.12–3.14 against the pinned oracle |
 | Python project and test lock | [`pyproject.toml`](../raptors-python/pyproject.toml), [`uv.lock`](../raptors-python/uv.lock) | Version 0.2.0; NumPy is development-only |
 
 The supported Python path no longer imports the old Rust array engine. That engine remains in the repository for audit and future reference:

@@ -1,6 +1,6 @@
 # Release 0.2: numeric array and dtype foundation
 
-**Implementation status:** the declared numeric scope is implemented and passes the local checks below. The hosted release workflow and its eight-target wheel matrix are pending for this candidate revision. Do not tag or publish 0.2.0 until that workflow passes. The published [0.1 preview](RELEASE_0_1.md) remains the latest release.
+**Release status:** 0.2.0 is a release candidate. Local checks and the hosted release preflight passed on commit `a8ca70487e647a74fb737857f152757899d38341`, including all eight wheel targets. The [hosted run](https://github.com/eddiethedean/raptors/actions/runs/36509524590) was build-only; it did not publish. The published [0.1 preview](RELEASE_0_1.md) remains the latest release.
 
 NumPy 2.5.3 is the pinned behavior reference at source commit `dd88c0c19b54ad9ed3533224221285bf0873249a`. The 0.2 implementation is the fixed-width numeric slice of the [full dtype plan](DTYPE_ARCHITECTURE.md); that plan maps all eleven classic dtype groups and NumPy 2.x `StringDType` to their later release phases.
 
@@ -22,14 +22,14 @@ The storage crate uses a checked byte-addressed owner, shape, signed byte stride
 
 Local verification on macOS 26.5.2 arm64, Rust 1.96.0, NumPy 2.5.3, and CPython 3.12.13, 3.13.11, and 3.14.3:
 
-- The built `cp312-abi3` macOS arm64 wheel passed `tests/preview`: **771 passed, 0 skipped** on each supported CPython version.
+- The built `cp312-abi3` macOS arm64 wheel passed `tests/preview`: **774 passed, 0 skipped** on each supported CPython version.
 - The differential suite covers every declared numeric dtype pair for casts and promotion, supported dtype aliases, scalar wrappers, reshape copy/view cases, masks, fancy indices, assignment, byte order, and array flags. Deterministic generated operation sequences combine construction, views, indexing, writes, casts, copies, and owner deletion.
 - `rustfmt --edition 2021 --check raptors-storage/src/lib.rs raptors-python/src/preview.rs raptors-python/src/preview_lib.rs raptors-python/build.rs`, `cargo check --locked -p raptors-python`, and `cargo clippy --locked -p raptors-storage -p raptors-python --all-targets -- -D warnings` passed.
 - `cargo test --locked -p raptors-storage` and `cargo +nightly miri test --locked -p raptors-storage` each passed all 9 tests.
 - The local wheel passed `scripts/check_wheel_contract.py`, `twine check`, and `scripts/check_clean_install.py`; the clean install imported and exercised the wheel without NumPy.
 - An informational baseline for eight foundation operations is recorded in [`raptors-0.2.0-baseline.json`](benchmarks/raptors-0.2.0-baseline.json). It reports timing, traced Python allocation peak bytes, and coarse process RSS deltas. It makes no performance claim.
 
-The remaining pre-release checks are the hosted Miri and AddressSanitizer jobs, the eight-target `cp312-abi3` build/test matrix on CPython 3.12–3.14, and main CI on the exact candidate commit. The manual `Release to PyPI` workflow is build-only and cannot publish.
+The hosted [main CI run](https://github.com/eddiethedean/raptors/actions/runs/36509516584) and [release preflight](https://github.com/eddiethedean/raptors/actions/runs/36509524590) passed on the candidate commit. The preflight passed hosted Miri and AddressSanitizer, API inventory validation, Rust checks, and the eight-target `cp312-abi3` wheel build/test matrix on CPython 3.12–3.14. The candidate is ready for a release tag. The manual `Release to PyPI` run skipped its publish job, so no tag or package publication was made.
 
 ## Explicitly deferred work
 

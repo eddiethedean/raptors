@@ -2,7 +2,7 @@
   "schema_version": 1,
   "release": "0.2",
   "package_version": "0.2.0",
-  "status": "in_progress",
+  "status": "release_candidate",
   "reference": {
     "distribution": "numpy",
     "version": "2.5.3",
@@ -117,13 +117,16 @@
     "rustfmt": {"status": "passed_locally", "command": "rustfmt --edition 2021 --check raptors-storage/src/lib.rs raptors-python/src/preview.rs raptors-python/src/preview_lib.rs raptors-python/build.rs"},
     "cargo_clippy": {"status": "passed_locally", "command": "cargo clippy --locked -p raptors-storage -p raptors-python --all-targets -- -D warnings"},
     "cargo_check": {"status": "passed_locally", "command": "cargo check --locked -p raptors-python"},
-    "python_differential_tests": {"status": "passed_locally", "passed_per_version": 771, "skipped_per_version": 0, "command": "python -m pytest tests/preview -q", "python_versions": ["3.12.13", "3.13.11", "3.14.3"], "platform": "macOS arm64", "wheel": "raptors-0.2.0-cp312-abi3-macosx_11_0_arm64.whl", "case_files": ["raptors-python/tests/preview/test_differential.py", "raptors-python/tests/preview/test_properties.py", "raptors-python/tests/preview/test_harness.py"]},
+    "python_differential_tests": {"status": "passed_locally", "passed_per_version": 774, "skipped_per_version": 0, "command": "python -m pytest tests/preview -q", "python_versions": ["3.12.13", "3.13.11", "3.14.3"], "platform": "macOS arm64", "wheel": "raptors-0.2.0-cp312-abi3-macosx_11_0_arm64.whl", "case_files": ["raptors-python/tests/preview/test_differential.py", "raptors-python/tests/preview/test_properties.py", "raptors-python/tests/preview/test_harness.py"]},
     "rust_behavioral_tests": {"status": "passed_locally", "passed": 9, "command": "cargo test --locked -p raptors-storage"},
     "miri": {"status": "passed_locally", "passed": 9, "target": "aarch64-apple-darwin", "command": "cargo +nightly miri test --locked -p raptors-storage"},
-    "sanitizer": "pending_hosted_candidate",
+    "sanitizer": {"status": "passed_hosted", "run_url": "https://github.com/eddiethedean/raptors/actions/runs/36509524590"},
     "local_wheel": {"status": "passed_locally", "artifact": "CPython 3.12+ abi3 macOS arm64 candidate wheel (temporary local build)", "contract": "passed", "twine": "passed", "clean_install_without_numpy": "passed"},
-    "wheel_matrix": "pending_hosted_candidate",
+    "wheel_matrix": {"status": "passed_hosted", "target_count": 8, "targets": ["linux-x86_64-manylinux2014", "linux-aarch64-manylinux_2_28", "macos-x86_64", "macos-arm64", "linux-x86_64-musllinux_1_2", "linux-aarch64-musllinux_1_2", "windows-x86_64", "windows-arm64"], "python_versions": ["3.12", "3.13", "3.14"], "passed_per_target_version": 774, "skipped_per_target_version": 0, "run_url": "https://github.com/eddiethedean/raptors/actions/runs/36509524590"},
+    "main_ci": {"status": "passed_hosted", "run_url": "https://github.com/eddiethedean/raptors/actions/runs/36509516584"},
+    "candidate_commit": "a8ca70487e647a74fb737857f152757899d38341",
+    "release_preflight": {"status": "passed_build_only", "run_url": "https://github.com/eddiethedean/raptors/actions/runs/36509524590", "publish_job": "skipped_for_workflow_dispatch"},
     "performance_baseline": {"status": "recorded_locally", "path": "docs/benchmarks/raptors-0.2.0-baseline.json", "operations": 8, "input_count": 250000, "repeats": 5, "platform": "macOS 26.5.2 arm64", "python": "CPython 3.14.3", "claim": "informational only; no performance advantage claimed"},
-    "release_gates": "not_passed"
+    "release_gates": "passed"
   }
 }

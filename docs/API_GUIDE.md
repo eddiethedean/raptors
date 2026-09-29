@@ -1,6 +1,6 @@
 # API guide
 
-**Status:** 0.1 remains the published package. The worktree targets 0.2.0 and has passed its local differential, Rust, Miri, and local wheel checks; the hosted sanitizer and eight-target wheel gate are pending. The [0.1 manifest](../compat/raptors-0.1.json) defines the published package. The [0.2 contract](../compat/raptors-0.2.json) defines the current candidate and its remaining release checks. The generated NumPy inventory is a backlog map, not a conformance reference.
+**Status:** 0.1 remains the published package. The 0.2.0 release candidate passed local checks, main CI, and the hosted eight-target release preflight. The [0.1 manifest](../compat/raptors-0.1.json) defines the published package. The [0.2 contract](../compat/raptors-0.2.json) defines the candidate and its supported boundary. The generated NumPy inventory is a backlog map, not a conformance reference.
 
 ## Published 0.1 package
 
@@ -20,7 +20,7 @@ The published 0.1 package does not expose arithmetic, broadcasting, reductions, 
 
 ## 0.2.0 candidate worktree surface
 
-The worktree adds fixed-width numeric dtypes and aliases, numeric inference and promotion, casts, C/F construction and reshape order, transpose, integer/slice/boolean/fancy indexing, broadcast assignment, and endian-aware storage. Its signatures are `array(data, dtype=None, copy=True, order='K')`, `zeros(shape, dtype=None, order='C')`, and `empty(shape, dtype=None, order='C')`. Dtype objects expose `kind`, `char`, `itemsize`, `alignment`, `byteorder`, `isnative`, `str`, and `type`. The local suite has 771 passing cases with no skips on each supported CPython version. Hosted cross-platform validation remains pending; see the [0.2 contract](../compat/raptors-0.2.json) and [release gate](RELEASE_0_2.md).
+The worktree adds fixed-width numeric dtypes and aliases, numeric inference and promotion, casts, C/F construction and reshape order, transpose, integer/slice/boolean/fancy indexing, broadcast assignment, and endian-aware storage. Its signatures are `array(data, dtype=None, copy=True, order='K')`, `zeros(shape, dtype=None, order='C')`, and `empty(shape, dtype=None, order='C')`. Dtype objects expose `kind`, `char`, `itemsize`, `alignment`, `byteorder`, `isnative`, `str`, and `type`. The local suite has 774 passing cases with no skips on each supported CPython version; the hosted preflight passed for all eight wheel targets. See the [0.2 contract](../compat/raptors-0.2.json) and [release gate](RELEASE_0_2.md).
 
 ## Legacy source tree
 
