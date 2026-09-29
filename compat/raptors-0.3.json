@@ -2,7 +2,7 @@
   "schema_version": 1,
   "release": "0.3",
   "package_version": "0.3.0",
-  "status": "release_candidate",
+  "status": "implementation_in_progress",
   "reference": {
     "distribution": "numpy",
     "version": "2.5.3",
@@ -2704,24 +2704,24 @@
     },
     "differential_cases": {
       "status": "passed",
-      "passed": 8528,
-      "skipped": 0,
-      "platform_conditional_skips": 1,
-      "platform_conditional_skip_reason": "The native extended-precision long-double case is skipped on Darwin arm64, where long double aliases binary64.",
+      "passed": 8681,
+      "skipped": 3,
+      "platform_conditional_skips": 3,
+      "platform_conditional_skip_reason": "Cases requiring native extended long double are skipped on Darwin arm64, where long double aliases binary64.",
       "binary_dtype_pairs": 7335,
-      "command": "python -m pytest -n auto raptors-python/tests/preview/test_ufunc_differential.py -q"
+      "command": "python -m pytest -p xdist.plugin -n auto raptors-python/tests/preview/test_ufunc_differential.py -q -rs"
     },
     "python_preview_suite": {
       "status": "passed_locally",
-      "passed": 9302,
-      "skipped": 2,
-      "command": "./raptors-python/run_tests.sh"
+      "passed": 9455,
+      "skipped": 4,
+      "command": "python -m pytest -p xdist.plugin -n auto raptors-python/tests/preview -q"
     },
     "python_xdist": {
       "status": "passed_locally",
       "workers": 12,
-      "pytest_seconds": 5.87,
-      "command": "./raptors-python/run_tests.sh"
+      "pytest_seconds": 4.78,
+      "command": "python -m pytest -p xdist.plugin -n auto raptors-python/tests/preview -q"
     },
     "rust_workspace_tests": {
       "status": "passed_locally",
@@ -2755,7 +2755,7 @@
       "raptors-python/tests/preview/test_harness.py",
       "raptors-longdouble/src/lib.rs"
     ],
-    "release_gate": "passed",
+    "release_gate": "pending",
     "native_longdouble_bridge": {
       "status": "passed_hosted_wheel_matrix",
       "rust_tests": 2,
@@ -2802,57 +2802,16 @@
       "command": "./raptors-python/run_tests.sh (test_ufunc_differential.py)"
     },
     "hosted_validation": {
-      "status": "passed",
-      "source_commit": "f3904cf371a061b154cfa87938a01b08e76e000f",
+      "status": "pending",
+      "source_commit": null,
       "ci": {
-        "status": "passed",
-        "run_url": "https://github.com/eddiethedean/raptors/actions/runs/36614984578"
+        "status": "pending",
+        "run_url": null
       },
       "wheel_matrix": {
-        "status": "passed",
-        "run_url": "https://github.com/eddiethedean/raptors/actions/runs/36614685701",
-        "artifacts": [
-          {
-            "name": "dist-linux-aarch64-manylinux_2_28",
-            "artifact_id": "11055057143",
-            "url": "https://github.com/eddiethedean/raptors/actions/runs/36614685701/artifacts/11055057143"
-          },
-          {
-            "name": "dist-macos-x86_64",
-            "artifact_id": "11054569515",
-            "url": "https://github.com/eddiethedean/raptors/actions/runs/36614685701/artifacts/11054569515"
-          },
-          {
-            "name": "dist-macos-arm64",
-            "artifact_id": "11054543857",
-            "url": "https://github.com/eddiethedean/raptors/actions/runs/36614685701/artifacts/11054543857"
-          },
-          {
-            "name": "dist-windows-arm64",
-            "artifact_id": "11054464163",
-            "url": "https://github.com/eddiethedean/raptors/actions/runs/36614685701/artifacts/11054464163"
-          },
-          {
-            "name": "dist-linux-x86_64-manylinux2014",
-            "artifact_id": "11054403996",
-            "url": "https://github.com/eddiethedean/raptors/actions/runs/36614685701/artifacts/11054403996"
-          },
-          {
-            "name": "dist-linux-x86_64-musllinux_1_2",
-            "artifact_id": "11054064422",
-            "url": "https://github.com/eddiethedean/raptors/actions/runs/36614685701/artifacts/11054064422"
-          },
-          {
-            "name": "dist-linux-aarch64-musllinux_1_2",
-            "artifact_id": "11053944428",
-            "url": "https://github.com/eddiethedean/raptors/actions/runs/36614685701/artifacts/11053944428"
-          },
-          {
-            "name": "dist-windows-x86_64",
-            "artifact_id": "11053899410",
-            "url": "https://github.com/eddiethedean/raptors/actions/runs/36614685701/artifacts/11053899410"
-          }
-        ]
+        "status": "pending",
+        "run_url": null,
+        "artifacts": []
       }
     }
   }

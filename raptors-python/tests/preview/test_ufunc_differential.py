@@ -876,6 +876,40 @@ def test_tiny_exp_intermediate_flags_match_numpy(value, array_input):
     _assert_ufunc_result_matches(expected, actual, exact=True)
 
 
+@pytest.mark.parametrize(
+    "name,value",
+    [
+        ("expm1", 5e-324),
+        ("sinh", 5e-324),
+        ("tanh", 5e-324),
+        ("modf", 5e-324),
+        ("exp2", 5e-324),
+        ("deg2rad", 5e-324),
+        ("sin", 1e-300),
+        ("tan", 1e-300),
+        ("spacing", 1e-300),
+        ("spacing", np.inf),
+    ],
+)
+def test_ufunc_extreme_error_flags_match_numpy(name, value):
+    expected_input = np.array([value], dtype=np.float64)
+    actual_input = raptors.array([value], dtype=raptors.float64)
+
+    with warnings.catch_warnings(record=True) as expected_caught:
+        warnings.simplefilter("always")
+        with np.errstate(all="warn"):
+            expected = getattr(np, name)(expected_input)
+    with warnings.catch_warnings(record=True) as actual_caught:
+        warnings.simplefilter("always")
+        with raptors.errstate(all="warn"):
+            actual = getattr(raptors, name)(actual_input)
+
+    expected_flags = [(item.category, str(item.message)) for item in expected_caught]
+    actual_flags = [(item.category, str(item.message)) for item in actual_caught]
+    assert actual_flags == expected_flags
+    _assert_ufunc_result_matches(expected, actual, exact=True)
+
+
 @pytest.mark.parametrize("name", ["log1p", "expm1"])
 def test_complex_log1p_and_expm1_near_zero_match_numpy(name):
     values = np.array([1e-20 - 1e-20j, -0.25 + 0.5j], dtype=np.complex128)
@@ -1697,6 +1731,34 @@ def test_reduce_axis_tuple_keepdims_where_and_initial_match_numpy(values, axis, 
     _assert_ufunc_result_matches(expected, actual, exact=True)
 
 
+@pytest.mark.parametrize(
+    "name", ["subtract", "divide", "arctan2", "power", "left_shift", "lcm"]
+)
+@pytest.mark.parametrize("axis", [None, (0, 1)])
+def test_non_reorderable_reductions_reject_multiple_axes_like_numpy(name, axis):
+    dtype = np.int64 if name in {"left_shift", "lcm"} else np.float64
+    actual_dtype = raptors.int64 if dtype == np.int64 else raptors.float64
+    expected_values = np.array([[1, 2], [3, 4]], dtype=dtype)
+    actual_values = raptors.array([[1, 2], [3, 4]], dtype=actual_dtype)
+
+    with pytest.raises(ValueError, match="is not reorderable, so at most one axis"):
+        getattr(np, name).reduce(expected_values, axis=axis)
+    with pytest.raises(ValueError, match="is not reorderable, so at most one axis"):
+        getattr(raptors, name).reduce(actual_values, axis=axis)
+
+
+@pytest.mark.parametrize("name", ["add", "maximum", "fmax", "gcd", "hypot"])
+def test_reorderable_reductions_still_accept_multiple_axes(name):
+    dtype = np.int64 if name == "gcd" else np.float64
+    actual_dtype = raptors.int64 if dtype == np.int64 else raptors.float64
+    expected_values = np.array([[1, 2], [3, 4]], dtype=dtype)
+    actual_values = raptors.array([[1, 2], [3, 4]], dtype=actual_dtype)
+
+    expected = getattr(np, name).reduce(expected_values, axis=None)
+    actual = getattr(raptors, name).reduce(actual_values, axis=None)
+    _assert_ufunc_result_matches(expected, actual, exact=True)
+
+
 def test_reduce_empty_identity_initial_and_output_match_numpy():
     expected_empty = np.empty((2, 0, 3), dtype=np.int64)
     actual_empty = raptors.empty((2, 0, 3), dtype=raptors.int64)
@@ -1769,6 +1831,42 @@ def test_reduce_accepts_all_positional_controls_like_numpy():
         expected_values, 1, None, None, True, 10, expected_where
     )
     actual = raptors.add.reduce(actual_values, 1, None, None, True, 10, actual_where)
+    _assert_ufunc_result_matches(expected, actual, exact=True)
+
+
+@pytest.mark.parametrize("keepdims", [0, 1, 2, False, True, np.int64(0), np.int64(1)])
+def test_reduce_keepdims_accepts_integer_like_values_like_numpy(keepdims):
+    expected_values = np.array([1, 2], dtype=np.int64)
+    actual_values = raptors.array([1, 2], dtype=raptors.int64)
+
+    expected = np.add.reduce(expected_values, keepdims=keepdims)
+    actual = raptors.add.reduce(actual_values, keepdims=keepdims)
+    _assert_ufunc_result_matches(expected, actual, exact=True)
+
+
+@pytest.mark.parametrize("keepdims", [1.0, np.float64(1), np.float32(1), 2**31, 2**100])
+def test_reduce_keepdims_invalid_values_match_numpy(keepdims):
+    expected_values = np.array([1, 2], dtype=np.int64)
+    actual_values = raptors.array([1, 2], dtype=raptors.int64)
+
+    with pytest.raises((OverflowError, TypeError)) as expected_error:
+        np.add.reduce(expected_values, keepdims=keepdims)
+    with pytest.raises(type(expected_error.value)) as actual_error:
+        raptors.add.reduce(actual_values, keepdims=keepdims)
+
+    assert str(actual_error.value) == str(expected_error.value)
+
+
+def test_reduce_keepdims_accepts_index_protocol_objects_like_numpy():
+    class IndexLike:
+        def __index__(self):
+            return 1
+
+    expected_values = np.array([1, 2], dtype=np.int64)
+    actual_values = raptors.array([1, 2], dtype=raptors.int64)
+
+    expected = np.add.reduce(expected_values, keepdims=IndexLike())
+    actual = raptors.add.reduce(actual_values, keepdims=IndexLike())
     _assert_ufunc_result_matches(expected, actual, exact=True)
 
 
@@ -2181,19 +2279,6 @@ def test_exact_subnormal_flags_match_numpy():
             actual_underflow = False
         except FloatingPointError:
             actual_underflow = True
-
-        if name == "expm1":
-            # expm1(tiny) is mathematically inexact even though it rounds to
-            # tiny. NumPy's underflow flag for this case varies by Python
-            # wheel, so assert Raptors' consistent IEEE underflow result and
-            # compare the numerical output with flags ignored.
-            assert actual_underflow
-            with np.errstate(under="ignore"):
-                expected = np.expm1(expected_left)
-            with raptors.errstate(under="ignore"):
-                actual = raptors.expm1(actual_left)
-            _assert_ufunc_result_matches(expected, actual)
-            continue
 
         assert actual_underflow == expected_underflow, name
         if expected_underflow:

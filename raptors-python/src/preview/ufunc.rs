@@ -7,7 +7,7 @@ use pyo3::exceptions::{
     PyTypeError, PyUserWarning, PyValueError,
 };
 use pyo3::prelude::*;
-use pyo3::types::{PyBool, PyDict, PyInt, PyList, PyString, PyTuple, PyType};
+use pyo3::types::{PyBool, PyDict, PyFloat, PyInt, PyList, PyString, PyTuple, PyType};
 use pyo3::PyTypeInfo;
 use raptors_longdouble as native_longdouble;
 use raptors_storage::{
@@ -107,7 +107,7 @@ impl PyUFunc {
             method_parameter(&positionals, kwargs, 1, "dtype")?.filter(|value| !value.is_none());
         let out = method_parameter(&positionals, kwargs, 2, "out")?;
         let keepdims = method_parameter(&positionals, kwargs, 3, "keepdims")?
-            .map(|value| value.extract::<bool>())
+            .map(|value| reduce_keepdims(&value))
             .transpose()?
             .unwrap_or(false);
         let initial = method_parameter(&positionals, kwargs, 4, "initial")?;
@@ -877,6 +877,8 @@ fn classify_errors(name: &str, inputs: &[Scalar], outputs: &[Scalar]) -> ErrorFl
         );
     let suppress_infinite_dividend_invalid =
         infinite_dividend_domain && !FLOAT_REMAINDER_DOMAIN_RAISES_INVALID;
+    let spacing_infinite_input =
+        name == "spacing" && inputs.first().is_some_and(scalar_is_infinite);
     let logaddexp_nan_invalid = input_nan && matches!(name, "logaddexp" | "logaddexp2");
     if zero_divisor {
         let integer_inputs = inputs
@@ -971,6 +973,7 @@ fn classify_errors(name: &str, inputs: &[Scalar], outputs: &[Scalar]) -> ErrorFl
         let output_infinite = scalar_is_infinite(output);
         if output_nan
             && !input_nan
+            && !spacing_infinite_input
             && !zero_divisor_remainder
             && !zero_divisor_divmod
             && !suppress_infinite_dividend_invalid
@@ -986,7 +989,16 @@ fn classify_errors(name: &str, inputs: &[Scalar], outputs: &[Scalar]) -> ErrorFl
         if name == "cos" && matches!(inputs, [input] if cos_intermediate_underflow(input, output)) {
             flags.under = true;
         }
+        if matches!(name, "sin" | "tan")
+            && matches!(inputs, [input] if trig_intermediate_underflow(input, output))
+        {
+            flags.under = true;
+        }
         if name == "exp" && matches!(inputs, [input] if exp_intermediate_underflow(input, output)) {
+            flags.under = true;
+        }
+        if name == "exp2" && matches!(inputs, [input] if exp2_intermediate_underflow(input, output))
+        {
             flags.under = true;
         }
         if matches!(output.dtype().kind(), "f" | "c") {
@@ -1001,6 +1013,7 @@ fn classify_errors(name: &str, inputs: &[Scalar], outputs: &[Scalar]) -> ErrorFl
                     !scalar_is_zero(left) && !scalar_is_zero(right)
                 }
                 ("ldexp", [value, _]) => !scalar_is_zero(value),
+                ("deg2rad" | "radians", [value]) => !scalar_is_zero(value),
                 ("power" | "pow" | "float_power", [base, exponent]) => {
                     !scalar_is_zero(base) && !scalar_is_zero(exponent)
                 }
@@ -1078,6 +1091,12 @@ fn exact_subnormal_result(name: &str, inputs: &[Scalar], output: &Scalar, imag: 
         return false;
     };
     match (name, inputs) {
+        ("expm1" | "sinh" | "tanh" | "modf", [value]) => {
+            value.as_f64().is_ok_and(|value| value == result)
+        }
+        ("spacing", [value]) => {
+            scalar_is_finite(value) && !value.is_zero() && !value.is_subnormal()
+        }
         ("add", [left, right]) => exact_sum_matches(left, right, result),
         ("subtract", [left, right]) => exact_sum_matches(left, &negated_scalar(right), result),
         ("multiply", [left, right]) => exact_product_matches(left, right, result),
@@ -1141,6 +1160,24 @@ fn cos_intermediate_underflow(input: &Scalar, output: &Scalar) -> bool {
 }
 
 #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+fn trig_intermediate_underflow(input: &Scalar, output: &Scalar) -> bool {
+    let threshold = match output.dtype() {
+        DType::Float16 | DType::Float32 => f32::MIN_POSITIVE.sqrt() as f64,
+        DType::Float64 => f64::MIN_POSITIVE.sqrt(),
+        DType::LongDouble if DType::LongDouble.itemsize() == 8 => f64::MIN_POSITIVE.sqrt(),
+        _ => return false,
+    };
+    input
+        .as_f64()
+        .is_ok_and(|value| value != 0.0 && value.abs() < threshold)
+}
+
+#[cfg(not(all(target_os = "macos", target_arch = "aarch64")))]
+fn trig_intermediate_underflow(_input: &Scalar, _output: &Scalar) -> bool {
+    false
+}
+
+#[cfg(all(target_os = "macos", target_arch = "aarch64"))]
 fn exp_intermediate_underflow(input: &Scalar, output: &Scalar) -> bool {
     let supported_dtype = matches!(output.dtype(), DType::Float64)
         || (output.dtype() == DType::LongDouble && DType::LongDouble.itemsize() == 8);
@@ -1153,6 +1190,18 @@ fn exp_intermediate_underflow(input: &Scalar, output: &Scalar) -> bool {
 
 #[cfg(not(all(target_os = "macos", target_arch = "aarch64")))]
 fn exp_intermediate_underflow(_input: &Scalar, _output: &Scalar) -> bool {
+    false
+}
+
+#[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+fn exp2_intermediate_underflow(input: &Scalar, output: &Scalar) -> bool {
+    let supported_dtype = matches!(output.dtype(), DType::Float64)
+        || (output.dtype() == DType::LongDouble && DType::LongDouble.itemsize() == 8);
+    supported_dtype && input.is_subnormal() && output.as_f64().is_ok_and(|value| value == 1.0)
+}
+
+#[cfg(not(all(target_os = "macos", target_arch = "aarch64")))]
+fn exp2_intermediate_underflow(_input: &Scalar, _output: &Scalar) -> bool {
     false
 }
 
@@ -2631,6 +2680,31 @@ fn method_parameter<'py>(
     }
     Ok(keyword)
 }
+
+fn reduce_keepdims(value: &Bound<'_, PyAny>) -> PyResult<bool> {
+    // NumPy's reduce parser accepts integer-like values (including bool and
+    // objects implementing __index__), rather than requiring a Python bool.
+    let index = match PyModule::import(value.py(), "operator")?.call_method1("index", (value,)) {
+        Ok(index) => index,
+        Err(_) if value.is_instance_of::<PyFloat>() => {
+            return Err(PyTypeError::new_err("integer argument expected, got float"));
+        }
+        Err(error) => return Err(error),
+    };
+    let as_c_long = match index.extract::<std::os::raw::c_long>() {
+        Ok(value) => value,
+        Err(error) if error.is_instance_of::<PyOverflowError>(value.py()) => {
+            return Err(PyOverflowError::new_err(
+                "Python int too large to convert to C long",
+            ));
+        }
+        Err(error) => return Err(error),
+    };
+    let as_c_int = std::os::raw::c_int::try_from(as_c_long)
+        .map_err(|_| PyOverflowError::new_err("Python int too large to convert to C int"))?;
+    Ok(as_c_int != 0)
+}
+
 fn ensure_known_method_kwargs(
     kwargs: Option<&Bound<'_, PyDict>>,
     allowed: &[&str],
@@ -2800,6 +2874,11 @@ fn validate_reduce_loop(name: &str, inputs: &[DType], outputs: &[DType]) -> PyRe
         name
     )))
 }
+
+fn reduce_is_reorderable(name: &str) -> bool {
+    kernels::identity(name).is_some() || matches!(name, "maximum" | "minimum" | "fmax" | "fmin")
+}
+
 fn scalar_loop(name: &str, left: Scalar, right: Scalar, dtype: DType) -> PyResult<Scalar> {
     kernels::binary(name, left, right, dtype)
         .map_err(map_storage_error)?
@@ -2926,6 +3005,12 @@ fn reduce(
     let (loop_inputs, loop_outputs) =
         kernels::resolve_loop(name, &[input_dtype, input_dtype]).map_err(map_storage_error)?;
     validate_reduce_loop(name, &loop_inputs, &loop_outputs)?;
+    if axes.len() > 1 && !reduce_is_reorderable(name) {
+        return Err(PyValueError::new_err(format!(
+            "reduction operation '{}' is not reorderable, so at most one axis may be specified",
+            name
+        )));
+    }
     let accumulator_dtype = reduction_accumulator_dtype(name, loop_inputs[0]);
     let value_dtype = reduction_accumulator_dtype(name, loop_inputs[1]);
     let result_dtype = loop_outputs[0];
