@@ -1,4 +1,5 @@
 //! Bindings for the NumPy-independent 0.2 numeric array foundation.
+mod ufunc;
 use pyo3::basic::CompareOp;
 use pyo3::exceptions::{
     PyIndexError, PyKeyError, PyMemoryError, PyOverflowError, PyRuntimeError, PyRuntimeWarning,
@@ -14,8 +15,14 @@ use std::ffi::CString;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 enum ScalarAlias {
+    #[cfg(target_os = "windows")]
     IntC,
+    #[cfg(target_os = "windows")]
     UIntC,
+    #[cfg(target_os = "windows")]
+    Long,
+    #[cfg(target_os = "windows")]
+    ULong,
     LongLong,
     ULongLong,
 }
@@ -23,8 +30,14 @@ enum ScalarAlias {
 impl ScalarAlias {
     fn char(self) -> char {
         match self {
+            #[cfg(target_os = "windows")]
             Self::IntC => 'i',
+            #[cfg(target_os = "windows")]
             Self::UIntC => 'I',
+            #[cfg(target_os = "windows")]
+            Self::Long => 'l',
+            #[cfg(target_os = "windows")]
+            Self::ULong => 'L',
             Self::LongLong => 'q',
             Self::ULongLong => 'Q',
         }
@@ -32,8 +45,14 @@ impl ScalarAlias {
 
     fn class_name(self) -> &'static str {
         match self {
+            #[cfg(target_os = "windows")]
             Self::IntC => "Int32Scalar",
+            #[cfg(target_os = "windows")]
             Self::UIntC => "UInt32Scalar",
+            #[cfg(target_os = "windows")]
+            Self::Long => "Int32Scalar",
+            #[cfg(target_os = "windows")]
+            Self::ULong => "UInt32Scalar",
             Self::LongLong => "LongLongScalar",
             Self::ULongLong => "ULongLongScalar",
         }
@@ -41,8 +60,14 @@ impl ScalarAlias {
 
     fn dtype(self) -> DType {
         match self {
+            #[cfg(target_os = "windows")]
             Self::IntC => DType::Int32,
+            #[cfg(target_os = "windows")]
             Self::UIntC => DType::UInt32,
+            #[cfg(target_os = "windows")]
+            Self::Long => DType::Int32,
+            #[cfg(target_os = "windows")]
+            Self::ULong => DType::UInt32,
             Self::LongLong => DType::Int64,
             Self::ULongLong => DType::UInt64,
         }
@@ -104,11 +129,7 @@ impl PyDType {
         let prefix = if self.inner.itemsize() == 1 {
             "|"
         } else if self.byte_order.is_native() {
-            if cfg!(target_endian = "little") {
-                "<"
-            } else {
-                ">"
-            }
+            native_endian_prefix()
         } else {
             self.byte_order.symbol(self.inner)
         };
@@ -184,11 +205,7 @@ impl PyDType {
                 if self.inner.itemsize() == 1 {
                     ByteOrder::NotApplicable
                 } else if self.byte_order.is_native() {
-                    if cfg!(target_endian = "little") {
-                        ByteOrder::Big
-                    } else {
-                        ByteOrder::Little
-                    }
+                    opposite_native_byte_order()
                 } else if self.byte_order == ByteOrder::Little {
                     ByteOrder::Big
                 } else {
@@ -264,7 +281,8 @@ fn dtypes_equivalent(left: DType, right: DType) -> bool {
     )
 }
 
-#[pyclass(name = "Array", frozen, module = "raptors")]
+#[pyclass(name = "Array", module = "raptors")]
+#[derive(Clone)]
 struct PyArray {
     inner: View,
     scalar_alias: Option<ScalarAlias>,
@@ -451,6 +469,178 @@ impl PyArray {
             inner: self.inner.copy().map_err(map_storage_error)?,
             scalar_alias: self.scalar_alias,
         })
+    }
+    fn __add__(&self, py: Python<'_>, other: &Bound<'_, PyAny>) -> PyResult<Py<PyAny>> {
+        ufunc::operator_call(py, self, other, "add", false, false)
+    }
+    fn __radd__(&self, py: Python<'_>, other: &Bound<'_, PyAny>) -> PyResult<Py<PyAny>> {
+        ufunc::operator_call(py, self, other, "add", true, false)
+    }
+    fn __sub__(&self, py: Python<'_>, other: &Bound<'_, PyAny>) -> PyResult<Py<PyAny>> {
+        ufunc::operator_call(py, self, other, "subtract", false, false)
+    }
+    fn __rsub__(&self, py: Python<'_>, other: &Bound<'_, PyAny>) -> PyResult<Py<PyAny>> {
+        ufunc::operator_call(py, self, other, "subtract", true, false)
+    }
+    fn __mul__(&self, py: Python<'_>, other: &Bound<'_, PyAny>) -> PyResult<Py<PyAny>> {
+        ufunc::operator_call(py, self, other, "multiply", false, false)
+    }
+    fn __rmul__(&self, py: Python<'_>, other: &Bound<'_, PyAny>) -> PyResult<Py<PyAny>> {
+        ufunc::operator_call(py, self, other, "multiply", true, false)
+    }
+    fn __truediv__(&self, py: Python<'_>, other: &Bound<'_, PyAny>) -> PyResult<Py<PyAny>> {
+        ufunc::operator_call(py, self, other, "true_divide", false, false)
+    }
+    fn __rtruediv__(&self, py: Python<'_>, other: &Bound<'_, PyAny>) -> PyResult<Py<PyAny>> {
+        ufunc::operator_call(py, self, other, "true_divide", true, false)
+    }
+    fn __floordiv__(&self, py: Python<'_>, other: &Bound<'_, PyAny>) -> PyResult<Py<PyAny>> {
+        ufunc::operator_call(py, self, other, "floor_divide", false, false)
+    }
+    fn __rfloordiv__(&self, py: Python<'_>, other: &Bound<'_, PyAny>) -> PyResult<Py<PyAny>> {
+        ufunc::operator_call(py, self, other, "floor_divide", true, false)
+    }
+    fn __mod__(&self, py: Python<'_>, other: &Bound<'_, PyAny>) -> PyResult<Py<PyAny>> {
+        ufunc::operator_call(py, self, other, "remainder", false, false)
+    }
+    fn __rmod__(&self, py: Python<'_>, other: &Bound<'_, PyAny>) -> PyResult<Py<PyAny>> {
+        ufunc::operator_call(py, self, other, "remainder", true, false)
+    }
+    fn __pow__(
+        &self,
+        py: Python<'_>,
+        other: &Bound<'_, PyAny>,
+        modulo: Option<&Bound<'_, PyAny>>,
+    ) -> PyResult<Py<PyAny>> {
+        if modulo.is_some_and(|value| !value.is_none()) {
+            return Err(PyTypeError::new_err(
+                "modular power is not supported for arrays",
+            ));
+        }
+        ufunc::operator_call(py, self, other, "power", false, false)
+    }
+    fn __iadd__(&self, py: Python<'_>, other: &Bound<'_, PyAny>) -> PyResult<()> {
+        ufunc::operator_call(py, self, other, "add", false, true).map(drop)
+    }
+    fn __isub__(&self, py: Python<'_>, other: &Bound<'_, PyAny>) -> PyResult<()> {
+        ufunc::operator_call(py, self, other, "subtract", false, true).map(drop)
+    }
+    fn __imul__(&self, py: Python<'_>, other: &Bound<'_, PyAny>) -> PyResult<()> {
+        ufunc::operator_call(py, self, other, "multiply", false, true).map(drop)
+    }
+    fn __itruediv__(&self, py: Python<'_>, other: &Bound<'_, PyAny>) -> PyResult<()> {
+        ufunc::operator_call(py, self, other, "true_divide", false, true).map(drop)
+    }
+    fn __ifloordiv__(&self, py: Python<'_>, other: &Bound<'_, PyAny>) -> PyResult<()> {
+        ufunc::operator_call(py, self, other, "floor_divide", false, true).map(drop)
+    }
+    fn __imod__(&self, py: Python<'_>, other: &Bound<'_, PyAny>) -> PyResult<()> {
+        ufunc::operator_call(py, self, other, "remainder", false, true).map(drop)
+    }
+    fn __ipow__(
+        &self,
+        py: Python<'_>,
+        other: &Bound<'_, PyAny>,
+        modulo: Option<&Bound<'_, PyAny>>,
+    ) -> PyResult<()> {
+        if modulo.is_some_and(|value| !value.is_none()) {
+            return Err(PyTypeError::new_err(
+                "modular power is not supported for arrays",
+            ));
+        }
+        ufunc::operator_call(py, self, other, "power", false, true).map(drop)
+    }
+    fn __iand__(&self, py: Python<'_>, other: &Bound<'_, PyAny>) -> PyResult<()> {
+        ufunc::operator_call(py, self, other, "bitwise_and", false, true).map(drop)
+    }
+    fn __ior__(&self, py: Python<'_>, other: &Bound<'_, PyAny>) -> PyResult<()> {
+        ufunc::operator_call(py, self, other, "bitwise_or", false, true).map(drop)
+    }
+    fn __ixor__(&self, py: Python<'_>, other: &Bound<'_, PyAny>) -> PyResult<()> {
+        ufunc::operator_call(py, self, other, "bitwise_xor", false, true).map(drop)
+    }
+    fn __ilshift__(&self, py: Python<'_>, other: &Bound<'_, PyAny>) -> PyResult<()> {
+        ufunc::operator_call(py, self, other, "left_shift", false, true).map(drop)
+    }
+    fn __irshift__(&self, py: Python<'_>, other: &Bound<'_, PyAny>) -> PyResult<()> {
+        ufunc::operator_call(py, self, other, "right_shift", false, true).map(drop)
+    }
+    fn __rpow__(
+        &self,
+        py: Python<'_>,
+        other: &Bound<'_, PyAny>,
+        modulo: Option<&Bound<'_, PyAny>>,
+    ) -> PyResult<Py<PyAny>> {
+        if modulo.is_some_and(|value| !value.is_none()) {
+            return Err(PyTypeError::new_err(
+                "modular power is not supported for arrays",
+            ));
+        }
+        ufunc::operator_call(py, self, other, "power", true, false)
+    }
+    fn __divmod__(&self, py: Python<'_>, other: &Bound<'_, PyAny>) -> PyResult<Py<PyAny>> {
+        ufunc::divmod_operator_call(py, self, other, false)
+    }
+    fn __rdivmod__(&self, py: Python<'_>, other: &Bound<'_, PyAny>) -> PyResult<Py<PyAny>> {
+        ufunc::divmod_operator_call(py, self, other, true)
+    }
+    fn __and__(&self, py: Python<'_>, other: &Bound<'_, PyAny>) -> PyResult<Py<PyAny>> {
+        ufunc::operator_call(py, self, other, "bitwise_and", false, false)
+    }
+    fn __rand__(&self, py: Python<'_>, other: &Bound<'_, PyAny>) -> PyResult<Py<PyAny>> {
+        ufunc::operator_call(py, self, other, "bitwise_and", true, false)
+    }
+    fn __or__(&self, py: Python<'_>, other: &Bound<'_, PyAny>) -> PyResult<Py<PyAny>> {
+        ufunc::operator_call(py, self, other, "bitwise_or", false, false)
+    }
+    fn __ror__(&self, py: Python<'_>, other: &Bound<'_, PyAny>) -> PyResult<Py<PyAny>> {
+        ufunc::operator_call(py, self, other, "bitwise_or", true, false)
+    }
+    fn __xor__(&self, py: Python<'_>, other: &Bound<'_, PyAny>) -> PyResult<Py<PyAny>> {
+        ufunc::operator_call(py, self, other, "bitwise_xor", false, false)
+    }
+    fn __rxor__(&self, py: Python<'_>, other: &Bound<'_, PyAny>) -> PyResult<Py<PyAny>> {
+        ufunc::operator_call(py, self, other, "bitwise_xor", true, false)
+    }
+    fn __lshift__(&self, py: Python<'_>, other: &Bound<'_, PyAny>) -> PyResult<Py<PyAny>> {
+        ufunc::operator_call(py, self, other, "left_shift", false, false)
+    }
+    fn __rlshift__(&self, py: Python<'_>, other: &Bound<'_, PyAny>) -> PyResult<Py<PyAny>> {
+        ufunc::operator_call(py, self, other, "left_shift", true, false)
+    }
+    fn __rshift__(&self, py: Python<'_>, other: &Bound<'_, PyAny>) -> PyResult<Py<PyAny>> {
+        ufunc::operator_call(py, self, other, "right_shift", false, false)
+    }
+    fn __rrshift__(&self, py: Python<'_>, other: &Bound<'_, PyAny>) -> PyResult<Py<PyAny>> {
+        ufunc::operator_call(py, self, other, "right_shift", true, false)
+    }
+    fn __neg__(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
+        ufunc::unary_operator_call(py, self, "negative")
+    }
+    fn __pos__(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
+        ufunc::unary_operator_call(py, self, "positive")
+    }
+    fn __abs__(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
+        ufunc::unary_operator_call(py, self, "absolute")
+    }
+    fn __invert__(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
+        ufunc::unary_operator_call(py, self, "invert")
+    }
+    fn __richcmp__(
+        &self,
+        py: Python<'_>,
+        other: &Bound<'_, PyAny>,
+        op: CompareOp,
+    ) -> PyResult<Py<PyAny>> {
+        let name = match op {
+            CompareOp::Eq => "equal",
+            CompareOp::Ne => "not_equal",
+            CompareOp::Lt => "less",
+            CompareOp::Le => "less_equal",
+            CompareOp::Gt => "greater",
+            CompareOp::Ge => "greater_equal",
+        };
+        ufunc::operator_call(py, self, other, name, false, false)
     }
     fn __len__(&self) -> PyResult<usize> {
         self.inner
@@ -862,10 +1052,7 @@ impl PyLongDoubleScalar {
         &self.0
     }
     fn __bool__(&self) -> bool {
-        self.0
-            .parse::<f64>()
-            .map(|value| value != 0.0)
-            .unwrap_or(false)
+        Scalar::LongDouble(self.0.clone()).truthy()
     }
     fn __float__(&self) -> PyResult<f64> {
         self.0
@@ -897,15 +1084,7 @@ impl PyComplexLongDoubleScalar {
         format!("raptors.ComplexLongDoubleScalar(({}, {}))", self.0, self.1)
     }
     fn __bool__(&self) -> bool {
-        self.0
-            .parse::<f64>()
-            .map(|value| value != 0.0)
-            .unwrap_or(false)
-            || self
-                .1
-                .parse::<f64>()
-                .map(|value| value != 0.0)
-                .unwrap_or(false)
+        Scalar::ComplexLongDouble(self.0.clone(), self.1.clone()).truthy()
     }
     fn __complex__(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
         let re = self
@@ -1100,13 +1279,13 @@ fn promote_types(left: &Bound<'_, PyAny>, right: &Bound<'_, PyAny>) -> PyResult<
     let (left, _, left_alias) = parse_dtype_spec(left)?;
     let (right, _, right_alias) = parse_dtype_spec(right)?;
     let inner = left.promote(right);
+    #[cfg(target_os = "windows")]
     let scalar_alias = merge_scalar_aliases(left_alias, right_alias, inner).or_else(|| {
-        (cfg!(target_os = "windows")
-            && inner == DType::Int32
-            && left != DType::Int32
-            && right != DType::Int32)
+        (inner == DType::Int32 && left != DType::Int32 && right != DType::Int32)
             .then_some(ScalarAlias::IntC)
     });
+    #[cfg(not(target_os = "windows"))]
+    let scalar_alias = merge_scalar_aliases(left_alias, right_alias, inner);
     Ok(PyDType {
         inner,
         byte_order: default_byte_order(inner),
@@ -1874,19 +2053,36 @@ fn parse_dtype_spec(value: &Bound<'_, PyAny>) -> PyResult<(DType, ByteOrder, Opt
     let builtins = PyModule::import(value.py(), "builtins")?;
     for (name, dtype) in [
         ("bool", DType::Bool),
-        (
-            "int",
-            if cfg!(target_pointer_width = "64") {
-                DType::Int64
-            } else {
-                DType::Int32
-            },
-        ),
+        ("int", pointer_int_dtype()),
         ("float", DType::Float64),
         ("complex", DType::Complex128),
     ] {
         if value.is(&builtins.getattr(name)?) {
             return Ok((dtype, default_byte_order(dtype), None));
+        }
+    }
+    // Accept dtype objects and numeric scalar type objects by inspecting
+    // their ordinary dtype metadata. This keeps dtype parsing independent of
+    // NumPy while supporting objects such as numpy.dtype('>i4') and
+    // numpy.float64 when callers use NumPy as an optional oracle.
+    let scalar_char = value
+        .getattr("char")
+        .ok()
+        .and_then(|candidate| candidate.extract::<String>().ok());
+    for attribute in ["str", "name", "__name__"] {
+        let Ok(candidate) = value.getattr(attribute) else {
+            continue;
+        };
+        let Ok(candidate) = candidate.extract::<String>() else {
+            continue;
+        };
+        if let Some((inner, byte_order)) = dtype_from_spec(&candidate) {
+            let scalar_alias = dtype_alias_for_spec(&candidate, inner).or_else(|| {
+                scalar_char
+                    .as_deref()
+                    .and_then(|code| dtype_alias_for_spec(code, inner))
+            });
+            return Ok((inner, byte_order, scalar_alias));
         }
     }
     Err(PyTypeError::new_err(
@@ -1899,20 +2095,27 @@ fn dtype_alias_for_spec(name: &str, dtype: DType) -> Option<ScalarAlias> {
         Some(b'<') | Some(b'>') | Some(b'=') | Some(b'|') => &name[1..],
         _ => name,
     };
-    match base {
-        "i" | "intc" if dtype == DType::Int32 && DType::Int32.char() != 'i' => {
-            Some(ScalarAlias::IntC)
+    #[cfg(target_os = "windows")]
+    {
+        match base {
+            "l" | "long" if dtype == DType::Int32 => Some(ScalarAlias::Long),
+            "L" | "ulong" if dtype == DType::UInt32 => Some(ScalarAlias::ULong),
+            "i" | "intc" if dtype == DType::Int32 => Some(ScalarAlias::IntC),
+            "I" | "uintc" if dtype == DType::UInt32 => Some(ScalarAlias::UIntC),
+            _ => None,
         }
-        "I" | "uintc" if dtype == DType::UInt32 && DType::UInt32.char() != 'I' => {
-            Some(ScalarAlias::UIntC)
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        match base {
+            "q" | "longlong" if dtype == DType::Int64 && DType::Int64.char() != 'q' => {
+                Some(ScalarAlias::LongLong)
+            }
+            "Q" | "ulonglong" if dtype == DType::UInt64 && DType::UInt64.char() != 'Q' => {
+                Some(ScalarAlias::ULongLong)
+            }
+            _ => None,
         }
-        "q" | "longlong" if dtype == DType::Int64 && DType::Int64.char() != 'q' => {
-            Some(ScalarAlias::LongLong)
-        }
-        "Q" | "ulonglong" if dtype == DType::UInt64 && DType::UInt64.char() != 'Q' => {
-            Some(ScalarAlias::ULongLong)
-        }
-        _ => None,
     }
 }
 
@@ -1994,27 +2197,11 @@ fn dtype_from_name(name: &str) -> Option<DType> {
         "int32" | "i4" | "i" | "intc" => Some(DType::Int32),
         "uint32" | "u4" | "I" | "uintc" => Some(DType::UInt32),
         "int64" | "i8" | "q" | "int" | "int_" | "longlong" => Some(DType::Int64),
-        "l" | "long" => Some(if cfg!(target_os = "windows") {
-            DType::Int32
-        } else {
-            DType::Int64
-        }),
-        "intp" | "p" | "n" => Some(if cfg!(target_pointer_width = "64") {
-            DType::Int64
-        } else {
-            DType::Int32
-        }),
+        "l" | "long" => Some(c_long_dtype()),
+        "intp" | "p" | "n" => Some(pointer_int_dtype()),
         "uint64" | "u8" | "Q" | "uint" | "ulonglong" => Some(DType::UInt64),
-        "L" | "ulong" => Some(if cfg!(target_os = "windows") {
-            DType::UInt32
-        } else {
-            DType::UInt64
-        }),
-        "uintp" | "P" | "N" => Some(if cfg!(target_pointer_width = "64") {
-            DType::UInt64
-        } else {
-            DType::UInt32
-        }),
+        "L" | "ulong" => Some(c_ulong_dtype()),
+        "uintp" | "P" | "N" => Some(pointer_uint_dtype()),
         "float16" | "f2" | "e" | "half" => Some(DType::Float16),
         "float32" | "f4" | "f" | "single" => Some(DType::Float32),
         "float64" | "f8" | "d" | "double" | "float" => Some(DType::Float64),
@@ -2026,6 +2213,66 @@ fn dtype_from_name(name: &str) -> Option<DType> {
         "complex256" | "c32" if DType::LongDouble.itemsize() > 8 => Some(DType::ComplexLongDouble),
         _ => None,
     }
+}
+
+#[cfg(target_endian = "little")]
+const fn native_endian_prefix() -> &'static str {
+    "<"
+}
+
+#[cfg(target_endian = "big")]
+const fn native_endian_prefix() -> &'static str {
+    ">"
+}
+
+#[cfg(target_endian = "little")]
+const fn opposite_native_byte_order() -> ByteOrder {
+    ByteOrder::Big
+}
+
+#[cfg(target_endian = "big")]
+const fn opposite_native_byte_order() -> ByteOrder {
+    ByteOrder::Little
+}
+
+#[cfg(target_os = "windows")]
+const fn c_long_dtype() -> DType {
+    DType::Int32
+}
+
+#[cfg(not(target_os = "windows"))]
+const fn c_long_dtype() -> DType {
+    DType::Int64
+}
+
+#[cfg(target_os = "windows")]
+const fn c_ulong_dtype() -> DType {
+    DType::UInt32
+}
+
+#[cfg(not(target_os = "windows"))]
+const fn c_ulong_dtype() -> DType {
+    DType::UInt64
+}
+
+#[cfg(target_pointer_width = "64")]
+const fn pointer_int_dtype() -> DType {
+    DType::Int64
+}
+
+#[cfg(not(target_pointer_width = "64"))]
+const fn pointer_int_dtype() -> DType {
+    DType::Int32
+}
+
+#[cfg(target_pointer_width = "64")]
+const fn pointer_uint_dtype() -> DType {
+    DType::UInt64
+}
+
+#[cfg(not(target_pointer_width = "64"))]
+const fn pointer_uint_dtype() -> DType {
+    DType::UInt32
 }
 
 fn parse_indices(array: &View, key: &Bound<'_, PyAny>) -> PyResult<(Vec<IndexItem>, bool)> {
@@ -2382,16 +2629,12 @@ fn scalar_to_python(
         Scalar::UInt8(x) => Ok(Py::new(py, PyUInt8Scalar(x, None))?.into_any()),
         Scalar::Int16(x) => Ok(Py::new(py, PyInt16Scalar(x, None))?.into_any()),
         Scalar::UInt16(x) => Ok(Py::new(py, PyUInt16Scalar(x, None))?.into_any()),
-        Scalar::Int32(x) => Ok(Py::new(
-            py,
-            PyInt32Scalar(x, scalar_alias.filter(|alias| *alias == ScalarAlias::IntC)),
-        )?
-        .into_any()),
-        Scalar::UInt32(x) => Ok(Py::new(
-            py,
-            PyUInt32Scalar(x, scalar_alias.filter(|alias| *alias == ScalarAlias::UIntC)),
-        )?
-        .into_any()),
+        Scalar::Int32(x) => {
+            Ok(Py::new(py, PyInt32Scalar(x, int32_scalar_alias(scalar_alias)))?.into_any())
+        }
+        Scalar::UInt32(x) => {
+            Ok(Py::new(py, PyUInt32Scalar(x, uint32_scalar_alias(scalar_alias)))?.into_any())
+        }
         Scalar::Int64(x) => Ok(Py::new(py, PyInt64Scalar(x, None))?.into_any()),
         Scalar::UInt64(x) => Ok(Py::new(py, PyUInt64Scalar(x, None))?.into_any()),
         Scalar::Float16(x) => Ok(Py::new(py, PyFloat16Scalar(x, None))?.into_any()),
@@ -2405,6 +2648,27 @@ fn scalar_to_python(
         }
     }
 }
+
+#[cfg(target_os = "windows")]
+fn int32_scalar_alias(alias: Option<ScalarAlias>) -> Option<ScalarAlias> {
+    alias.filter(|alias| matches!(alias, ScalarAlias::IntC | ScalarAlias::Long))
+}
+
+#[cfg(not(target_os = "windows"))]
+fn int32_scalar_alias(_alias: Option<ScalarAlias>) -> Option<ScalarAlias> {
+    None
+}
+
+#[cfg(target_os = "windows")]
+fn uint32_scalar_alias(alias: Option<ScalarAlias>) -> Option<ScalarAlias> {
+    alias.filter(|alias| matches!(alias, ScalarAlias::UIntC | ScalarAlias::ULong))
+}
+
+#[cfg(not(target_os = "windows"))]
+fn uint32_scalar_alias(_alias: Option<ScalarAlias>) -> Option<ScalarAlias> {
+    None
+}
+
 fn map_storage_error(error: StorageError) -> PyErr {
     match error {
         StorageError::ShapeOverflow => {
@@ -2470,56 +2734,14 @@ pub(super) fn register(module: &Bound<'_, PyModule>) -> PyResult<()> {
         ("ubyte", DType::UInt8),
         ("short", DType::Int16),
         ("ushort", DType::UInt16),
-        (
-            "int_",
-            if cfg!(target_pointer_width = "64") {
-                DType::Int64
-            } else {
-                DType::Int32
-            },
-        ),
-        (
-            "uint",
-            if cfg!(target_pointer_width = "64") {
-                DType::UInt64
-            } else {
-                DType::UInt32
-            },
-        ),
-        (
-            "intp",
-            if cfg!(target_pointer_width = "64") {
-                DType::Int64
-            } else {
-                DType::Int32
-            },
-        ),
-        (
-            "uintp",
-            if cfg!(target_pointer_width = "64") {
-                DType::UInt64
-            } else {
-                DType::UInt32
-            },
-        ),
+        ("int_", pointer_int_dtype()),
+        ("uint", pointer_uint_dtype()),
+        ("intp", pointer_int_dtype()),
+        ("uintp", pointer_uint_dtype()),
         ("intc", DType::Int32),
         ("uintc", DType::UInt32),
-        (
-            "long",
-            if cfg!(target_os = "windows") {
-                DType::Int32
-            } else {
-                DType::Int64
-            },
-        ),
-        (
-            "ulong",
-            if cfg!(target_os = "windows") {
-                DType::UInt32
-            } else {
-                DType::UInt64
-            },
-        ),
+        ("long", c_long_dtype()),
+        ("ulong", c_ulong_dtype()),
         ("longlong", DType::Int64),
         ("ulonglong", DType::UInt64),
         ("float", DType::Float64),
@@ -2572,6 +2794,7 @@ pub(super) fn register(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(zeros, module)?)?;
     module.add_function(wrap_pyfunction!(empty, module)?)?;
     module.add_function(wrap_pyfunction!(promote_types, module)?)?;
+    ufunc::register(module)?;
     Ok(())
 }
 

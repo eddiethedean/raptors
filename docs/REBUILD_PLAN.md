@@ -2,7 +2,7 @@
 
 Date: 2026-09-28
 
-Status: accepted project direction; 0.1 and 0.2.0 are published, with their hosted release gates passed. Releases 0.3–0.9 remain planned. See the [0.x release roadmap](CONVERSION_ROADMAP.md) for versioned deliverables and the [documentation index](README.md) for aligned development and validation guides. This plan supersedes the legacy completion roadmap and async-service positioning.
+Status: accepted project direction; 0.1 and 0.2.0 are published, with their hosted release gates passed. Release 0.3 ufunc implementation is in progress; 0.4–0.9 remain planned. See the [0.x release roadmap](CONVERSION_ROADMAP.md) for versioned deliverables and the [documentation index](README.md) for aligned development and validation guides. This plan supersedes the legacy completion roadmap and async-service positioning.
 
 Version 0.1 established the pinned NumPy oracle, generated API inventory, compatibility manifest, differential/property harness, checked storage crate, PyO3 preview, and tagged release workflow. Version 0.2.0 added the numeric dtype and array foundation and passed the complete [tagged release workflow](https://github.com/eddiethedean/raptors/actions/runs/36511142066), which published eight `cp312-abi3` wheels. See the [0.1](RELEASE_0_1.md) and [0.2](RELEASE_0_2.md) records for their separate scope and evidence.
 
@@ -125,6 +125,8 @@ Test allocation bounds, invalid metadata, negative and zero strides, non-contigu
 **Exit gate:** the 0.1 preview passed its declared owner-lifetime, stride, overlap, bounds, and initialization cases with documented invariants and reviewed unsafe boundaries. The remaining numeric foundation cases passed locally and in the tagged 0.2 Miri, sanitizer, and wheel gates. Work stream C is complete; later API families follow work stream D.
 
 ### Work stream D — Deliver one complete numeric path (v0.3, building on v0.2)
+
+The [0.3 execution plan](RELEASE_0_3.md) and [`compat/raptors-0.3.json`](../compat/raptors-0.3.json) define the candidate ufunc namespace, numeric loop table, method/keyword boundary, work order, and required evidence. The contract records known implementation gaps and remains release-pending until the differential and hosted gates pass.
 
 Extend the published construction → view/slice foundation with broadcast arithmetic → reduction → conversion back to Python, all through the same execution and dtype machinery. Include scalar promotion, tuple/negative axes, `keepdims`, and the applicable ufunc keywords. Complete the remaining numeric operations and scalar behavior before declaring broader numeric compatibility.
 

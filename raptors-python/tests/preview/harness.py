@@ -43,9 +43,9 @@ def assert_array_matches(reference, candidate, *, values=True):
         "isnative",
         "str",
     ):
-        assert getattr(candidate.dtype, attribute) == getattr(reference.dtype, attribute), (
-            f"dtype mismatch: {attribute}"
-        )
+        expected = getattr(reference.dtype, attribute)
+        actual = getattr(candidate.dtype, attribute)
+        assert actual == expected, f"dtype mismatch: {attribute}: {actual!r} != {expected!r}"
     assert tuple(candidate.shape) == tuple(reference.shape), "shape mismatch"
     assert tuple(candidate.strides) == tuple(reference.strides), "stride mismatch"
     for attribute in ("c_contiguous", "f_contiguous", "writeable"):

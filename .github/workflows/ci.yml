@@ -24,7 +24,7 @@ jobs:
       - uses: Swatinem/rust-cache@v2
 
       - name: Check preview formatting
-        run: rustfmt --edition 2021 --check raptors-storage/src/lib.rs raptors-python/src/preview.rs raptors-python/src/preview_lib.rs raptors-python/build.rs
+        run: rustfmt --edition 2021 --check raptors-longdouble/src/lib.rs raptors-longdouble/build.rs raptors-storage/src/lib.rs raptors-storage/src/ufunc.rs raptors-storage/src/ufunc_loop_resolver.rs raptors-storage/src/ufunc_signatures.rs raptors-python/src/preview.rs raptors-python/src/preview/ufunc.rs raptors-python/src/preview_lib.rs raptors-python/build.rs
 
       - name: Keep raw-pointer code out of preview storage
         run: |
@@ -36,11 +36,14 @@ jobs:
       - name: Test checked storage
         run: cargo test --locked -p raptors-storage
 
+      - name: Test native long-double bridge
+        run: cargo test --locked -p raptors-longdouble
+
       - name: Check Python binding crate
         run: cargo check --locked -p raptors-python
 
       - name: Run Clippy on preview crates
-        run: cargo clippy --locked -p raptors-storage -p raptors-python --all-targets -- -D warnings
+        run: cargo clippy --locked -p raptors-longdouble -p raptors-storage -p raptors-python --all-targets -- -D warnings
 
   miri:
     name: Miri storage and view tests
@@ -58,6 +61,8 @@ jobs:
         run: cargo +nightly miri setup
 
       - name: Run storage tests under Miri
+        env:
+          RAPTORS_SKIP_NATIVE_LONGDOUBLE: '1'
         run: cargo +nightly miri test --locked -p raptors-storage
 
   address-sanitizer:
@@ -144,4 +149,4 @@ jobs:
       - name: Run differential and property tests
         env:
           PYTEST_DISABLE_PLUGIN_AUTOLOAD: '1'
-        run: uv run --project raptors-python --extra dev --locked python -m pytest raptors-python/tests/preview -q
+        run: uv run --project raptors-python --extra dev --locked python -m pytest -p xdist.plugin raptors-python/tests/preview -q

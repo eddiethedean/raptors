@@ -12,7 +12,8 @@ Rust APIs support the Python implementation and may change during the rebuild. A
 
 | Component | Current location | Status |
 | --- | --- | --- |
-| Checked byte-addressed storage, owners, and signed-stride views | [`raptors-storage`](../raptors-storage/) | 0.2 implementation; 9 Rust tests pass normally and under local Miri; no `unsafe` in the crate |
+| Checked byte-addressed storage, owners, and signed-stride views | [`raptors-storage`](../raptors-storage/) | 0.2 implementation; 12 Rust tests pass normally and under local Miri; no `unsafe` in the crate |
+| Native extended-precision scalar bridge | [`raptors-longdouble`](../raptors-longdouble/) | Isolated C `long double` math and scalar encoding; never receives array pointers |
 | Numeric Python API and scalar conversion | [`preview.rs`](../raptors-python/src/preview.rs), [`preview_lib.rs`](../raptors-python/src/preview_lib.rs) | Published in 0.2; numeric dtype inference, casts, views, indexing, and assignment |
 | Differential and generated checks | [`tests/preview`](../raptors-python/tests/preview/) | 774 cases pass with no skips on CPython 3.12–3.14 against the pinned oracle |
 | Python project and test lock | [`pyproject.toml`](../raptors-python/pyproject.toml), [`uv.lock`](../raptors-python/uv.lock) | Version 0.2.0; NumPy is development-only |

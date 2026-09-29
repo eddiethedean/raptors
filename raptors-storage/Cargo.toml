@@ -3,7 +3,7 @@ name = "raptors-storage"
 version.workspace = true
 edition.workspace = true
 license = "MIT"
-description = "Checked safe numeric storage and views for the Raptors 0.2 foundation"
+description = "Checked safe numeric storage, views, and ufunc kernels for Raptors 0.3"
 
 [lib]
 name = "raptors_storage"
@@ -11,3 +11,5 @@ path = "src/lib.rs"
 
 [dependencies]
 half = "2.7"
+num-complex = "0.4"
+raptors-longdouble = { path = "../raptors-longdouble" }

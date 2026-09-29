@@ -18,6 +18,10 @@ Each entry records:
 
 The release assignments have been narrowed so the 0.2 bucket contains numeric dtype descriptors and the array foundation, rather than every `ndarray`, scalar, and ufunc member. Later assignments and generic case plans remain preliminary. Review and specialize them against versioned NumPy documentation before implementing each API family. A plan entry is not a test case, a conformance claim, or evidence for a release gate. `required_cases` is populated only for the three 0.1 preview calls; it does not imply coverage of the full inventory.
 
+The [0.3 execution plan](../docs/RELEASE_0_3.md) identifies the candidate top-level numeric ufunc set. The generator assigns generalized matrix ufuncs to 0.5 and reserves `numpy.matlib` for later public-submodule review. These are planning assignments; the 0.3 contract must freeze reviewed behavior and test provenance before release.
+
+[`raptors-0.3.json`](raptors-0.3.json) is the current generated implementation-contract draft. It records the 101 public names, canonical aliases, numeric loop signatures, and known gaps. Regenerate it together with the Rust loop tables using [`generate_ufunc_metadata.py`](../scripts/generate_ufunc_metadata.py). Its presence does not imply differential coverage or release qualification.
+
 ## Regeneration
 
 Use the exact NumPy wheel in the lock file in the canonical generation environment: macOS ARM64, CPython 3.14.3. NumPy exposes a small number of inventory members differently across operating systems, so the checked-in inventory and its byte-for-byte release check use this platform and interpreter patch:

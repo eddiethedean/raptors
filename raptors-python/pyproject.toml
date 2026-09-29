@@ -4,8 +4,8 @@ build-backend = "maturin"
 
 [project]
 name = "raptors"
-version = "0.2.0"
-description = "A Rust-backed numeric array and dtype foundation"
+version = "0.3.0"
+description = "Rust-backed numeric arrays with NumPy-compatible ufuncs"
 readme = "README.md"
 requires-python = ">=3.12,<3.15"
 license = "MIT"
@@ -32,6 +32,7 @@ dev = [
     "maturin==1.14.1",
     "numpy==2.5.3",
     "pytest>=9,<10",
+    "pytest-xdist>=3.8,<4",
     "twine>=6,<7",
 ]
 
@@ -54,6 +55,3 @@ include = [
     "LICENSE",
     "src/**/*.rs",
 ]
-
-[tool.pytest.ini_options]
-testpaths = ["tests/preview"]

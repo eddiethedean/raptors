@@ -4,8 +4,11 @@
 //! and use checked signed byte strides. This crate is independent of the
 //! legacy raw-pointer core.
 
+use raptors_longdouble as native_longdouble;
 use std::fmt;
 use std::sync::{Arc, RwLock};
+
+pub mod ufunc;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum DType {
@@ -79,15 +82,21 @@ impl DType {
             Self::UInt8 => 'B',
             Self::Int16 => 'h',
             Self::UInt16 => 'H',
-            // NumPy's 32-bit integer descriptors use C `long`'s codes on
-            // Windows, where `long` is also 32 bits.
-            Self::Int32 if cfg!(target_os = "windows") => 'l',
-            Self::UInt32 if cfg!(target_os = "windows") => 'L',
+            #[cfg(target_os = "windows")]
+            Self::Int32 => 'l',
+            #[cfg(not(target_os = "windows"))]
             Self::Int32 => 'i',
+            #[cfg(target_os = "windows")]
+            Self::UInt32 => 'L',
+            #[cfg(not(target_os = "windows"))]
             Self::UInt32 => 'I',
-            Self::Int64 if cfg!(target_os = "windows") => 'q',
+            #[cfg(target_os = "windows")]
+            Self::Int64 => 'q',
+            #[cfg(not(target_os = "windows"))]
             Self::Int64 => 'l',
-            Self::UInt64 if cfg!(target_os = "windows") => 'Q',
+            #[cfg(target_os = "windows")]
+            Self::UInt64 => 'Q',
+            #[cfg(not(target_os = "windows"))]
             Self::UInt64 => 'L',
             Self::Float16 => 'e',
             Self::Float32 => 'f',
@@ -361,11 +370,137 @@ impl Scalar {
             Self::Float64(v) => *v != 0.0,
             Self::Complex64(re, im) => *re != 0.0 || *im != 0.0,
             Self::Complex128(re, im) => *re != 0.0 || *im != 0.0,
-            Self::LongDouble(v) => v.parse::<f64>().map(|x| x != 0.0).unwrap_or(false),
+            Self::LongDouble(v) => !native_longdouble::classify(v, 3)
+                .unwrap_or_else(|| v.parse::<f64>().map(|x| x == 0.0).unwrap_or(true)),
             Self::ComplexLongDouble(re, im) => {
-                re.parse::<f64>().map(|x| x != 0.0).unwrap_or(false)
-                    || im.parse::<f64>().map(|x| x != 0.0).unwrap_or(false)
+                !native_longdouble::classify(re, 3)
+                    .unwrap_or_else(|| re.parse::<f64>().map(|x| x == 0.0).unwrap_or(true))
+                    || !native_longdouble::classify(im, 3)
+                        .unwrap_or_else(|| im.parse::<f64>().map(|x| x == 0.0).unwrap_or(true))
             }
+        }
+    }
+
+    pub fn is_nan(&self) -> bool {
+        match self {
+            Self::Float16(value) | Self::Float32(value) => value.is_nan(),
+            Self::Float64(value) => value.is_nan(),
+            Self::Complex64(real, imag) => real.is_nan() || imag.is_nan(),
+            Self::Complex128(real, imag) => real.is_nan() || imag.is_nan(),
+            Self::LongDouble(value) => native_longdouble::classify(value, 0).unwrap_or_else(|| {
+                value
+                    .parse::<f64>()
+                    .map(|value| value.is_nan())
+                    .unwrap_or(false)
+            }),
+            Self::ComplexLongDouble(real, imag) => {
+                native_longdouble::classify(real, 0).unwrap_or_else(|| {
+                    real.parse::<f64>()
+                        .map(|value| value.is_nan())
+                        .unwrap_or(false)
+                }) || native_longdouble::classify(imag, 0).unwrap_or_else(|| {
+                    imag.parse::<f64>()
+                        .map(|value| value.is_nan())
+                        .unwrap_or(false)
+                })
+            }
+            _ => false,
+        }
+    }
+
+    pub fn is_infinite(&self) -> bool {
+        match self {
+            Self::Float16(value) | Self::Float32(value) => value.is_infinite(),
+            Self::Float64(value) => value.is_infinite(),
+            Self::Complex64(real, imag) => real.is_infinite() || imag.is_infinite(),
+            Self::Complex128(real, imag) => real.is_infinite() || imag.is_infinite(),
+            Self::LongDouble(value) => native_longdouble::classify(value, 1).unwrap_or_else(|| {
+                value
+                    .parse::<f64>()
+                    .map(|value| value.is_infinite())
+                    .unwrap_or(false)
+            }),
+            Self::ComplexLongDouble(real, imag) => {
+                native_longdouble::classify(real, 1).unwrap_or_else(|| {
+                    real.parse::<f64>()
+                        .map(|value| value.is_infinite())
+                        .unwrap_or(false)
+                }) || native_longdouble::classify(imag, 1).unwrap_or_else(|| {
+                    imag.parse::<f64>()
+                        .map(|value| value.is_infinite())
+                        .unwrap_or(false)
+                })
+            }
+            _ => false,
+        }
+    }
+
+    pub fn is_finite(&self) -> bool {
+        match self {
+            Self::LongDouble(value) => native_longdouble::classify(value, 4).unwrap_or_else(|| {
+                value
+                    .parse::<f64>()
+                    .map(|value| value.is_finite())
+                    .unwrap_or(false)
+            }),
+            Self::ComplexLongDouble(real, imag) => {
+                native_longdouble::classify(real, 4).unwrap_or_else(|| {
+                    real.parse::<f64>()
+                        .map(|value| value.is_finite())
+                        .unwrap_or(false)
+                }) && native_longdouble::classify(imag, 4).unwrap_or_else(|| {
+                    imag.parse::<f64>()
+                        .map(|value| value.is_finite())
+                        .unwrap_or(false)
+                })
+            }
+            _ => !self.is_nan() && !self.is_infinite(),
+        }
+    }
+
+    pub fn is_zero(&self) -> bool {
+        match self {
+            Self::LongDouble(value) => native_longdouble::classify(value, 3).unwrap_or_else(|| {
+                value
+                    .parse::<f64>()
+                    .map(|value| value == 0.0)
+                    .unwrap_or(false)
+            }),
+            Self::ComplexLongDouble(real, imag) => {
+                native_longdouble::classify(real, 3).unwrap_or_else(|| {
+                    real.parse::<f64>()
+                        .map(|value| value == 0.0)
+                        .unwrap_or(false)
+                }) && native_longdouble::classify(imag, 3).unwrap_or_else(|| {
+                    imag.parse::<f64>()
+                        .map(|value| value == 0.0)
+                        .unwrap_or(false)
+                })
+            }
+            _ => !self.truthy(),
+        }
+    }
+
+    pub fn is_subnormal(&self) -> bool {
+        match self {
+            Self::LongDouble(value) => native_longdouble::classify(value, 5)
+                .unwrap_or_else(|| value.parse::<f64>().map(is_subnormal_f64).unwrap_or(false)),
+            Self::ComplexLongDouble(real, imag) => {
+                native_longdouble::classify(real, 5)
+                    .unwrap_or_else(|| real.parse::<f64>().map(is_subnormal_f64).unwrap_or(false))
+                    || native_longdouble::classify(imag, 5).unwrap_or_else(|| {
+                        imag.parse::<f64>().map(is_subnormal_f64).unwrap_or(false)
+                    })
+            }
+            Self::Float16(value) => *value != 0.0 && value.abs() < 6.103_515_6e-5,
+            Self::Float32(value) => *value != 0.0 && value.abs() < f32::MIN_POSITIVE,
+            Self::Complex64(real, imag) => {
+                (*real != 0.0 && real.abs() < f32::MIN_POSITIVE)
+                    || (*imag != 0.0 && imag.abs() < f32::MIN_POSITIVE)
+            }
+            Self::Float64(value) => *value != 0.0 && value.abs() < f64::MIN_POSITIVE,
+            Self::Complex128(real, imag) => is_subnormal_f64(*real) || is_subnormal_f64(*imag),
+            _ => false,
         }
     }
 
@@ -466,6 +601,10 @@ impl Scalar {
             _ => false,
         }
     }
+}
+
+fn is_subnormal_f64(value: f64) -> bool {
+    value != 0.0 && value.abs() < f64::MIN_POSITIVE
 }
 
 fn scalar_decimal(value: &Scalar) -> Result<String, StorageError> {
@@ -787,16 +926,24 @@ pub enum ByteOrder {
 impl ByteOrder {
     pub const fn normalized(self) -> Self {
         match self {
-            Self::Little if cfg!(target_endian = "little") => Self::Native,
-            Self::Big if cfg!(target_endian = "big") => Self::Native,
+            #[cfg(target_endian = "little")]
+            Self::Little => Self::Native,
+            #[cfg(target_endian = "big")]
+            Self::Big => Self::Native,
             other => other,
         }
     }
     pub const fn is_native(self) -> bool {
         match self {
             Self::NotApplicable | Self::Native => true,
-            Self::Little => cfg!(target_endian = "little"),
-            Self::Big => cfg!(target_endian = "big"),
+            #[cfg(target_endian = "little")]
+            Self::Little => true,
+            #[cfg(target_endian = "big")]
+            Self::Little => false,
+            #[cfg(target_endian = "little")]
+            Self::Big => false,
+            #[cfg(target_endian = "big")]
+            Self::Big => true,
         }
     }
     pub const fn symbol(self, dtype: DType) -> &'static str {
@@ -1040,7 +1187,16 @@ fn is_big_endian(order: ByteOrder) -> bool {
     match order {
         ByteOrder::Big => true,
         ByteOrder::Little => false,
-        ByteOrder::Native | ByteOrder::NotApplicable => cfg!(target_endian = "big"),
+        ByteOrder::Native | ByteOrder::NotApplicable => {
+            #[cfg(target_endian = "big")]
+            {
+                true
+            }
+            #[cfg(target_endian = "little")]
+            {
+                false
+            }
+        }
     }
 }
 
@@ -1111,6 +1267,14 @@ fn encode_long_double(value: &str, bytes: &mut [u8], order: ByteOrder) -> Result
     if bytes.len() != 16 {
         return Err(StorageError::InvalidLayout);
     }
+    if native_longdouble::has_extended_native() {
+        let mut encoded = native_longdouble::encode(value).ok_or(StorageError::InvalidScalar)?;
+        if is_big_endian(order) != is_big_endian(ByteOrder::Native) {
+            encoded.reverse();
+        }
+        bytes.copy_from_slice(&encoded);
+        return Ok(());
+    }
     if let Ok(value) = value.parse::<i128>() {
         return encode_long_double_integer(value.is_negative(), value.unsigned_abs(), bytes, order);
     }
@@ -1169,6 +1333,14 @@ fn decode_long_double(bytes: &[u8], order: ByteOrder) -> Result<String, StorageE
     }
     if bytes.len() != 16 {
         return Err(StorageError::InvalidLayout);
+    }
+    if native_longdouble::has_extended_native() {
+        let mut native = [0_u8; 16];
+        native.copy_from_slice(bytes);
+        if is_big_endian(order) != is_big_endian(ByteOrder::Native) {
+            native.reverse();
+        }
+        return native_longdouble::decode(&native).ok_or(StorageError::InvalidScalar);
     }
     #[cfg(target_arch = "aarch64")]
     {
@@ -1372,6 +1544,48 @@ pub struct View {
     strides: Vec<isize>,
     offset: isize,
     allocation_len: usize,
+}
+
+/// A write-through advanced-index selection. Unlike [`View::index`], this
+/// handle preserves the mapping to the original array so sequential updates
+/// observe earlier writes when indices repeat.
+#[derive(Clone, Debug)]
+pub struct IndexedView {
+    parent: View,
+    shape: Vec<usize>,
+    offsets: Vec<usize>,
+}
+
+impl IndexedView {
+    pub fn shape(&self) -> &[usize] {
+        &self.shape
+    }
+
+    pub fn read_at(&self, coordinates: &[usize]) -> Result<Scalar, StorageError> {
+        let linear = linear_for_shape(&self.shape, coordinates)?;
+        let offset = *self
+            .offsets
+            .get(linear)
+            .ok_or(StorageError::InvalidLayout)?;
+        self.parent
+            .storage
+            .read()
+            .map_err(|_| StorageError::LockPoisoned)?
+            .read_as(offset, self.parent.dtype, self.parent.byte_order)
+    }
+
+    pub fn write_at(&self, coordinates: &[usize], value: Scalar) -> Result<(), StorageError> {
+        let linear = linear_for_shape(&self.shape, coordinates)?;
+        let offset = *self
+            .offsets
+            .get(linear)
+            .ok_or(StorageError::InvalidLayout)?;
+        self.parent
+            .storage
+            .write()
+            .map_err(|_| StorageError::LockPoisoned)?
+            .write_as(offset, self.parent.dtype, self.parent.byte_order, value)
+    }
 }
 
 impl View {
@@ -2017,6 +2231,17 @@ impl View {
         };
         view.validate_layout()?;
         Ok(view)
+    }
+
+    /// Resolve an advanced index once and return a selection that reads and
+    /// writes through to the source allocation in logical iteration order.
+    pub fn advanced_index_view(&self, indices: &[IndexItem]) -> Result<IndexedView, StorageError> {
+        let layout = self.advanced_offsets(indices)?;
+        Ok(IndexedView {
+            parent: self.clone(),
+            shape: layout.output_shape,
+            offsets: layout.offsets,
+        })
     }
 
     pub fn read_at(&self, coordinates: &[usize]) -> Result<Scalar, StorageError> {
@@ -3161,6 +3386,44 @@ fn f_strides(dtype: DType, shape: &[usize]) -> Result<Vec<isize>, StorageError> 
 mod tests {
     use super::{DType, IndexItem, Scalar, StorageError, View};
     use std::sync::Arc;
+
+    #[test]
+    fn longdouble_truthiness_matches_nonzero_values() {
+        assert!(!Scalar::LongDouble("0".into()).truthy());
+        assert!(Scalar::LongDouble("1".into()).truthy());
+        assert!(!Scalar::ComplexLongDouble("0".into(), "0".into()).truthy());
+        assert!(Scalar::ComplexLongDouble("0".into(), "1".into()).truthy());
+        assert!(Scalar::ComplexLongDouble("1".into(), "0".into()).truthy());
+    }
+
+    #[test]
+    fn int32_typecodes_follow_target_aliases() {
+        #[cfg(target_os = "windows")]
+        {
+            assert_eq!(DType::Int32.char(), 'l');
+            assert_eq!(DType::UInt32.char(), 'L');
+        }
+        #[cfg(not(target_os = "windows"))]
+        {
+            assert_eq!(DType::Int32.char(), 'i');
+            assert_eq!(DType::UInt32.char(), 'I');
+        }
+    }
+
+    #[test]
+    fn extended_longdouble_loops_keep_platform_precision() {
+        if DType::LongDouble.itemsize() <= DType::Float64.itemsize() {
+            return;
+        }
+
+        let (inputs, outputs) =
+            super::ufunc::resolve_loop("add", &[DType::Complex128, DType::LongDouble]).unwrap();
+        assert!(inputs
+            .iter()
+            .all(|dtype| matches!(dtype, DType::LongDouble | DType::ComplexLongDouble)));
+        assert_eq!(outputs, vec![DType::ComplexLongDouble]);
+    }
+
     fn array(values: &[i64]) -> View {
         View::from_values(
             DType::Int64,

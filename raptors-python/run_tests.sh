@@ -1,53 +1,30 @@
-#!/bin/bash
-# Test runner script for Raptors Python
+#!/usr/bin/env bash
+# Run the supported Python preview suite and every Rust workspace test.
 
-set -e
+set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-cd "$SCRIPT_DIR"
+WORKSPACE_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
-echo "=== Raptors Python Test Suite ==="
-echo ""
-
-# Colors for output
-GREEN='\033[0;32m'
-RED='\033[0;31m'
-YELLOW='\033[1;33m'
-NC='\033[0m' # No Color
-
-# Check if module is installed
-echo -e "${YELLOW}Checking if raptors module is available...${NC}"
-if python -c "import raptors" 2>/dev/null; then
-    echo -e "${GREEN}✓ Module is installed${NC}"
+if command -v uv >/dev/null 2>&1; then
+    TEST_ENV_ROOT="$(mktemp -d "${TMPDIR:-/tmp}/raptors-test-env.XXXXXX")"
+    export UV_PROJECT_ENVIRONMENT="$TEST_ENV_ROOT/venv"
+    trap 'rm -rf "$TEST_ENV_ROOT"' EXIT
+    uv sync --project "$SCRIPT_DIR" --extra dev --locked --no-install-project
+    uv run --project "$SCRIPT_DIR" --extra dev --no-sync \
+        maturin develop --manifest-path "$SCRIPT_DIR/Cargo.toml" --release
+    uv run --project "$SCRIPT_DIR" --extra dev --no-sync \
+        python -m pytest "$SCRIPT_DIR/tests/preview" -v
 else
-    echo -e "${RED}✗ Module not found. Building with maturin...${NC}"
-    if command -v maturin &> /dev/null; then
-        maturin develop
-        echo -e "${GREEN}✓ Module built successfully${NC}"
-    else
-        echo -e "${RED}✗ maturin not found. Please install it: pip install maturin${NC}"
-        exit 1
+    if ! python -c "import raptors" >/dev/null 2>&1; then
+        if ! command -v maturin >/dev/null 2>&1; then
+            echo "maturin is required to build the raptors extension" >&2
+            exit 1
+        fi
+        (cd "$WORKSPACE_ROOT" && maturin develop --manifest-path "$SCRIPT_DIR/Cargo.toml" --release)
     fi
+    python -m pytest "$SCRIPT_DIR/tests/preview" -v
 fi
 
-echo ""
-echo -e "${YELLOW}Running Rust unit tests...${NC}"
-if cargo test --lib 2>&1 | tee /tmp/raptors_rust_tests.log; then
-    echo -e "${GREEN}✓ Rust tests passed${NC}"
-else
-    echo -e "${RED}✗ Rust tests failed${NC}"
-    exit 1
-fi
-
-echo ""
-echo -e "${YELLOW}Running Python pytest tests...${NC}"
-if pytest tests/ -v; then
-    echo -e "${GREEN}✓ Python tests passed${NC}"
-else
-    echo -e "${RED}✗ Python tests failed${NC}"
-    exit 1
-fi
-
-echo ""
-echo -e "${GREEN}=== All tests passed! ===${NC}"
-
+cargo test --offline --locked --manifest-path "$WORKSPACE_ROOT/Cargo.toml" \
+    --workspace -- --test-threads=1

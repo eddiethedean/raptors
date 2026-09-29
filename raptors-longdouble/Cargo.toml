@@ -1,0 +1,9 @@
+[package]
+name = "raptors-longdouble"
+version.workspace = true
+edition.workspace = true
+license = "MIT"
+description = "Native long-double scalar bridge for Raptors numeric kernels"
+
+[build-dependencies]
+cc = "1.2"

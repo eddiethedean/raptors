@@ -23,6 +23,23 @@ This single-host measurement shows lower median latency for NumPy on all four op
 
 The 0.2 release baseline is in [`raptors-0.2.0-baseline.json`](benchmarks/raptors-0.2.0-baseline.json). It records 16 observations for create, slice, cast, reshape, transpose, fancy indexing, assignment, and copy on the same host, input count, and repetition count. Each operation is checked against NumPy on a small input before timing. The report records median call latency, Python `tracemalloc` peak bytes, and a process high-water RSS delta. This is a foundation-level snapshot on one input size and one platform; it does not establish a performance advantage or representative native allocation costs.
 
+The 0.3 ufunc baseline is in [`raptors-0.3-baseline.json`](benchmarks/raptors-0.3-baseline.json). It records 20 observations on CPython 3.14.3, NumPy 2.5.3, Raptors 0.3.0, and macOS 26.5.2 ARM64, using three measured repetitions per backend/workload. The workloads cover tiny, medium, and large additions; broadcast, Fortran-order and strided inputs; mixed dtypes; Python-list conversion plus addition; fresh and reused outputs; and a large reduction. Every worker verifies dtype, shape, and representative values against NumPy before timing. Python list conversion remains in the timed `list_conversion_add` workload; the other workloads prepare inputs before timing. The report includes Python peak traced bytes and peak net live blocks above the pre-call snapshot; the block count does not include transient allocations that are freed during the call.
+
+| Workload | NumPy median | Raptors preview median |
+| --- | ---: | ---: |
+| Tiny add, 16 values | 1.79 µs | 6.25 µs |
+| Medium add, 4,096 values | 3.50 µs | 594 µs |
+| Large add, 250,000 values | 95.5 µs | 33.6 ms |
+| Broadcast add, 2,048 × 8 values | 24.0 µs | 2.12 ms |
+| Fortran-order add, 4,096 values | 3.42 µs | 742 µs |
+| Strided add, 250,000 values | 133 µs | 30.5 ms |
+| Mixed-dtype add, 4,096 values | 8.25 µs | 543 µs |
+| List conversion plus add, 4,096 values | 101 µs | 3.27 ms |
+| Reused output add, 250,000 values | 47.0 µs | 40.6 ms |
+| Large reduction, 250,000 values | 19.4 µs | 19.9 ms |
+
+This single-host result shows the preview is slower across these workloads. It is an implementation baseline for later profiling, not a speed claim. The native-memory delta is a coarse process high-water RSS measure, and Python `tracemalloc` excludes Rust buffer allocations.
+
 Reproduce the 0.2 release baseline after building the extension:
 
 ```bash
@@ -33,6 +50,12 @@ The 0.1 measurement can be reproduced after installing the locked development en
 
 ```bash
 uv run --project raptors-python --extra dev --no-sync python scripts/bench_0_1.py --count 250000 --repeats 5 --output /tmp/raptors-0.1-reproduced.json
+```
+
+Reproduce the 0.3 ufunc baseline after building the extension:
+
+```bash
+uv run --project raptors-python --extra dev --no-sync python scripts/bench_0_3.py --count 250000 --repeats 3 --output /tmp/raptors-0.3-reproduced.json
 ```
 
 The command uses a warmup and launches separate processes for each backend/operation. The script and report record interpreter, NumPy/Raptors versions, platform, CPU architecture, and thread environment.

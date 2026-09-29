@@ -3,11 +3,12 @@ members = [
     "raptors-core",
     "raptors-python",
     "raptors-storage",
+    "raptors-longdouble",
 ]
 resolver = "2"
 
 [workspace.package]
-version = "0.2.0"
+version = "0.3.0"
 edition = "2021"
 
 [workspace.dependencies]
