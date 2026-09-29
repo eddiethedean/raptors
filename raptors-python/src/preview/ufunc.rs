@@ -789,6 +789,14 @@ impl ErrorFlags {
     }
 }
 
+// NumPy's libm-backed float remainder loops differ by platform in whether
+// domain errors set FE_INVALID. Keep the observed macOS ARM64 behavior local
+// to that target; the other supported targets report the invalid flag.
+#[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+const FLOAT_REMAINDER_DOMAIN_RAISES_INVALID: bool = false;
+#[cfg(not(all(target_os = "macos", target_arch = "aarch64")))]
+const FLOAT_REMAINDER_DOMAIN_RAISES_INVALID: bool = true;
+
 fn classify_errors(name: &str, inputs: &[Scalar], outputs: &[Scalar]) -> ErrorFlags {
     let mut flags = ErrorFlags::default();
     let input_nan = inputs.iter().any(scalar_is_nan);
@@ -801,6 +809,8 @@ fn classify_errors(name: &str, inputs: &[Scalar], outputs: &[Scalar]) -> ErrorFl
             name,
             "remainder" | "mod" | "fmod" | "floor_divide" | "divmod"
         );
+    let suppress_infinite_dividend_invalid =
+        infinite_dividend_domain && !FLOAT_REMAINDER_DOMAIN_RAISES_INVALID;
     let logaddexp_nan_invalid = input_nan && matches!(name, "logaddexp" | "logaddexp2");
     if zero_divisor {
         let integer_inputs = inputs
@@ -824,8 +834,14 @@ fn classify_errors(name: &str, inputs: &[Scalar], outputs: &[Scalar]) -> ErrorFl
                 } else if inputs.first().is_some_and(scalar_is_finite) {
                     flags.divide = true;
                 }
+                if name == "divmod" && FLOAT_REMAINDER_DOMAIN_RAISES_INVALID {
+                    flags.invalid = true;
+                }
             }
             "remainder" | "mod" | "fmod" if integer_inputs => flags.divide = true,
+            "remainder" | "mod" | "fmod" => {
+                flags.invalid = FLOAT_REMAINDER_DOMAIN_RAISES_INVALID;
+            }
             _ => {}
         }
     }
@@ -891,7 +907,7 @@ fn classify_errors(name: &str, inputs: &[Scalar], outputs: &[Scalar]) -> ErrorFl
             && !input_nan
             && !zero_divisor_remainder
             && !zero_divisor_divmod
-            && !infinite_dividend_domain
+            && !suppress_infinite_dividend_invalid
         {
             flags.invalid = true;
         }

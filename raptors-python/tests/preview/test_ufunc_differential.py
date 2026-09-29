@@ -572,15 +572,15 @@ def test_ufunc_at_complex_result_cast_warns_like_numpy(index_kind):
     [
         ("remainder", 1, 0, ["divide by zero encountered in remainder"]),
         ("fmod", 0, 0, ["divide by zero encountered in fmod"]),
-        ("remainder", 1.0, 0.0, []),
-        ("fmod", 1.0, 0.0, []),
+        ("remainder", 1.0, 0.0, None),
+        ("fmod", 1.0, 0.0, None),
         ("floor_divide", 0, 0, ["divide by zero encountered in floor_divide"]),
         ("floor_divide", 0.0, 0.0, ["invalid value encountered in floor_divide"]),
         ("floor_divide", 1.0, 0.0, ["divide by zero encountered in floor_divide"]),
         ("divmod", 0, 0, ["divide by zero encountered in divmod"]),
-        ("divmod", 1.0, 0.0, ["divide by zero encountered in divmod"]),
+        ("divmod", 1.0, 0.0, None),
         ("divmod", 0.0, 0.0, ["invalid value encountered in divmod"]),
-        ("divmod", float("inf"), 0.0, []),
+        ("divmod", float("inf"), 0.0, None),
     ],
 )
 def test_zero_divisor_error_categories_match_numpy(name, left, right, expected_warnings):
@@ -595,7 +595,8 @@ def test_zero_divisor_error_categories_match_numpy(name, left, right, expected_w
 
     expected_messages = [str(item.message) for item in expected_caught]
     actual_messages = [str(item.message) for item in actual_caught]
-    assert expected_messages == expected_warnings
+    if expected_warnings is not None:
+        assert expected_messages == expected_warnings
     assert actual_messages == expected_messages
     _assert_ufunc_result_matches(expected, actual)
 
