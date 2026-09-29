@@ -511,10 +511,14 @@ pub fn binary(
             } else if b.is_nan() {
                 b
             } else if a == 0.0 && b == 0.0 {
-                if a.is_sign_negative() {
-                    b
+                if cfg!(target_os = "macos") {
+                    if a.is_sign_negative() {
+                        b
+                    } else {
+                        a
+                    }
                 } else {
-                    a
+                    b
                 }
             } else if a >= b {
                 a
@@ -528,8 +532,12 @@ pub fn binary(
             } else if b.is_nan() {
                 b
             } else if a == 0.0 && b == 0.0 {
-                if a.is_sign_negative() {
-                    a
+                if cfg!(target_os = "macos") {
+                    if a.is_sign_negative() {
+                        a
+                    } else {
+                        b
+                    }
                 } else {
                     b
                 }
@@ -545,8 +553,12 @@ pub fn binary(
             } else if a.is_nan() {
                 b
             } else if a == 0.0 && b == 0.0 {
-                if a.is_sign_negative() {
-                    b
+                if cfg!(target_os = "macos") {
+                    if a.is_sign_negative() {
+                        b
+                    } else {
+                        a
+                    }
                 } else {
                     a
                 }
@@ -562,10 +574,14 @@ pub fn binary(
             } else if a.is_nan() {
                 b
             } else if a == 0.0 && b == 0.0 {
-                if a.is_sign_negative() {
-                    a
+                if cfg!(target_os = "macos") {
+                    if a.is_sign_negative() {
+                        a
+                    } else {
+                        b
+                    }
                 } else {
-                    b
+                    a
                 }
             } else if a <= b {
                 a
@@ -1215,10 +1231,14 @@ fn binary_float32(name: &str, a: f32, b: f32) -> Result<f32, StorageError> {
             } else if b.is_nan() {
                 b
             } else if a == 0.0 && b == 0.0 {
-                if a.is_sign_negative() {
-                    b
+                if cfg!(target_os = "macos") {
+                    if a.is_sign_negative() {
+                        b
+                    } else {
+                        a
+                    }
                 } else {
-                    a
+                    b
                 }
             } else if a >= b {
                 a
@@ -1232,8 +1252,12 @@ fn binary_float32(name: &str, a: f32, b: f32) -> Result<f32, StorageError> {
             } else if b.is_nan() {
                 b
             } else if a == 0.0 && b == 0.0 {
-                if a.is_sign_negative() {
-                    a
+                if cfg!(target_os = "macos") {
+                    if a.is_sign_negative() {
+                        a
+                    } else {
+                        b
+                    }
                 } else {
                     b
                 }
@@ -1249,8 +1273,12 @@ fn binary_float32(name: &str, a: f32, b: f32) -> Result<f32, StorageError> {
             } else if a.is_nan() {
                 b
             } else if a == 0.0 && b == 0.0 {
-                if a.is_sign_negative() {
-                    b
+                if cfg!(target_os = "macos") {
+                    if a.is_sign_negative() {
+                        b
+                    } else {
+                        a
+                    }
                 } else {
                     a
                 }
@@ -1266,10 +1294,14 @@ fn binary_float32(name: &str, a: f32, b: f32) -> Result<f32, StorageError> {
             } else if a.is_nan() {
                 b
             } else if a == 0.0 && b == 0.0 {
-                if a.is_sign_negative() {
-                    a
+                if cfg!(target_os = "macos") {
+                    if a.is_sign_negative() {
+                        a
+                    } else {
+                        b
+                    }
                 } else {
-                    b
+                    a
                 }
             } else if a <= b {
                 a

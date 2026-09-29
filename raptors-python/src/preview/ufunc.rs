@@ -892,7 +892,7 @@ fn exact_subnormal_result(name: &str, inputs: &[Scalar], output: &Scalar, imag: 
         }
         ("reciprocal", [value]) => exact_product_matches(output, value, 1.0),
         ("exp2", [exponent]) => exact_exp2_matches(exponent, result),
-        ("expm1", [value]) => value.as_f64().is_ok_and(|value| value == result),
+        ("expm1", [value]) => exact_expm1_subnormal(value, result),
         ("ldexp", [value, exponent]) => {
             // NumPy's Windows wheels report underflow for the least
             // subnormal result from ldexp even when it is exactly
@@ -930,14 +930,36 @@ fn exact_subnormal_result(name: &str, inputs: &[Scalar], output: &Scalar, imag: 
 fn cos_intermediate_underflow(input: &Scalar, output: &Scalar) -> bool {
     let threshold = match output.dtype() {
         DType::Float16 | DType::Float32 => f32::MIN_POSITIVE.sqrt() as f64,
+        #[cfg(target_os = "macos")]
         DType::Float64 => f64::MIN_POSITIVE.sqrt(),
+        #[cfg(not(target_os = "macos"))]
+        DType::Float64 => return false,
+        #[cfg(target_os = "macos")]
         DType::LongDouble if DType::LongDouble.itemsize() == 8 => f64::MIN_POSITIVE.sqrt(),
+        #[cfg(not(target_os = "macos"))]
+        DType::LongDouble if DType::LongDouble.itemsize() == 8 => return false,
         _ => return false,
     };
     input
         .as_f64()
         .is_ok_and(|value| value != 0.0 && value.abs() < threshold)
         && output.as_f64().is_ok_and(|value| value.abs() == 1.0)
+}
+
+fn exact_expm1_subnormal(input: &Scalar, result: f64) -> bool {
+    if !input.as_f64().is_ok_and(|value| value == result) {
+        return false;
+    }
+    // NumPy's macOS loop preserves this exact subnormal without setting the
+    // underflow flag; Linux's loop reports underflow for the same result.
+    #[cfg(target_os = "macos")]
+    {
+        true
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        false
+    }
 }
 
 fn negated_scalar(value: &Scalar) -> Scalar {

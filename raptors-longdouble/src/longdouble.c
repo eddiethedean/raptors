@@ -123,11 +123,15 @@ static int binary_values(const char *name, long double a, long double b, long do
         if (isnan(a)) *first = a;
         else if (isnan(b)) *first = b;
         else if (a == 0.0L && b == 0.0L) {
+#if defined(__APPLE__)
             if (strcmp(name, "maximum") == 0) *first = signbit(a) ? b : a;
             else *first = signbit(a) ? a : b;
+#else
+            *first = b;
+#endif
         }
-        else if (strcmp(name, "maximum") == 0) *first = a >= b ? a : b;
-        else *first = a <= b ? a : b;
+        else if (strcmp(name, "maximum") == 0) *first = a > b ? a : b;
+        else *first = a < b ? a : b;
     }
     else if (strcmp(name, "fmax") == 0) *first = fmaxl(a, b);
     else if (strcmp(name, "fmin") == 0) *first = fminl(a, b);

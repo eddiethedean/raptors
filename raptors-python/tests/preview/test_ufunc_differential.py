@@ -1426,12 +1426,22 @@ def test_cos_reports_underflow_when_its_internal_square_underflows(dtype, value)
     candidate_dtype = _raptors_dtype_for_numpy(dtype)
     expected_input = np.array([value], dtype=dtype)
     actual_input = raptors.array([value], dtype=candidate_dtype)
-    with np.errstate(under="raise"), pytest.raises(FloatingPointError, match="underflow"):
-        np.cos(expected_input)
-    with raptors.errstate(under="raise"), pytest.raises(
-        FloatingPointError, match="underflow"
-    ):
-        raptors.cos(actual_input)
+    try:
+        with np.errstate(under="raise"):
+            expected = np.cos(expected_input)
+        expected_underflow = False
+    except FloatingPointError:
+        expected_underflow = True
+    try:
+        with raptors.errstate(under="raise"):
+            actual = raptors.cos(actual_input)
+        actual_underflow = False
+    except FloatingPointError:
+        actual_underflow = True
+
+    assert actual_underflow == expected_underflow
+    if not expected_underflow:
+        _assert_ufunc_result_matches(expected, actual, exact=True)
 
 
 @pytest.mark.parametrize("dtype", [np.dtype("longdouble"), np.dtype("clongdouble")])
