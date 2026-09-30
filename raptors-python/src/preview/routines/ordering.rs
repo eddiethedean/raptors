@@ -331,31 +331,16 @@ fn bincount(
         && indices.inner.byte_order().is_native()
         && index_dtype() == DType::Int64
     {
-        let index_values = indices.inner.snapshot_int64().map_err(map_storage_error)?;
-        let mut max_index = None::<usize>;
-        for value in &index_values {
-            let index = usize::try_from(*value)
-                .map_err(|_| PyValueError::new_err("x must be non-negative"))?;
-            max_index = Some(max_index.map_or(index, |current| current.max(index)));
+        if let Some(inner) = indices
+            .inner
+            .bincount_int64_within(minlength as usize)
+            .map_err(map_storage_error)?
+        {
+            return Ok(PyArray {
+                inner,
+                scalar_alias: None,
+            });
         }
-        let length = match max_index {
-            Some(value) => value
-                .checked_add(1)
-                .ok_or_else(|| PyValueError::new_err("array shape exceeds supported limits"))?,
-            None => 0,
-        }
-        .max(minlength as usize);
-        let count = checked_count(&[length], DType::Int64)?;
-        let mut counts = vec![0_i64; count];
-        for value in index_values {
-            let index = usize::try_from(value)
-                .map_err(|_| PyValueError::new_err("x must be non-negative"))?;
-            counts[index] = counts[index].wrapping_add(1);
-        }
-        return Ok(PyArray {
-            inner: View::from_int64_values(vec![length], &counts).map_err(map_storage_error)?,
-            scalar_alias: None,
-        });
     }
     let index_values = indices.inner.snapshot().map_err(map_storage_error)?;
     let mut pairs = Vec::with_capacity(size);

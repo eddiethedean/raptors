@@ -785,6 +785,46 @@ def test_descriptive_reductions_match_numpy(name, reference, axis, keepdims):
             assert np.isclose(float(actual[coordinates]), expected[coordinates], rtol=1e-14, atol=1e-14)
 
 
+def test_float32_axis0_statistics_handle_contiguous_offset_views():
+    values = np.array(
+        [
+            [((row * 17 + column * 13) % 251 - 125) / 31 for column in range(8)]
+            for row in range(258)
+        ],
+        dtype=np.float32,
+    )
+    owner = raptors.array(values.tolist(), dtype=raptors.float32)
+    candidate = owner[1:257]
+    expected_values = values[1:257]
+
+    assert_array_matches(np.mean(expected_values, axis=0), raptors.mean(candidate, axis=0))
+    assert_array_matches(np.var(expected_values, axis=0), raptors.var(candidate, axis=0))
+    assert_array_matches(np.std(expected_values, axis=0), raptors.std(candidate, axis=0))
+
+
+def test_float32_broadcast_binary_handles_contiguous_offset_views():
+    values = np.array(
+        [
+            [((row * 17 + column * 13) % 251 - 125) / 31 for column in range(8)]
+            for row in range(258)
+        ],
+        dtype=np.float32,
+    )
+    candidate = raptors.array(values.tolist(), dtype=raptors.float32)[1:257]
+    expected_values = values[1:257]
+    right_values = np.array([2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0], dtype=np.float32)
+    right = raptors.array(right_values.tolist(), dtype=raptors.float32)
+
+    assert_array_matches(
+        np.subtract(expected_values, right_values),
+        raptors.subtract(candidate, right),
+    )
+    assert_array_matches(
+        np.true_divide(expected_values, right_values),
+        raptors.true_divide(candidate, right),
+    )
+
+
 def test_mean_and_variance_support_dtype_mask_out_and_correction():
     values = np.arange(1, 7, dtype=np.int16).reshape(2, 3)
     mask = np.array([[True, False, True], [False, True, True]])
@@ -1343,13 +1383,22 @@ def test_bincount_unique_and_numeric_set_routines():
         assert_array_matches(expected, actual)
     left = np.array([1, 2, 2, 5], dtype=np.int16)
     right = np.array([2, 3, 5], dtype=np.int16)
-    l = raptors.array(left.tolist(), dtype=raptors.int16)
-    r = raptors.array(right.tolist(), dtype=raptors.int16)
-    assert_array_matches(np.intersect1d(left, right), raptors.intersect1d(l, r))
-    assert_array_matches(np.union1d(left, right), raptors.union1d(l, r))
-    assert_array_matches(np.setdiff1d(left, right), raptors.setdiff1d(l, r))
-    assert_array_matches(np.setxor1d(left, right), raptors.setxor1d(l, r))
-    assert_array_matches(np.isin(left, right), raptors.isin(l, r))
+    left_candidate = raptors.array(left.tolist(), dtype=raptors.int16)
+    right_candidate = raptors.array(right.tolist(), dtype=raptors.int16)
+    assert_array_matches(
+        np.intersect1d(left, right),
+        raptors.intersect1d(left_candidate, right_candidate),
+    )
+    assert_array_matches(
+        np.union1d(left, right), raptors.union1d(left_candidate, right_candidate)
+    )
+    assert_array_matches(
+        np.setdiff1d(left, right), raptors.setdiff1d(left_candidate, right_candidate)
+    )
+    assert_array_matches(
+        np.setxor1d(left, right), raptors.setxor1d(left_candidate, right_candidate)
+    )
+    assert_array_matches(np.isin(left, right), raptors.isin(left_candidate, right_candidate))
 
 
 @pytest.mark.parametrize("density", [False, True])

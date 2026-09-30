@@ -1905,6 +1905,16 @@ fn call(
             "cannot specify both 'signature' and 'dtype'",
         ));
     }
+    if nin == 2
+        && nout == 1
+        && args.len() == nin
+        && kwargs.is_none_or(|keywords| keywords.len() == 0)
+        && matches!(name, "subtract" | "divide" | "true_divide")
+    {
+        if let Some(result) = fast_float32_array_binary_call(name, py, args)? {
+            return Ok(result);
+        }
+    }
     let positional_outputs = args.iter().skip(nin).collect::<Vec<_>>();
     if !positional_outputs.is_empty() {
         if out.is_some() {
@@ -2074,9 +2084,7 @@ fn call(
             }
         }
         if outputs == [DType::Int64] {
-            if let Some(fast_values) = fast_int64_scalar_remainder(name, &shape, &operands)? {
-                let inner =
-                    View::from_int64_values(shape, &fast_values).map_err(map_storage_error)?;
+            if let Some(inner) = fast_int64_scalar_remainder(name, &shape, &operands)? {
                 return Ok(Py::new(
                     py,
                     PyArray {
@@ -2358,43 +2366,47 @@ fn fast_float32_broadcast_binary(
     {
         return Ok(None);
     }
-    let left_values = left.snapshot_float32().map_err(map_storage_error)?;
-    let right_values = right.snapshot_float32().map_err(map_storage_error)?;
-    if right_values.len() != columns {
+    left.float32_binary_broadcast_last_axis(right, name == "subtract")
+        .map_err(map_storage_error)
+}
+
+fn fast_float32_array_binary_call(
+    name: &str,
+    py: Python<'_>,
+    args: &Bound<'_, PyTuple>,
+) -> PyResult<Option<Py<PyAny>>> {
+    let left = args.get_item(0)?;
+    let right = args.get_item(1)?;
+    let (Ok(left), Ok(right)) = (
+        left.extract::<PyRef<'_, PyArray>>(),
+        right.extract::<PyRef<'_, PyArray>>(),
+    ) else {
         return Ok(None);
-    }
-    let mut needs_generic = false;
-    let inner = View::from_float32_iter(
-        shape.to_vec(),
-        left_values.iter().enumerate().map(|(linear, &left)| {
-            let right = right_values[linear % columns];
-            let value = if name == "subtract" {
-                left - right
-            } else {
-                left / right
-            };
-            // Exceptional inputs stay on the generic path so its warning and
-            // floating-point edge behavior remains authoritative.
-            needs_generic |= !left.is_finite()
-                || !right.is_finite()
-                || !value.is_finite()
-                || value.is_subnormal()
-                || (value == 0.0 && name != "subtract" && left != 0.0);
-            value
-        }),
-    )
-    .map_err(map_storage_error)?;
-    if needs_generic {
+    };
+    let Some(inner) = left
+        .inner
+        .float32_binary_broadcast_last_axis(&right.inner, name == "subtract")
+        .map_err(map_storage_error)?
+    else {
         return Ok(None);
-    }
-    Ok(Some(inner))
+    };
+    Ok(Some(
+        Py::new(
+            py,
+            PyArray {
+                inner,
+                scalar_alias: None,
+            },
+        )?
+        .into_any(),
+    ))
 }
 
 fn fast_int64_scalar_remainder(
     name: &str,
     shape: &[usize],
     operands: &[Operand],
-) -> PyResult<Option<Vec<i64>>> {
+) -> PyResult<Option<View>> {
     if !matches!(name, "remainder" | "mod") || shape.is_empty() {
         return Ok(None);
     }
@@ -2421,12 +2433,8 @@ fn fast_int64_scalar_remainder(
     if divisor <= 0 {
         return Ok(None);
     }
-    let input = left.snapshot_int64().map_err(map_storage_error)?;
-    let mut result = Vec::with_capacity(input.len());
-    for value in input {
-        result.push(value.rem_euclid(divisor));
-    }
-    Ok(Some(result))
+    left.remainder_int64_scalar(divisor)
+        .map_err(map_storage_error)
 }
 
 fn inferred_output_alias(name: &str, operands: &[Operand], output: DType) -> Option<ScalarAlias> {
