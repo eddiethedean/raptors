@@ -536,9 +536,21 @@
       "hosted_ci_run_id": 36741017721,
       "hosted_ci_run_url": "https://github.com/eddiethedean/raptors/actions/runs/36741017721",
       "hosted_ci_status": "passed",
-      "release_wheel_confirmation": "pending build-only validation",
+      "release_wheel_confirmation": "passed build-only validation; publication skipped",
       "release_wheel_run_id": 36742189541,
-      "release_wheel_run_url": "https://github.com/eddiethedean/raptors/actions/runs/36742189541"
+      "release_wheel_run_url": "https://github.com/eddiethedean/raptors/actions/runs/36742189541",
+      "release_wheel_targets": [
+        "linux-x86_64-manylinux2014",
+        "linux-x86_64-musllinux_1_2",
+        "linux-aarch64-manylinux_2_28",
+        "linux-aarch64-musllinux_1_2",
+        "macos-x86_64",
+        "macos-arm64",
+        "windows-x86_64",
+        "windows-arm64"
+      ],
+      "release_wheel_python_versions": ["3.12", "3.13", "3.14"],
+      "release_publish_job": "skipped_for_build_only_workflow_dispatch"
     },
     "hosted_ci_a96c061": {
       "status": "passed",
