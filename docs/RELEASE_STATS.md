@@ -25,8 +25,8 @@ The API inventory is not a parity denominator. Its names and member records have
 
 5. Commit the updated release contract, report, and README together. CI checks that the displayed figures match the newest published contract.
 
-Until the post-publication update lands, the README remains accurately pinned to the previous published release. Do not label an unpublished tag or build as the latest release.
+For each new publication, keep the README pinned to the previous release until the matching post-publication update lands. Do not label an unpublished tag or build as the latest release.
 
 ## Interpreting the current measurements
 
-The 0.1.0 report is an informational, single-host baseline across four small Python-level operations. It is not a representative application workload suite and does not establish a general speed ratio. Python `tracemalloc` does not include native Rust allocations; the report's process high-water RSS deltas are coarse and allocator-dependent, so they do not support a memory advantage claim. Expand and control the workload matrix before making broader performance claims; see [performance validation](PERFORMANCE.md).
+The 0.3.0 report is an informational, single-host baseline across ten numeric workloads and input sizes from 16 to 250,000. It is not a representative application workload suite and does not establish a general speed ratio. Python `tracemalloc` does not include native Rust allocations; the report's process high-water RSS deltas are coarse and allocator-dependent, so they do not support a memory advantage claim. Expand and control the workload matrix before making broader performance claims; see [performance validation](PERFORMANCE.md).

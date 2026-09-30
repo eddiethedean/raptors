@@ -237,6 +237,21 @@ def main():
             raise SystemExit("0.3 release candidate or published status requires complete differential evidence")
         if ufunc_contract.get("known_gaps"):
             raise SystemExit("0.3 release candidate or published status cannot retain known gaps")
+    if ufunc_status == "published":
+        commit = ufunc_evidence.get("release_commit", "")
+        release = ufunc_evidence.get("tagged_release", {})
+        artifacts = ufunc_evidence.get("published_artifacts", {})
+        wheels = artifacts.get("wheels", [])
+        if not re.fullmatch(r"[0-9a-f]{40}", commit):
+            raise SystemExit("published 0.3 contract must identify its 40-character release commit")
+        if release.get("tag") != "v0.3.0" or release.get("commit") != commit:
+            raise SystemExit("published 0.3 tag and release commit evidence are inconsistent")
+        if release.get("status") != "published" or release.get("publish_job") != "success":
+            raise SystemExit("published 0.3 contract must record a successful PyPI publish job")
+        if artifacts.get("distribution") != "raptors==0.3.0" or artifacts.get("source_distributions") != 0 or len(wheels) != 8:
+            raise SystemExit("published 0.3 contract must list all eight wheels and no source distributions")
+        if len(set(wheels)) != 8 or any(not wheel.endswith(".whl") for wheel in wheels):
+            raise SystemExit("published 0.3 wheel filenames must be unique wheel artifacts")
     planned_kinds = set(
         re.findall(r"(?m)^\|\s*`([biufcmMOSUVT])`\s*\|", DTYPE_PLAN.read_text())
     )

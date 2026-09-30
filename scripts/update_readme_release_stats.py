@@ -68,11 +68,16 @@ def benchmark_data(contract: dict, version: str) -> tuple[dict | None, dict | No
     report = read_json(path)
     if report.get("schema_version") != 1:
         raise SystemExit(f"unsupported benchmark schema in {relative_path}")
-    operations = report.get("measurement", {}).get("operations")
+    measurement = report.get("measurement", {})
+    row_key = "operation"
+    operations = measurement.get("operations")
+    if operations is None:
+        row_key = "workload"
+        operations = measurement.get("workloads")
     if not isinstance(operations, list) or not operations or any(not isinstance(op, str) for op in operations):
-        raise SystemExit(f"benchmark {relative_path} must list its operations")
+        raise SystemExit(f"benchmark {relative_path} must list its operations or workloads")
     if len(operations) != len(set(operations)):
-        raise SystemExit(f"benchmark {relative_path} contains duplicate operation names")
+        raise SystemExit(f"benchmark {relative_path} contains duplicate operation or workload names")
     rows = report.get("results")
     if not isinstance(rows, list):
         raise SystemExit(f"benchmark {relative_path} must contain a results array")
@@ -83,7 +88,7 @@ def benchmark_data(contract: dict, version: str) -> tuple[dict | None, dict | No
     for row in rows:
         if not isinstance(row, dict):
             raise SystemExit(f"benchmark {relative_path} contains an invalid result")
-        backend, operation = row.get("backend"), row.get("operation")
+        backend, operation = row.get("backend"), row.get(row_key)
         key = (backend, operation)
         if backend not in {"numpy", "raptors"} or operation not in operations or key in indexed:
             raise SystemExit(f"unexpected or duplicate benchmark result: {key}")
@@ -98,7 +103,7 @@ def benchmark_data(contract: dict, version: str) -> tuple[dict | None, dict | No
                 row.get("python"),
                 row.get("platform"),
                 row.get("machine"),
-                row.get("count"),
+                row.get("count", row.get("configured_max_count")),
                 row.get("repeats"),
             )
         )
@@ -174,62 +179,98 @@ def render_stats() -> str:
     release_url = f"https://github.com/eddiethedean/raptors/tree/v{version}"
     pypi_url = f"https://pypi.org/project/raptors/{version}/"
 
-    api = contract.get("api", {})
-    dtype_items = api.get("dtypes") or contract.get("scope", {}).get("numeric_dtypes", [])
-    dtypes = ", ".join(format_dtype(dtype) for dtype in dtype_items)
-    creation = [
-        item["signature"]
-        for key in ("array_function", "zeros_function", "empty_function")
-        if (item := api.get(key, {})).get("status") in {"implemented", "partial"} and item.get("signature")
-    ]
-    creation_text = ", ".join(f"`{item}`" for item in creation)
-    metadata_items = api.get("metadata")
-    if metadata_items is None:
-        metadata_items = api.get("array_metadata", []) + api.get("dtype_metadata", [])
-    metadata_items = list(dict.fromkeys(metadata_items))
-    metadata = ", ".join(f"`{item}`" for item in metadata_items)
-    indexing = ", ".join(api.get("indexing", []))
-    if "mutation" in api:
-        behavior_text = f"mutation/copy behavior ({', '.join(api['mutation'])})"
-    else:
-        methods = ", ".join(f"`{item}`" for item in api.get("array_methods", []))
-        assignments = ", ".join(api.get("assignment", []))
-        behavior_text = f"array methods ({methods}) and assignment behavior ({assignments})"
-    unsupported = ", ".join(contract.get("unsupported", []))
-    tests = contract.get("evidence", {}).get("python_differential_tests", {})
-    python_versions = tests.get("python_versions", [])
-    passed = tests.get("passed_per_version")
-    skipped = tests.get("skipped_per_version")
-    if not python_versions or not isinstance(passed, int) or not isinstance(skipped, int):
-        raise SystemExit(f"published contract v{version} is missing versioned Python test evidence")
-    versions_text = ", ".join(f"CPython {item}" for item in python_versions)
-    inventory = contract.get("api_inventory", {})
-    inventory_count = inventory.get("entry_count")
-
-    if not dtypes or not creation_text or not metadata or not indexing or not behavior_text:
-        raise SystemExit(f"published contract v{version} is missing declared API scope")
-    if not isinstance(inventory_count, int):
-        raise SystemExit(f"published contract v{version} is missing the API inventory entry count")
-    unsupported_text = (
-        f"Unsupported areas include: {'; '.join(contract.get('unsupported', []))}."
-        if unsupported
-        else "The contract lists no explicitly unsupported areas."
-    )
-
     lines = [
         f"**Latest published release: [`v{version}`]({release_url})** ([PyPI]({pypi_url})).",
         "",
         "### Compatibility",
         "",
-        f"Raptors {version} is a narrow preview, not a drop-in NumPy replacement. Its verified surface includes support for the dtypes {dtypes}; {creation_text}; metadata ({metadata}); indexing ({indexing}); and {behavior_text}.",
-        "",
-        f"The preview differential/property suite reports **{passed} passed and {skipped} skipped per Python version** on {versions_text}, compared with NumPy {numpy_version}. Those tests cover only the declared preview contract. {unsupported_text}",
-        "",
-        f"There is **no meaningful whole-NumPy parity percentage**. The {inventory_count:,}-entry API inventory is a preliminary name/member and planning inventory, not behavioral conformance evidence. See the [release contract]({contract_link}) and [inventory limits](compat/README.md).",
-        "",
-        "### Performance",
-        "",
     ]
+
+    if version == "0.3.0":
+        scope = contract.get("scope", {})
+        evidence = contract.get("evidence", {})
+        tests = evidence.get("differential_cases", {})
+        passed = tests.get("passed")
+        skipped = tests.get("skipped")
+        conditional_skips = tests.get("platform_conditional_skips")
+        python_version = evidence.get("python")
+        platform = evidence.get("generation_platform")
+        wheel_count = len(evidence.get("published_artifacts", {}).get("wheels", []))
+        if (
+            scope.get("public_name_count") != 101
+            or not isinstance(passed, int)
+            or not isinstance(skipped, int)
+            or not isinstance(conditional_skips, int)
+            or not python_version
+            or not platform
+            or wheel_count != 8
+        ):
+            raise SystemExit(f"published contract v{version} is missing versioned ufunc release evidence")
+        dtype_kinds = scope.get("dtype_kinds", [])
+        if set(dtype_kinds) != {"b", "i", "u", "f", "c"}:
+            raise SystemExit(f"published contract v{version} has an invalid numeric dtype boundary")
+        lines.extend(
+            [
+                f"Raptors {version} covers the 101 top-level elementwise ufunc names and aliases in the reviewed contract, with methods, operators, broadcasting, output controls, and floating-error state for supported bool, integer, floating, and complex numeric dtypes. This is a limited NumPy-compatible slice, not a drop-in replacement for all of NumPy.",
+                "",
+                f"The local differential suite reports **{passed:,} passed and {skipped} required skips** on CPython {python_version} ({platform}); {conditional_skips} native extended `long double` cases are platform-conditional. The tag-gated release workflow tested all eight published wheels on CPython 3.12, 3.13, and 3.14. See the [release contract]({contract_link}) for exact behavior and known limits.",
+                "",
+            ]
+        )
+    else:
+        api = contract.get("api", {})
+        dtype_items = api.get("dtypes") or contract.get("scope", {}).get("numeric_dtypes", [])
+        dtypes = ", ".join(format_dtype(dtype) for dtype in dtype_items)
+        creation = [
+            item["signature"]
+            for key in ("array_function", "zeros_function", "empty_function")
+            if (item := api.get(key, {})).get("status") in {"implemented", "partial"} and item.get("signature")
+        ]
+        creation_text = ", ".join(f"`{item}`" for item in creation)
+        metadata_items = api.get("metadata")
+        if metadata_items is None:
+            metadata_items = api.get("array_metadata", []) + api.get("dtype_metadata", [])
+        metadata_items = list(dict.fromkeys(metadata_items))
+        metadata = ", ".join(f"`{item}`" for item in metadata_items)
+        indexing = ", ".join(api.get("indexing", []))
+        if "mutation" in api:
+            behavior_text = f"mutation/copy behavior ({', '.join(api['mutation'])})"
+        else:
+            methods = ", ".join(f"`{item}`" for item in api.get("array_methods", []))
+            assignments = ", ".join(api.get("assignment", []))
+            behavior_text = f"array methods ({methods}) and assignment behavior ({assignments})"
+        unsupported = ", ".join(contract.get("unsupported", []))
+        tests = contract.get("evidence", {}).get("python_differential_tests", {})
+        python_versions = tests.get("python_versions", [])
+        passed = tests.get("passed_per_version")
+        skipped = tests.get("skipped_per_version")
+        if not python_versions or not isinstance(passed, int) or not isinstance(skipped, int):
+            raise SystemExit(f"published contract v{version} is missing versioned Python test evidence")
+        versions_text = ", ".join(f"CPython {item}" for item in python_versions)
+        inventory = contract.get("api_inventory", {})
+        inventory_count = inventory.get("entry_count")
+
+        if not dtypes or not creation_text or not metadata or not indexing or not behavior_text:
+            raise SystemExit(f"published contract v{version} is missing declared API scope")
+        if not isinstance(inventory_count, int):
+            raise SystemExit(f"published contract v{version} is missing the API inventory entry count")
+        unsupported_text = (
+            f"Unsupported areas include: {'; '.join(contract.get('unsupported', []))}."
+            if unsupported
+            else "The contract lists no explicitly unsupported areas."
+        )
+        lines.extend(
+            [
+                f"Raptors {version} is a narrow preview, not a drop-in NumPy replacement. Its verified surface includes support for the dtypes {dtypes}; {creation_text}; metadata ({metadata}); indexing ({indexing}); and {behavior_text}.",
+                "",
+                f"The preview differential/property suite reports **{passed} passed and {skipped} skipped per Python version** on {versions_text}, compared with NumPy {numpy_version}. Those tests cover only the declared preview contract. {unsupported_text}",
+                "",
+                f"There is **no meaningful whole-NumPy parity percentage**. The {inventory_count:,}-entry API inventory is a preliminary name/member and planning inventory, not behavioral conformance evidence. See the [release contract]({contract_link}) and [inventory limits](compat/README.md).",
+                "",
+            ]
+        )
+
+    lines.extend(["### Performance", ""])
 
     indexed, environment, operations = benchmark_data(contract, version)
     if indexed is None:
@@ -253,17 +294,29 @@ def render_stats() -> str:
         slower = sum(delta > 0 for _, delta in comparison)
         faster = sum(delta < 0 for _, delta in comparison)
         equal = sum(delta == 0 for _, delta in comparison)
+        item_label = "workloads" if version == "0.3.0" else "operations"
         if slower == len(operations):
-            result_summary = f"NumPy had the lower median latency on **all {len(operations)} measured operations**"
+            result_summary = f"NumPy had the lower median latency on **all {len(operations)} measured {item_label}**"
         elif faster == len(operations):
-            result_summary = f"Raptors had the lower median latency on **all {len(operations)} measured operations**"
+            result_summary = f"Raptors had the lower median latency on **all {len(operations)} measured {item_label}**"
         else:
-            result_summary = f"Raptors had lower medians on **{faster} of {len(operations)} operations**, higher medians on **{slower}**, and equal medians on **{equal}**"
+            result_summary = f"Raptors had lower medians on **{faster} of {len(operations)} {item_label}**, higher medians on **{slower}**, and equal medians on **{equal}**"
+        if version == "0.3.0":
+            report = read_json(ROOT / contract["evidence"]["performance_baseline"]["path"])
+            input_sizes = list(report["measurement"]["input_sizes"].values())
+            if not input_sizes:
+                raise SystemExit(f"benchmark {contract['evidence']['performance_baseline']['path']} has no input sizes")
+            size_text = f"across configured input sizes from {min(input_sizes):,} to {max(input_sizes):,}"
+            table_label = "Workload"
+            context = f"across {len(operations)} correctness-checked workloads {size_text}"
+        else:
+            table_label = "Operation"
+            context = f"with {count:,} int64-compatible values"
         lines.extend(
             [
-                f"On one {host} host (CPython {python_version}, NumPy {numpy_version}), with {count:,} int64-compatible values and {repeats} repetitions, {result_summary}:",
+                f"On one {host} host (CPython {python_version}, NumPy {numpy_version}), {context} and {repeats} repetitions, {result_summary}:",
                 "",
-                f"| Operation | NumPy {numpy_version} median | Raptors {version} median | Raptors vs NumPy |",
+                f"| {table_label} | NumPy {numpy_version} median | Raptors {version} median | Raptors vs NumPy |",
                 "| --- | ---: | ---: | ---: |",
             ]
         )
@@ -285,7 +338,7 @@ def render_stats() -> str:
         lines.extend(
             [
                 "",
-                f"This is one local host and one input size; it does not establish performance for other workloads.{slice_note} Memory is not claimed as a win: `tracemalloc` omits Rust/native buffers, and the recorded process RSS deltas are too coarse for a reliable comparison.",
+                f"This is one local host and a small fixed workload matrix; it does not establish performance for other workloads.{slice_note} Memory is not claimed as a win: `tracemalloc` omits Rust/native buffers, and the recorded process RSS deltas are too coarse for a reliable comparison.",
                 "",
                 f"See the [raw benchmark report]({contract['evidence']['performance_baseline']['path']}) and [benchmark methodology](docs/PERFORMANCE.md).",
                 "",

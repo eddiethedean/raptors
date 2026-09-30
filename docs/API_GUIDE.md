@@ -1,6 +1,10 @@
 # API guide
 
-**Status:** 0.2.0 is the latest published package. The [0.2 contract](../compat/raptors-0.2.json) defines its supported boundary; the [0.1 manifest](../compat/raptors-0.1.json) describes the previous, narrower release. The generated NumPy inventory is a backlog map, not a conformance reference.
+**Status:** 0.3.0 is the latest published package. The [0.3 release record](RELEASE_0_3.md) and [0.3 contract](../compat/raptors-0.3.json) define its ufunc boundary. The following sections preserve the 0.1 and 0.2 foundation APIs; the generated NumPy inventory is a backlog map, not a conformance reference.
+
+## Published 0.3.0 package
+
+The release adds the reviewed 101-name set of top-level elementwise ufuncs, including applicable ufunc methods, numeric dtype loops, operators, output controls, and floating-error state. It is a limited NumPy-compatible slice. Consult the [0.3 contract](../compat/raptors-0.3.json) for exact signatures, loops, limits, and evidence.
 
 ## Previous published 0.1 package
 

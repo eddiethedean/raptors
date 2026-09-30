@@ -4,46 +4,46 @@ Raptors is building a Rust-backed Python package for NumPy's public functionalit
 
 ## Current status
 
-Version 0.2.0 is published as a numeric array and dtype foundation. It adds the numeric dtype families, casting and promotion, layout operations, indexing, and assignment described in the [0.2 contract](compat/raptors-0.2.json). It remains a limited subset of NumPy and does not implement arithmetic or general NumPy compatibility.
+Version 0.3.0 is published on [PyPI](https://pypi.org/project/raptors/0.3.0/) as a numeric ufunc release. It covers the reviewed 101-name elementwise ufunc contract, numeric dtype loops, ufunc methods, operators, and floating-error behavior. The exact boundary and known limits are in the [0.3 contract](compat/raptors-0.3.json); this is not full NumPy compatibility.
 
-The tagged `v0.2.0` workflow passed Rust, Miri, AddressSanitizer, and the eight-target wheel matrix, then published the wheels to PyPI. Each stable-ABI wheel was tested on CPython 3.12, 3.13, and 3.14. These gates do not establish general NumPy compatibility or a general memory-safety guarantee. See the [0.2 release record](docs/RELEASE_0_2.md) and the historical [0.1 release record](docs/RELEASE_0_1.md).
+The tagged [`v0.3.0` workflow](https://github.com/eddiethedean/raptors/actions/runs/36650358744) passed Rust, Miri, AddressSanitizer, and the eight-target stable-ABI wheel matrix before publishing the wheels. Each wheel was tested on CPython 3.12, 3.13, and 3.14. These gates do not establish general NumPy compatibility or a general memory-safety guarantee. See the [0.3 release record](docs/RELEASE_0_3.md).
 
-Version 0.3.0 is a release candidate adding the reviewed 101-name numeric ufunc contract, operators, and ufunc methods. Its hosted build, safety, and eight-target wheel gates passed; it has not yet been tagged or published. See the [0.3 release record](docs/RELEASE_0_3.md) for its exact support boundary and evidence.
+Version 0.2.0 remains the published array and dtype foundation, adding numeric dtype families, casting and promotion, layout operations, indexing, and assignment. See the [0.2 contract](compat/raptors-0.2.json) and [release record](docs/RELEASE_0_2.md), plus the historical [0.1 release record](docs/RELEASE_0_1.md).
 
 ## NumPy parity and performance
 
 <!-- BEGIN GENERATED RELEASE STATS -->
 
-**Latest published release: [`v0.2.0`](https://github.com/eddiethedean/raptors/tree/v0.2.0)** ([PyPI](https://pypi.org/project/raptors/0.2.0/)).
+**Latest published release: [`v0.3.0`](https://github.com/eddiethedean/raptors/tree/v0.3.0)** ([PyPI](https://pypi.org/project/raptors/0.3.0/)).
 
 ### Compatibility
 
-Raptors 0.2.0 is a narrow preview, not a drop-in NumPy replacement. Its verified surface includes support for the dtypes `bool`, `int8`, `int16`, `int32`, `int64`, `uint8`, `uint16`, `uint32`, `uint64`, `float16`, `float32`, `float64`, `complex64`, `complex128`, platform aliases including `intp`, `uintp`, `int_`, `uint`, `long`, `ulong`, `longlong`, and `ulonglong`, `longdouble` and `clongdouble` with the representation exposed by the target NumPy build; `array(data, dtype=None, copy=True, order='K')`, `zeros(shape, dtype=None, order='C')`, `empty(shape, dtype=None, order='C')`; metadata (`shape`, `ndim`, `size`, `strides`, `itemsize`, `nbytes`, `dtype`, `c_contiguous`, `f_contiguous`, `writeable`, `flags`, `name`, `kind`, `char`, `alignment`, `byteorder`, `isnative`, `str`, `type`, `newbyteorder`); indexing (integer, slice, tuple, ellipsis, new axis, boolean scalar, boolean mask, integer fancy arrays, mixed basic and advanced indices); and array methods (`reshape`, `transpose`, `T`, `astype`, `copy`) and assignment behavior (scalar casts, sequence casts, broadcasted assignment, boolean-mask assignment, fancy-index assignment, duplicate-index writes, overlap snapshot).
+Raptors 0.3.0 covers the 101 top-level elementwise ufunc names and aliases in the reviewed contract, with methods, operators, broadcasting, output controls, and floating-error state for supported bool, integer, floating, and complex numeric dtypes. This is a limited NumPy-compatible slice, not a drop-in replacement for all of NumPy.
 
-The preview differential/property suite reports **774 passed and 0 skipped per Python version** on CPython 3.12.13, CPython 3.13.11, CPython 3.14.3, compared with NumPy 2.5.3. Those tests cover only the declared preview contract. Unsupported areas include: Arithmetic operators, ufuncs, and reductions; datetime64 and timedelta64; object, bytes string, Unicode string, void, structured, subarray, and StringDType arrays; Decimal and arbitrary user-defined scalar conversion; Foreign memory, buffer protocol, DLPack, and NumPy interoperation; Full NumPy scalar identity and scalar protocol behavior; NumPy C ABI compatibility; Free-threaded CPython.
-
-There is **no meaningful whole-NumPy parity percentage**. The 13,481-entry API inventory is a preliminary name/member and planning inventory, not behavioral conformance evidence. See the [release contract](compat/raptors-0.2.json) and [inventory limits](compat/README.md).
+The local differential suite reports **8,683 passed and 0 required skips** on CPython 3.14.3 (Darwin arm64); 5 native extended `long double` cases are platform-conditional. The tag-gated release workflow tested all eight published wheels on CPython 3.12, 3.13, and 3.14. See the [release contract](compat/raptors-0.3.json) for exact behavior and known limits.
 
 ### Performance
 
-On one macOS 26.5.2 ARM64 host (CPython 3.14.3, NumPy 2.5.3), with 250,000 int64-compatible values and 5 repetitions, NumPy had the lower median latency on **all 8 measured operations**:
+On one macOS 26.5.2 ARM64 host (CPython 3.14.3, NumPy 2.5.3), across 10 correctness-checked workloads across configured input sizes from 16 to 250,000 and 3 repetitions, NumPy had the lower median latency on **all 10 measured workloads**:
 
-| Operation | NumPy 2.5.3 median | Raptors 0.2.0 median | Raptors vs NumPy |
+| Workload | NumPy 2.5.3 median | Raptors 0.3.0 median | Raptors vs NumPy |
 | --- | ---: | ---: | ---: |
-| Create from the same Python list | 3.56 ms | 66.8 ms | 18.7× slower (63.2 ms extra) |
-| Slice a view | 750 ns | 958 ns | 1.28× slower (208 ns extra) |
-| Cast | 78.5 µs | 21.3 ms | 271× slower (21.2 ms extra) |
-| Reshape | 1.04 µs | 1.12 µs | 1.08× slower (84 ns extra) |
-| Transpose | 1.42 µs | 1.58 µs | 1.12× slower (166 ns extra) |
-| Fancy index | 84.9 µs | 12.5 ms | 147× slower (12.4 ms extra) |
-| Overlapping assignment | 32.2 µs | 2.19 ms | 67.9× slower (2.16 ms extra) |
-| Independent copy | 89.8 µs | 7.85 ms | 87.4× slower (7.76 ms extra) |
+| Tiny add | 1.79 µs | 8.29 µs | 4.63× slower (6.50 µs extra) |
+| Medium add | 3.92 µs | 705 µs | 180× slower (701 µs extra) |
+| Large add | 128 µs | 43.7 ms | 340× slower (43.6 ms extra) |
+| Broadcast add | 28.8 µs | 2.60 ms | 90.2× slower (2.57 ms extra) |
+| Fortran add | 4.21 µs | 802 µs | 190× slower (797 µs extra) |
+| Strided add | 144 µs | 38.1 ms | 264× slower (37.9 ms extra) |
+| Mixed dtype add | 8.58 µs | 656 µs | 76.4× slower (647 µs extra) |
+| List conversion add | 102 µs | 3.21 ms | 31.4× slower (3.11 ms extra) |
+| Reused out add | 47.2 µs | 46.6 ms | 987× slower (46.5 ms extra) |
+| Large reduce | 26.0 µs | 24.6 ms | 947× slower (24.6 ms extra) |
 
-This is one local host and one input size; it does not establish performance for other workloads. The slice delta is 208 ns in absolute terms. Memory is not claimed as a win: `tracemalloc` omits Rust/native buffers, and the recorded process RSS deltas are too coarse for a reliable comparison.
+This is one local host and a small fixed workload matrix; it does not establish performance for other workloads. Memory is not claimed as a win: `tracemalloc` omits Rust/native buffers, and the recorded process RSS deltas are too coarse for a reliable comparison.
 
-See the [raw benchmark report](docs/benchmarks/raptors-0.2.0-baseline.json) and [benchmark methodology](docs/PERFORMANCE.md).
+See the [raw benchmark report](docs/benchmarks/raptors-0.3-baseline.json) and [benchmark methodology](docs/PERFORMANCE.md).
 
-Evidence is pinned by [the 0.2.0 compatibility contract](compat/raptors-0.2.json); this section is generated by [`scripts/update_readme_release_stats.py`](scripts/update_readme_release_stats.py).
+Evidence is pinned by [the 0.3.0 compatibility contract](compat/raptors-0.3.json); this section is generated by [`scripts/update_readme_release_stats.py`](scripts/update_readme_release_stats.py).
 
 <!-- END GENERATED RELEASE STATS -->
 
@@ -79,7 +79,7 @@ See [Python build](raptors-python/BUILD.md), [Python testing](raptors-python/TES
 
 `.github/workflows/release.yml` validates the tag and package versions, runs Rust safety checks, builds and tests eight target wheels, then publishes those wheels to PyPI through the configured trusted publisher. Each `cp312-abi3` wheel is tested on CPython 3.12, 3.13, and 3.14. It triggers on exact `vX.Y.Z` tags. A manual run performs the validation/build path without publishing.
 
-The published 0.2.0 wheel set was built and tested by the [tagged release workflow](https://github.com/eddiethedean/raptors/actions/runs/36511142066). Source distributions remain disabled until a clean source build is verified.
+The published 0.3.0 wheel set was built and tested by the [tagged release workflow](https://github.com/eddiethedean/raptors/actions/runs/36650358744); the earlier 0.2.0 wheel set passed its [tagged release workflow](https://github.com/eddiethedean/raptors/actions/runs/36511142066). Source distributions remain disabled until a clean source build is verified.
 
 ## Documentation
 
