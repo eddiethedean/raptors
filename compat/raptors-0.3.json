@@ -2767,8 +2767,8 @@
     "release_gate": "passed",
     "native_longdouble_bridge": {
       "status": "passed_hosted_wheel_matrix",
-      "source_commit": "daf0318f7eb475d70ebdd64598e76f9fa2e67f17",
-      "run_url": "https://github.com/eddiethedean/raptors/actions/runs/36647488291",
+      "source_commit": "3c86719e59313a8486171102a44c503586bb99c4",
+      "run_url": "https://github.com/eddiethedean/raptors/actions/runs/36649603155",
       "rust_tests": 2,
       "targets": [
         "Linux x86_64 (extended x87 long double)",
@@ -2814,14 +2814,16 @@
     },
     "hosted_validation": {
       "status": "passed",
-      "source_commit": "daf0318f7eb475d70ebdd64598e76f9fa2e67f17",
+      "source_commit": "3c86719e59313a8486171102a44c503586bb99c4",
       "ci": {
         "status": "passed",
-        "run_url": "https://github.com/eddiethedean/raptors/actions/runs/36646697583"
+        "run_url": "https://github.com/eddiethedean/raptors/actions/runs/36649597998"
       },
       "wheel_matrix": {
         "status": "passed",
-        "run_url": "https://github.com/eddiethedean/raptors/actions/runs/36647488291",
+        "event": "workflow_dispatch",
+        "publish_job": "skipped",
+        "run_url": "https://github.com/eddiethedean/raptors/actions/runs/36649603155",
         "artifacts": [
           "dist-linux-aarch64-manylinux_2_28",
           "dist-linux-aarch64-musllinux_1_2",
