@@ -329,6 +329,33 @@ def test_reduction_where_call_forms_and_explicit_none_match_numpy():
         raptors.min(source, where=None)
 
 
+def test_nan_statistics_treat_explicit_none_where_as_an_empty_mask():
+    values = np.array([1.0, 2.0], dtype=np.float64)
+    candidate = raptors.array(values.tolist(), dtype=raptors.float64)
+
+    for name, reference in (
+        ("nanmean", np.nanmean),
+        ("nanvar", np.nanvar),
+        ("nanstd", np.nanstd),
+    ):
+        expected, expected_warnings = capture_warnings(
+            lambda: reference(values, where=None)
+        )
+        actual, actual_warnings = capture_warnings(
+            lambda: getattr(raptors, name)(candidate, where=None)
+        )
+        assert actual_warnings == expected_warnings
+        assert np.isnan(float(expected))
+        assert np.isnan(float(actual))
+
+    for name, reference in (("nanmin", np.nanmin), ("nanmax", np.nanmax)):
+        with pytest.raises(ValueError) as expected_error:
+            reference(values, where=None)
+        with pytest.raises(ValueError) as actual_error:
+            getattr(raptors, name)(candidate, where=None)
+        assert str(actual_error.value) == str(expected_error.value)
+
+
 @pytest.mark.parametrize("shape", [(), (0,), (2, 0, 3), (2, 3)])
 @pytest.mark.parametrize("dtype", [raptors.bool_, raptors.int16, raptors.float32, raptors.complex128])
 def test_ones_matches_numpy_for_numeric_dtypes_and_empty_shapes(shape, dtype):
@@ -878,6 +905,52 @@ def test_mean_and_variance_support_dtype_mask_out_and_correction():
         assert np.isclose(float(actual_var[axis]), expected_var[axis])
 
 
+@pytest.mark.parametrize(
+    "name,reference",
+    [
+        ("var", np.var),
+        ("std", np.std),
+        ("nanvar", np.nanvar),
+        ("nanstd", np.nanstd),
+    ],
+)
+def test_variance_correction_none_is_distinct_from_omission(name, reference):
+    values = np.array([1.0, 2.0], dtype=np.float64)
+    candidate = raptors.array(values.tolist(), dtype=raptors.float64)
+
+    with pytest.raises(TypeError) as expected_error:
+        reference(values, correction=None)
+    with pytest.raises(TypeError) as actual_error:
+        getattr(raptors, name)(candidate, correction=None)
+    assert str(actual_error.value) == str(expected_error.value)
+
+    with pytest.raises(ValueError) as expected_error:
+        reference(values, ddof=1, correction=None)
+    with pytest.raises(ValueError) as actual_error:
+        getattr(raptors, name)(candidate, ddof=1, correction=None)
+    assert str(actual_error.value) == str(expected_error.value)
+
+
+@pytest.mark.parametrize("name", ["nanvar", "nanstd"])
+@pytest.mark.parametrize("dtype", [np.int16, np.float64, np.complex128])
+def test_nan_variance_mean_none_is_a_supplied_mean(name, dtype):
+    values = np.array([1, 2], dtype=dtype)
+    candidate = raptors.array(values.tolist(), dtype=np.dtype(dtype).name)
+    reference = getattr(np, name)
+    actual = getattr(raptors, name)
+
+    if np.dtype(dtype).kind in "fc":
+        with pytest.raises(TypeError) as expected_error:
+            reference(values, mean=None)
+        with pytest.raises(TypeError) as actual_error:
+            actual(candidate, mean=None)
+        assert str(actual_error.value) == str(expected_error.value)
+    else:
+        expected = reference(values, mean=None)
+        result = actual(candidate, mean=None)
+        assert np.isclose(float(result), float(expected))
+
+
 def test_variance_and_standard_deviation_accept_broadcastable_mean():
     values = np.array([[1.0, 2.0, 4.0], [3.0, 5.0, 8.0]], dtype=np.float64)
     candidate = raptors.array(values.tolist(), dtype=raptors.float64)
@@ -1100,6 +1173,33 @@ def test_arg_reductions_match_numpy(name, reference, axis, keepdims):
         assert int(actual) == int(expected)
     else:
         assert_array_matches(expected, actual)
+
+
+@pytest.mark.parametrize("keepdims", [None, False, True, 0, 1, "truthy"])
+@pytest.mark.parametrize(
+    "name,reference,arguments",
+    [
+        ("argmin", np.argmin, ()),
+        ("argmax", np.argmax, ()),
+        ("nanargmin", np.nanargmin, ()),
+        ("nanargmax", np.nanargmax, ()),
+        ("median", np.median, ()),
+        ("nanmedian", np.nanmedian, ()),
+        ("quantile", np.quantile, (0.4,)),
+        ("nanquantile", np.nanquantile, (0.4,)),
+        ("percentile", np.percentile, (40.0,)),
+        ("nanpercentile", np.nanpercentile, (40.0,)),
+    ],
+)
+def test_phase_04_arg_and_quantile_keepdims_uses_truth_value(
+    name, reference, arguments, keepdims
+):
+    values = np.array([[7.0, 2.0, 4.0], [8.0, 5.0, 1.0]], dtype=np.float64)
+    candidate = raptors.array(values.tolist(), dtype=raptors.float64)
+
+    expected = reference(values, *arguments, axis=1, keepdims=keepdims)
+    actual = getattr(raptors, name)(candidate, *arguments, axis=1, keepdims=keepdims)
+    assert_array_matches(expected, actual)
 
 
 def test_nonzero_argwhere_flatnonzero_and_count_nonzero_match_numpy():
