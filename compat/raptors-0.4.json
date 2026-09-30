@@ -125,13 +125,12 @@
   "full_python_regression": {
     "command": "uv run --project raptors-python --extra dev --no-sync python -m pytest raptors-python/tests/preview -q",
     "status": "passed_locally",
-    "candidate_commit": "6eb73b7ec0c42e9dea9a6f6b61f52061599961f9",
-    "passed": 9772,
+    "candidate_commit": "c769a0c2fd8faa66a7f5119b31e510229cfad876",
+    "passed": 9843,
     "skipped": 8,
     "warnings": 1,
     "extension_builds": [
-      "default release build on candidate 6eb73b7ec0c42e9dea9a6f6b61f52061599961f9",
-      "alloc-profile release build on candidate 6eb73b7ec0c42e9dea9a6f6b61f52061599961f9"
+      "default release build on candidate c769a0c2fd8faa66a7f5119b31e510229cfad876"
     ]
   },
   "native_fast_paths_22dc664": {
@@ -167,7 +166,7 @@
     },
     "cargo_tests": {
       "status": "passed_locally",
-      "candidate_commit": "6eb73b7ec0c42e9dea9a6f6b61f52061599961f9",
+      "candidate_commit": "c769a0c2fd8faa66a7f5119b31e510229cfad876",
       "command": "cargo test --locked --offline -p raptors-python -p raptors-storage",
       "passed": 25,
       "failed": 0
@@ -187,7 +186,7 @@
     },
     "clippy": {
       "status": "passed_locally",
-      "candidate_commit": "6eb73b7ec0c42e9dea9a6f6b61f52061599961f9",
+      "candidate_commit": "c769a0c2fd8faa66a7f5119b31e510229cfad876",
       "command": "cargo clippy --locked --offline -p raptors-storage -p raptors-python --all-targets -- -D warnings"
     },
     "signature_audit": {
@@ -286,6 +285,17 @@
         "test_copyto_where_none_and_ndarray_reduction_masks_match_numpy"
       ],
       "behavior": "copyto accepts positional or keyword where with NumPy-compatible inspection; ndarray all/any expose keyword-only where and reject a positional mask."
+    },
+    "statistics_explicit_default_semantics": {
+      "status": "passed_locally",
+      "candidate_commit": "c769a0c2fd8faa66a7f5119b31e510229cfad876",
+      "cases": [
+        "test_phase_04_arg_and_quantile_keepdims_uses_truth_value",
+        "test_nan_statistics_treat_explicit_none_where_as_an_empty_mask",
+        "test_variance_correction_none_is_distinct_from_omission",
+        "test_nan_variance_mean_none_is_a_supplied_mean"
+      ],
+      "behavior": "Arg reductions and the median/quantile families apply Python truth testing to keepdims values; NaN reductions treat explicit where=None as an all-false mask; variance distinguishes omitted correction from correction=None; NaN variance/std distinguish omitted mean from explicit mean=None."
     },
     "extension_alias_lifetime_focused": {
       "status": "passed_locally_full_audit_pending",
