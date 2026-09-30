@@ -1,5 +1,20 @@
 {
-  "candidate_commit": "28060bfc1405f683d01d4ebc52b69f4188734f47",
+  "candidate_commit": "6eb73b7ec0c42e9dea9a6f6b61f52061599961f9",
+  "coverage": {
+    "all_routines_in_each_family_profiled": false,
+    "note": "representative routines cover every Phase 0.4 family in C-contiguous and strided forms where applicable; ordering/search/sets/bins includes both sort and histogram, while creation has no input layout",
+    "routine_case_count": 15,
+    "routine_families": [
+      "creation",
+      "shape_and_rearrangement",
+      "joining_and_splitting",
+      "reductions_and_statistics",
+      "selection_and_mutation",
+      "ordering_search_sets_and_bins",
+      "numeric_convenience"
+    ],
+    "workflow_case_count": 3
+  },
   "manifest": "docs/benchmarks/raptors-0.4-workloads.json",
   "measurement": {
     "allocator_scope": "all Rust allocations in this process during the measured interval; not attributed to individual crates or routines",
@@ -11,40 +26,298 @@
       "profiling atomics are enabled only in this separate run and are not included in latency measurements"
     ],
     "machine": "arm64",
-    "method": "feature-gated Rust GlobalAlloc counters around one correctness-checked eager workflow call after imports, inputs, and warmups; workflows are profiled serially",
+    "method": "feature-gated Rust GlobalAlloc counters around one correctness-checked eager public call per representative routine case and frozen workflow after imports, inputs, and warmups; cases are profiled serially",
     "numpy": "2.5.3",
     "platform": "macOS-26.5.2-arm64-arm-64bit-Mach-O",
-    "profiled_calls_per_workflow": 1,
+    "profiled_calls_per_case": 1,
     "python": "3.14.3",
     "raptors": "0.3.0",
     "warmup_calls": 5
   },
-  "purpose": "diagnostic process-wide Rust allocation and peak-live-byte profile; not a latency run",
-  "results": [
+  "purpose": "diagnostic process-wide Rust allocation and peak-live-byte profile across representative Phase 0.4 routines and frozen workflows; not a latency run",
+  "routine_results": [
+    {
+      "family": "creation",
+      "input_layout": "allocation_only",
+      "native_rust_allocator": {
+        "allocation_calls": 23,
+        "deallocation_calls": 19,
+        "live_bytes_at_stop_above_prepared_inputs": 4176,
+        "peak_live_bytes_above_prepared_inputs": 53608,
+        "reallocation_calls": 0,
+        "requested_bytes": 54105,
+        "zeroed_allocation_calls": 2
+      },
+      "process_peak_rss_delta_bytes": 0,
+      "result_retained_until_after_measurement": true,
+      "result_type": "Array",
+      "routine": "linspace"
+    },
+    {
+      "family": "shape_and_rearrangement",
+      "input_layout": "contiguous_input",
+      "native_rust_allocator": {
+        "allocation_calls": 6,
+        "deallocation_calls": 4,
+        "live_bytes_at_stop_above_prepared_inputs": 32,
+        "peak_live_bytes_above_prepared_inputs": 80,
+        "reallocation_calls": 0,
+        "requested_bytes": 96,
+        "zeroed_allocation_calls": 0
+      },
+      "process_peak_rss_delta_bytes": 0,
+      "result_retained_until_after_measurement": true,
+      "result_type": "Array",
+      "routine": "transpose"
+    },
+    {
+      "family": "shape_and_rearrangement",
+      "input_layout": "strided_input",
+      "native_rust_allocator": {
+        "allocation_calls": 6,
+        "deallocation_calls": 4,
+        "live_bytes_at_stop_above_prepared_inputs": 32,
+        "peak_live_bytes_above_prepared_inputs": 80,
+        "reallocation_calls": 0,
+        "requested_bytes": 96,
+        "zeroed_allocation_calls": 0
+      },
+      "process_peak_rss_delta_bytes": 0,
+      "result_retained_until_after_measurement": true,
+      "result_type": "Array",
+      "routine": "transpose"
+    },
+    {
+      "family": "joining_and_splitting",
+      "input_layout": "contiguous_input",
+      "native_rust_allocator": {
+        "allocation_calls": 13,
+        "deallocation_calls": 9,
+        "live_bytes_at_stop_above_prepared_inputs": 16480,
+        "peak_live_bytes_above_prepared_inputs": 16928,
+        "reallocation_calls": 0,
+        "requested_bytes": 16960,
+        "zeroed_allocation_calls": 1
+      },
+      "process_peak_rss_delta_bytes": 0,
+      "result_retained_until_after_measurement": true,
+      "result_type": "Array",
+      "routine": "concatenate"
+    },
+    {
+      "family": "joining_and_splitting",
+      "input_layout": "strided_input",
+      "native_rust_allocator": {
+        "allocation_calls": 13,
+        "deallocation_calls": 9,
+        "live_bytes_at_stop_above_prepared_inputs": 16480,
+        "peak_live_bytes_above_prepared_inputs": 16928,
+        "reallocation_calls": 0,
+        "requested_bytes": 16960,
+        "zeroed_allocation_calls": 1
+      },
+      "process_peak_rss_delta_bytes": 0,
+      "result_retained_until_after_measurement": true,
+      "result_type": "Array",
+      "routine": "concatenate"
+    },
+    {
+      "family": "reductions_and_statistics",
+      "input_layout": "contiguous_input",
+      "native_rust_allocator": {
+        "allocation_calls": 19,
+        "deallocation_calls": 15,
+        "live_bytes_at_stop_above_prepared_inputs": 232,
+        "peak_live_bytes_above_prepared_inputs": 1927,
+        "reallocation_calls": 0,
+        "requested_bytes": 1943,
+        "zeroed_allocation_calls": 4
+      },
+      "process_peak_rss_delta_bytes": 0,
+      "result_retained_until_after_measurement": true,
+      "result_type": "Array",
+      "routine": "sum"
+    },
+    {
+      "family": "reductions_and_statistics",
+      "input_layout": "strided_input",
+      "native_rust_allocator": {
+        "allocation_calls": 19,
+        "deallocation_calls": 15,
+        "live_bytes_at_stop_above_prepared_inputs": 616,
+        "peak_live_bytes_above_prepared_inputs": 6919,
+        "reallocation_calls": 0,
+        "requested_bytes": 6935,
+        "zeroed_allocation_calls": 4
+      },
+      "process_peak_rss_delta_bytes": 0,
+      "result_retained_until_after_measurement": true,
+      "result_type": "Array",
+      "routine": "sum"
+    },
+    {
+      "family": "selection_and_mutation",
+      "input_layout": "contiguous_input",
+      "native_rust_allocator": {
+        "allocation_calls": 51,
+        "deallocation_calls": 47,
+        "live_bytes_at_stop_above_prepared_inputs": 4208,
+        "peak_live_bytes_above_prepared_inputs": 53632,
+        "reallocation_calls": 9,
+        "requested_bytes": 57696,
+        "zeroed_allocation_calls": 3
+      },
+      "process_peak_rss_delta_bytes": 0,
+      "result_retained_until_after_measurement": true,
+      "result_type": "Array",
+      "routine": "take"
+    },
+    {
+      "family": "selection_and_mutation",
+      "input_layout": "strided_input",
+      "native_rust_allocator": {
+        "allocation_calls": 51,
+        "deallocation_calls": 47,
+        "live_bytes_at_stop_above_prepared_inputs": 2160,
+        "peak_live_bytes_above_prepared_inputs": 27008,
+        "reallocation_calls": 9,
+        "requested_bytes": 31072,
+        "zeroed_allocation_calls": 3
+      },
+      "process_peak_rss_delta_bytes": 0,
+      "result_retained_until_after_measurement": true,
+      "result_type": "Array",
+      "routine": "take"
+    },
+    {
+      "family": "ordering_search_sets_and_bins",
+      "input_layout": "contiguous_input",
+      "native_rust_allocator": {
+        "allocation_calls": 8,
+        "deallocation_calls": 4,
+        "live_bytes_at_stop_above_prepared_inputs": 16480,
+        "peak_live_bytes_above_prepared_inputs": 16768,
+        "reallocation_calls": 0,
+        "requested_bytes": 16784,
+        "zeroed_allocation_calls": 1
+      },
+      "process_peak_rss_delta_bytes": 0,
+      "result_retained_until_after_measurement": true,
+      "result_type": "Array",
+      "routine": "sort"
+    },
+    {
+      "family": "ordering_search_sets_and_bins",
+      "input_layout": "strided_input",
+      "native_rust_allocator": {
+        "allocation_calls": 8,
+        "deallocation_calls": 4,
+        "live_bytes_at_stop_above_prepared_inputs": 16480,
+        "peak_live_bytes_above_prepared_inputs": 16768,
+        "reallocation_calls": 0,
+        "requested_bytes": 16784,
+        "zeroed_allocation_calls": 1
+      },
+      "process_peak_rss_delta_bytes": 0,
+      "result_retained_until_after_measurement": true,
+      "result_type": "Array",
+      "routine": "sort"
+    },
+    {
+      "family": "ordering_search_sets_and_bins",
+      "input_layout": "contiguous_input",
+      "native_rust_allocator": {
+        "allocation_calls": 18,
+        "deallocation_calls": 10,
+        "live_bytes_at_stop_above_prepared_inputs": 680,
+        "peak_live_bytes_above_prepared_inputs": 34624,
+        "reallocation_calls": 12,
+        "requested_bytes": 43280,
+        "zeroed_allocation_calls": 3
+      },
+      "process_peak_rss_delta_bytes": 0,
+      "result_retained_until_after_measurement": true,
+      "result_type": "tuple",
+      "routine": "histogram"
+    },
+    {
+      "family": "ordering_search_sets_and_bins",
+      "input_layout": "strided_input",
+      "native_rust_allocator": {
+        "allocation_calls": 18,
+        "deallocation_calls": 10,
+        "live_bytes_at_stop_above_prepared_inputs": 680,
+        "peak_live_bytes_above_prepared_inputs": 34624,
+        "reallocation_calls": 12,
+        "requested_bytes": 43280,
+        "zeroed_allocation_calls": 3
+      },
+      "process_peak_rss_delta_bytes": 0,
+      "result_retained_until_after_measurement": true,
+      "result_type": "tuple",
+      "routine": "histogram"
+    },
+    {
+      "family": "numeric_convenience",
+      "input_layout": "contiguous_input",
+      "native_rust_allocator": {
+        "allocation_calls": 20,
+        "deallocation_calls": 16,
+        "live_bytes_at_stop_above_prepared_inputs": 2144,
+        "peak_live_bytes_above_prepared_inputs": 100720,
+        "reallocation_calls": 0,
+        "requested_bytes": 100754,
+        "zeroed_allocation_calls": 6
+      },
+      "process_peak_rss_delta_bytes": 0,
+      "result_retained_until_after_measurement": true,
+      "result_type": "Array",
+      "routine": "isclose"
+    },
+    {
+      "family": "numeric_convenience",
+      "input_layout": "strided_input",
+      "native_rust_allocator": {
+        "allocation_calls": 20,
+        "deallocation_calls": 16,
+        "live_bytes_at_stop_above_prepared_inputs": 2144,
+        "peak_live_bytes_above_prepared_inputs": 100720,
+        "reallocation_calls": 0,
+        "requested_bytes": 100754,
+        "zeroed_allocation_calls": 6
+      },
+      "process_peak_rss_delta_bytes": 0,
+      "result_retained_until_after_measurement": true,
+      "result_type": "Array",
+      "routine": "isclose"
+    }
+  ],
+  "schema_version": 2,
+  "workflow_results": [
     {
       "native_rust_allocator": {
-        "allocation_calls": 85,
-        "deallocation_calls": 81,
+        "allocation_calls": 57,
+        "deallocation_calls": 53,
         "live_bytes_at_stop_above_prepared_inputs": 8288,
-        "peak_live_bytes_above_prepared_inputs": 25560,
+        "peak_live_bytes_above_prepared_inputs": 16753,
         "reallocation_calls": 0,
-        "requested_bytes": 51668,
+        "requested_bytes": 17526,
         "zeroed_allocation_calls": 10
       },
-      "process_peak_rss_delta_bytes": 16384,
+      "process_peak_rss_delta_bytes": 0,
       "result_retained_until_after_measurement": true,
       "result_type": "Array",
       "workflow": "column_normalization"
     },
     {
       "native_rust_allocator": {
-        "allocation_calls": 27,
-        "deallocation_calls": 15,
+        "allocation_calls": 26,
+        "deallocation_calls": 14,
         "live_bytes_at_stop_above_prepared_inputs": 1016,
         "peak_live_bytes_above_prepared_inputs": 34960,
         "reallocation_calls": 12,
-        "requested_bytes": 76664,
-        "zeroed_allocation_calls": 5
+        "requested_bytes": 43896,
+        "zeroed_allocation_calls": 4
       },
       "process_peak_rss_delta_bytes": 0,
       "result_retained_until_after_measurement": true,
@@ -66,6 +339,5 @@
       "result_type": "Array",
       "workflow": "assemble_transpose_and_order"
     }
-  ],
-  "schema_version": 1
+  ]
 }

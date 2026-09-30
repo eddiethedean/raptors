@@ -73,13 +73,13 @@
   ],
   "known_limits": [
     "Inputs are numeric Raptors arrays and supported Python numeric values; third-party dispatch, like=, foreign buffers, and specialized dtype families are outside 0.4.",
-    "The original v1 ARM64 and Linux x86-64 workflow ratios are retained as historical reports, but v1 timed calls with tracemalloc enabled and are superseded for latency qualification. Corrected v2 measurements on ARM64 at candidate 22dc6648e25681fbb1d9e0daa677bf6dd41ad9ab record 0.631x for normalization, 0.588x for grouped counting, and 1.104x for assembly/reordering. Linux x86-64 records 0.638x, 1.149x, and 1.435x, respectively. Only normalization meets the 0.80 median target on both architectures; assembly misses it on both.",
-    "The implementation is still based on scalar/native storage walkers in several routines; temporary-memory and allocation profiles must be measured beyond the three frozen workflows before release."
+    "The original v1 ARM64 and Linux x86-64 workflow ratios are retained as historical reports, but v1 timed calls with tracemalloc enabled and are superseded for latency qualification. Candidate 6eb73b7 has corrected v2 reports on ARM64 and Linux x86-64: two of three workflows meet the median and confidence requirements on each host. Normalization meets the target on both, grouped counting only on ARM64, and assembly/reordering only on Linux; the 3-workflow gate remains open on both hosts.",
+    "Native allocation profiling now covers 15 representative routine/layout cases spanning all seven Phase 0.4 families plus the three frozen workflows. It is not a per-entry profile of all 153 inventory entries; the process-wide allocator counters exclude Python allocations and require the separate opt-in profiling build."
   ],
   "evidence": {
     "release_gate": "pending",
     "performance_gate": "pending",
-    "performance_measurement_result": "v1_historical_only; v2_two_workflows_meet_median_and_confidence_targets; assembly_misses_median_target",
+    "performance_measurement_result": "v1_historical_only; candidate_6eb73b7_meets_two_of_three_workflows_on_each_architecture; performance_gate_pending",
     "performance_measurement_v2": {
       "status": "completed_on_arm64_and_linux_cross_architecture_gate_failed",
       "manifest": "docs/benchmarks/raptors-0.4-workloads-v2.json",
@@ -89,22 +89,22 @@
       "unchanged_workload_contract": "Inputs, formulas, shapes, dtypes, layouts, eager operations, correctness checks, thread settings, five warmups, 21 timed samples, and release thresholds are unchanged.",
       "pre_optimization_candidate_commit": "1ca882425b91a00f396695e44330fe1bee20d0bd",
       "baseline_report": "docs/benchmarks/raptors-0.4-baseline-v2.json",
-      "current_report": "docs/benchmarks/raptors-0.4-current-v2.json",
-      "candidate_commit": "22dc6648e25681fbb1d9e0daa677bf6dd41ad9ab",
+      "current_report": "docs/benchmarks/raptors-0.4-current-v2-6eb73b7.json",
+      "candidate_commit": "6eb73b7ec0c42e9dea9a6f6b61f52061599961f9",
       "host": "macOS 26.5.2 ARM64, CPython 3.14.3, release build",
       "warmup_calls": 5,
       "timed_samples": 21,
       "median_ratios": {
-        "column_normalization": 0.6306078148,
-        "grouped_count_and_histogram": 0.5878163616,
-        "assemble_transpose_and_order": 1.1044558072
+        "column_normalization": 0.4334801001,
+        "grouped_count_and_histogram": 0.6299053338,
+        "assemble_transpose_and_order": 1.1794461538
       },
       "median_ratio_ci95": {
-        "column_normalization": [0.6166637184, 0.6354578042],
-        "grouped_count_and_histogram": [0.5560161943, 0.6362187325],
-        "assemble_transpose_and_order": [1.0631302945, 1.1711351351]
+        "column_normalization": [0.3915343915, 0.4583043478],
+        "grouped_count_and_histogram": [0.5904199449, 0.7106943005],
+        "assemble_transpose_and_order": [1.1522904483, 1.2563692308]
       },
-      "release_gate": "arm64_two_workflows_meet_threshold; linux_x86_64_only_normalization_meets_threshold; assembly_misses_on_both_hosts; cross_architecture_confirmation_run_36712436806"
+      "release_gate": "candidate_6eb73b7_meets_normalization_and_grouped_counting_on_arm64; exact_commit_linux_run_36719261105_meets_normalization_and_assembly; only_two_of_three_workflows_qualify_per_host"
     },
     "cross_phase_generated_sequences": {
       "status": "passed_locally",
@@ -125,13 +125,13 @@
   "full_python_regression": {
     "command": "uv run --project raptors-python --extra dev --no-sync python -m pytest raptors-python/tests/preview -q",
     "status": "passed_locally",
-    "candidate_commit": "22dc6648e25681fbb1d9e0daa677bf6dd41ad9ab",
-    "passed": 9752,
+    "candidate_commit": "6eb73b7ec0c42e9dea9a6f6b61f52061599961f9",
+    "passed": 9772,
     "skipped": 8,
     "warnings": 1,
     "extension_builds": [
-      "default release build on candidate 22dc6648e25681fbb1d9e0daa677bf6dd41ad9ab",
-      "alloc-profile release build on candidate 28060bfc1405f683d01d4ebc52b69f4188734f47"
+      "default release build on candidate 6eb73b7ec0c42e9dea9a6f6b61f52061599961f9",
+      "alloc-profile release build on candidate 6eb73b7ec0c42e9dea9a6f6b61f52061599961f9"
     ]
   },
   "native_fast_paths_22dc664": {
@@ -167,9 +167,9 @@
     },
     "cargo_tests": {
       "status": "passed_locally",
-      "candidate_commit": "22dc6648e25681fbb1d9e0daa677bf6dd41ad9ab",
+      "candidate_commit": "6eb73b7ec0c42e9dea9a6f6b61f52061599961f9",
       "command": "cargo test --locked --offline -p raptors-python -p raptors-storage",
-      "passed": 24,
+      "passed": 25,
       "failed": 0
     },
     "storage_miri": {
@@ -187,7 +187,7 @@
     },
     "clippy": {
       "status": "passed_locally",
-      "candidate_commit": "22dc6648e25681fbb1d9e0daa677bf6dd41ad9ab",
+      "candidate_commit": "6eb73b7ec0c42e9dea9a6f6b61f52061599961f9",
       "command": "cargo clippy --locked --offline -p raptors-storage -p raptors-python --all-targets -- -D warnings"
     },
     "signature_audit": {
@@ -224,23 +224,26 @@
       "behavior": "All 127 contracted top-level signatures have matching parameter order and kinds; only the exact 28 documented defaults differ, and every permitted difference is checked against its frozen sentinel/default category. All 26 ndarray method signatures match NumPy exactly."
     },
     "native_allocation_profile": {
-      "status": "passed_locally_for_preregistered_workflows; full_routine_family_coverage_open",
-      "candidate_commit": "28060bfc1405f683d01d4ebc52b69f4188734f47",
+      "status": "passed_locally_for_15_representative_routine_cases_and_3_workflows; all_153_entry_coverage_open",
+      "candidate_commit": "6eb73b7ec0c42e9dea9a6f6b61f52061599961f9",
       "command": "uv run --project raptors-python --no-sync python scripts/profile_0_4_native_allocations.py",
       "report": "docs/benchmarks/raptors-0.4-native-allocations.json",
       "host": "macOS 26.5.2 ARM64, CPython 3.14.3, release extension with alloc-profile feature",
+      "routine_cases": 15,
+      "routine_families": 7,
       "workflows": 3,
-      "profiled_calls_per_workflow": 1,
+      "profiled_calls_per_case": 1,
       "feature_build_checks": [
         "cargo check --locked --offline --features alloc-profile -p raptors-python",
         "cargo clippy --locked --offline --features alloc-profile -p raptors-python --all-targets -- -D warnings"
       ],
-      "peak_rust_live_bytes_above_prepared_inputs": {
-        "column_normalization": 25560,
-        "grouped_count_and_histogram": 34960,
-        "assemble_transpose_and_order": 33184
+      "allocation_reductions": {
+        "take_contiguous_allocation_calls": "2097 to 51",
+        "take_strided_allocation_calls": "1073 to 51",
+        "sum_contiguous_allocation_calls": "12368 to 19",
+        "isclose_contiguous_allocation_calls": "6155 to 20"
       },
-      "scope": "Process-wide Rust GlobalAlloc counters; Python allocator traffic is excluded, and counts are not attributed to individual routines. This profiles the three frozen application workflows only; common-operation and per-routine-family coverage remains open."
+      "scope": "Process-wide Rust GlobalAlloc counters; Python allocator traffic is excluded, and counts are not attributed to individual routines. Fifteen representative routine/layout cases cover each of the seven families plus three frozen workflows; all-routine coverage and complete temporary-memory qualification remain open."
     },
     "signature_default_hosted_ci": {
       "status": "passed",
@@ -334,7 +337,25 @@
       "tested_cpython_versions": ["3.12", "3.13", "3.14"],
       "publish_job": "skipped_for_workflow_dispatch_build_only_run"
     },
-    "sanitizer_miri_and_alias_lifetime_gates": "candidate_0a5bfd5 hosted CI and build-only release workflows passed Miri and AddressSanitizer; all eight stable-ABI wheel and clean-install targets passed with PyPI publication skipped; broader extension alias-lifetime audit remains pending",
+    "cross_python_and_wheel_matrix_6eb73b7": {
+      "status": "in_progress_build_only_release_workflow",
+      "run_id": 36720026194,
+      "run_url": "https://github.com/eddiethedean/raptors/actions/runs/36720026194",
+      "candidate_commit": "6eb73b7ec0c42e9dea9a6f6b61f52061599961f9",
+      "workflow": "Release to PyPI dispatched without a tag; publication remains disabled",
+      "stable_abi_wheel_targets": [
+        "linux-x86_64-manylinux2014",
+        "linux-x86_64-musllinux_1_2",
+        "linux-aarch64-manylinux_2_28",
+        "linux-aarch64-musllinux_1_2",
+        "macos-x86_64",
+        "macos-arm64",
+        "windows-x86_64",
+        "windows-arm64"
+      ],
+      "tested_cpython_versions": ["3.12", "3.13", "3.14"]
+    },
+    "sanitizer_miri_and_alias_lifetime_gates": "candidate_6eb73b7 hosted CI passed Miri and AddressSanitizer; an earlier build-only release workflow passed all eight stable-ABI wheel and clean-install targets with publication skipped; broader extension alias-lifetime audit remains pending",
     "common_operation_guardrail": {
       "status": "partial_10_legacy_ufunc_workloads_passed_full_0_4_coverage_open",
       "candidate_commit": "50842d56b59893b663dc87e57e44f43484343ede",
@@ -391,31 +412,47 @@
       "status": "completed_performance_gate_failed",
       "workflow": ".github/workflows/benchmark-0.4.yml",
       "target": "GitHub Actions Linux x86-64, CPython 3.14.3, release extension",
-      "run_id": 36712436806,
-      "run_url": "https://github.com/eddiethedean/raptors/actions/runs/36712436806",
-      "candidate_commit": "22dc6648e25681fbb1d9e0daa677bf6dd41ad9ab",
-      "report": "docs/benchmarks/raptors-0.4-linux-x86_64-22dc664.json",
+      "run_id": 36719261105,
+      "run_url": "https://github.com/eddiethedean/raptors/actions/runs/36719261105",
+      "candidate_commit": "6eb73b7ec0c42e9dea9a6f6b61f52061599961f9",
+      "report": "docs/benchmarks/raptors-0.4-linux-x86_64-6eb73b7.json",
       "manifest": "docs/benchmarks/raptors-0.4-workloads-v2.json",
       "host": "Linux 6.17 x86_64 with glibc 2.39, CPython 3.14.3",
       "warmup_calls": 5,
       "timed_samples": 21,
       "median_ratios": {
-        "column_normalization": 0.6379498992,
-        "grouped_count_and_histogram": 1.1489075572,
-        "assemble_transpose_and_order": 1.4349478608
+        "column_normalization": 0.4803937620,
+        "grouped_count_and_histogram": 0.8529864951,
+        "assemble_transpose_and_order": 0.7992490735
       },
       "median_ratio_ci95": {
-        "column_normalization": [0.6195869046, 0.6721623885],
-        "grouped_count_and_histogram": [1.0419071918, 1.168818185],
-        "assemble_transpose_and_order": [1.3998250219, 1.4644835293]
+        "column_normalization": [0.4696878631, 0.5085312333],
+        "grouped_count_and_histogram": [0.8140457280, 0.8803309796],
+        "assemble_transpose_and_order": [0.7903147465, 0.8070509070]
       },
-      "release_gate": "normalization_meets_threshold; grouped_count_and_assembly_miss_on_linux; assembly_also_misses_on_arm64"
+      "release_gate": "normalization_and_assembly_meet_linux_median_threshold_and_confidence_bound; grouped_count_misses_0_80_median_threshold; only_two_of_three_workflows_qualify_on_linux"
     },
     "hosted_ci_22dc664": {
       "status": "passed",
       "run_id": 36712406318,
       "run_url": "https://github.com/eddiethedean/raptors/actions/runs/36712406318",
       "candidate_commit": "22dc6648e25681fbb1d9e0daa677bf6dd41ad9ab",
+      "passed_jobs": [
+        "Safe storage and binding Rust checks",
+        "Miri storage and view tests",
+        "AddressSanitizer storage tests",
+        "Verify pinned NumPy API inventory",
+        "Verify README release stats",
+        "CPython 3.12 preview tests",
+        "CPython 3.13 preview tests",
+        "CPython 3.14 preview tests"
+      ]
+    },
+    "hosted_ci_6eb73b7": {
+      "status": "passed",
+      "run_id": 36719254649,
+      "run_url": "https://github.com/eddiethedean/raptors/actions/runs/36719254649",
+      "candidate_commit": "6eb73b7ec0c42e9dea9a6f6b61f52061599961f9",
       "passed_jobs": [
         "Safe storage and binding Rust checks",
         "Miri storage and view tests",

@@ -28,7 +28,7 @@ Release 0.2's [execution plan](RELEASE_0_2.md) defines its numeric foundation bo
 
 Release 0.3's [release record](RELEASE_0_3.md) and [compatibility contract](../compat/raptors-0.3.json) define the reviewed ufunc family, numeric loops, method and floating-error behavior, adversarial cases, known limits, and release evidence. The inventory entries for this version are reconciled with that contract.
 
-Release 0.4's [execution plan](RELEASE_0_4.md) and [compatibility contract](../compat/raptors-0.4.json) define the reviewed routine families, explicit later-release exclusions, dependency order, adversarial cases, resource evidence, and performance gate. The former broad 834-entry assignment is narrowed to 153 numeric entries; completion and release qualification still require the differential, safety, wheel, and performance evidence.
+Release 0.4's [execution plan](RELEASE_0_4.md) and [compatibility contract](../compat/raptors-0.4.json) define the reviewed routine families, explicit later-release exclusions, dependency order, adversarial cases, resource evidence, and performance gate. The former broad 834-entry assignment is narrowed to 153 numeric entries, and the current candidate exposes all 127 contracted top-level names and 26 `ndarray` methods. Recent allocation work removes per-element coordinate churn from reductions, closeness checks, and take operations; the opt-in profile covers representative cases from each family without claiming all-routine memory coverage. The 0.5–0.8 exclusions remain assigned by dependency in the ownership table below; semantic closure, the complete common-operation guardrail, exact-candidate wheel validation, and the three-workflow performance gate remain release requirements.
 
 ## Ownership of the 0.4 exclusions
 
