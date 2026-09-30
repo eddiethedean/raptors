@@ -83,16 +83,21 @@
     "focused_differential": {
       "command": "uv run --project raptors-python --extra dev --no-sync python -m pytest raptors-python/tests/preview/test_ufunc_differential.py raptors-python/tests/preview/test_routines.py -q",
       "status": "passed_locally",
-      "passed": 8960,
+      "passed": 8962,
       "skipped": 7,
       "warnings": 1
     },
     "full_python_regression": {
       "command": "uv run --project raptors-python --extra dev --no-sync python -m pytest raptors-python/tests/preview -q",
       "status": "passed_locally",
-      "passed": 9734,
+      "passed": 9736,
       "skipped": 8,
       "warnings": 1
+    },
+    "copyto_where_none": {
+      "status": "passed_locally",
+      "case": "test_copyto_where_none_and_ndarray_reduction_masks_match_numpy",
+      "behavior": "An explicit where=None is a false mask; an omitted where remains an unmasked copy."
     },
     "cargo_check": {
       "status": "passed_locally",
@@ -149,9 +154,9 @@
     },
     "hosted_ci": {
       "status": "passed",
-      "run_id": 36678291345,
-      "run_url": "https://github.com/eddiethedean/raptors/actions/runs/36678291345",
-      "commit": "e6945c7654e3b975dd4306079c5b33c784385c51",
+      "run_id": 36685965395,
+      "run_url": "https://github.com/eddiethedean/raptors/actions/runs/36685965395",
+      "commit": "5a76512149d431f174f17069c897c31adc1e57e4",
       "passed_jobs": [
         "Safe storage and binding Rust checks",
         "AddressSanitizer storage tests",
@@ -164,9 +169,9 @@
     },
     "cross_python_and_wheel_matrix": {
       "status": "passed_on_build_only_release_workflow",
-      "run_id": 36678316744,
-      "run_url": "https://github.com/eddiethedean/raptors/actions/runs/36678316744",
-      "commit": "e6945c7654e3b975dd4306079c5b33c784385c51",
+      "run_id": 36685986415,
+      "run_url": "https://github.com/eddiethedean/raptors/actions/runs/36685986415",
+      "commit": "5a76512149d431f174f17069c897c31adc1e57e4",
       "stable_abi_wheel_targets": [
         "linux-x86_64-manylinux2014",
         "linux-x86_64-musllinux_1_2",
@@ -188,14 +193,14 @@
       "warmup_calls": 5,
       "timed_samples": 21,
       "median_ratios": {
-        "column_normalization": 0.8298274121,
-        "grouped_count_and_histogram": 0.3473833832,
-        "assemble_transpose_and_order": 1.6513986309
+        "column_normalization": 0.8183373567,
+        "grouped_count_and_histogram": 0.3784029038,
+        "assemble_transpose_and_order": 1.952784081
       },
       "median_ratio_ci95": {
-        "column_normalization": [0.7598903589, 0.8961731935],
-        "grouped_count_and_histogram": [0.3269739253, 0.3705471984],
-        "assemble_transpose_and_order": [1.4495412844, 1.8519320742]
+        "column_normalization": [0.7527021466, 0.9365558912],
+        "grouped_count_and_histogram": [0.3611651865, 0.387425488],
+        "assemble_transpose_and_order": [1.8673548387, 2.1066796082]
       },
       "release_gate": "failed_one_of_three_workflows_meet_median_threshold; confirmation_host_and_common_operation_guardrail_pending"
     }
