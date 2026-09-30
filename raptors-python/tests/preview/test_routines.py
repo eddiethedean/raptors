@@ -131,6 +131,54 @@ def test_phase_04_top_level_ddof_signature_and_default_match_numpy(name, values)
         assert float(actual) == float(expected)
 
 
+def test_phase_04_top_level_signature_shapes_and_documented_defaults_match_contract():
+    contract_path = Path(__file__).resolve().parents[3] / "compat" / "raptors-0.4.json"
+    contract = json.loads(contract_path.read_text())
+    routine_names = sorted(
+        {name for names in contract["scope"]["families"].values() for name in names}
+    )
+    signature_audit = contract["evidence"]["signature_audit"]
+    expected_mismatches = set(signature_audit["top_level_mismatch_names"])
+    observed_mismatches = set()
+    concrete_defaults = {
+        "keepdims": False,
+        "initial": None,
+        "where": Ellipsis,
+        "mean": None,
+        "correction": None,
+        "descending": None,
+    }
+
+    assert len(routine_names) == signature_audit["top_level_count"] == 127
+    for name in routine_names:
+        reference = inspect.signature(getattr(np, name))
+        candidate = inspect.signature(getattr(raptors, name))
+        assert list(candidate.parameters) == list(reference.parameters), name
+        for parameter_name, reference_parameter in reference.parameters.items():
+            candidate_parameter = candidate.parameters[parameter_name]
+            assert candidate_parameter.kind == reference_parameter.kind, (
+                name,
+                parameter_name,
+            )
+            if candidate_parameter.default == reference_parameter.default:
+                continue
+
+            observed_mismatches.add(name)
+            if repr(reference_parameter.default) == "<no value>":
+                assert parameter_name in concrete_defaults, (name, parameter_name)
+                assert candidate_parameter.default is concrete_defaults[parameter_name], (
+                    name,
+                    parameter_name,
+                    candidate_parameter.default,
+                )
+            else:
+                assert (name, parameter_name) == ("eye", "dtype")
+                assert candidate_parameter.default is None
+
+    assert observed_mismatches == expected_mismatches
+    assert len(observed_mismatches) == signature_audit["top_level_mismatches"]
+
+
 def test_phase_04_ndarray_positional_only_signatures_match_numpy():
     expected = {
         "put": "(self, indices, values, /, mode='raise')",
