@@ -175,6 +175,7 @@ def run_worker(backend, workload, count, repeats):
     import raptors
 
     execute, expected = prepare(backend, workload, count)
+    expected_array = np.asarray(expected)
     assert_matches_samples(execute(), expected, np)
     gc.collect()
     before_rss = peak_rss_bytes()
@@ -203,7 +204,9 @@ def run_worker(backend, workload, count, repeats):
     return {
         "backend": backend,
         "workload": workload,
-        "count": count,
+        "configured_max_count": count,
+        "output_shape": list(expected_array.shape),
+        "output_elements": int(expected_array.size),
         "repeats": repeats,
         "median_latency_ns": int(statistics.median(timings)),
         "python_tracemalloc_peak_delta_bytes": max(0, peak_traced - before_current),

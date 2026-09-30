@@ -1,9 +1,10 @@
-# Build and release Raptors 0.2
+# Build and release Raptors 0.3
 
-The 0.2 package is the numeric array and dtype foundation backed by the
-separate safe `raptors-storage` crate. Its exact tested boundary is recorded in
-the machine-readable [0.2 contract](../compat/raptors-0.2.json). The published
-0.1 package remains available under its [own contract](../compat/raptors-0.1.json).
+The 0.3.0 release candidate adds numeric ufuncs to the published array and dtype
+foundation. Its exact tested boundary is recorded in the machine-readable
+[0.3 contract](../compat/raptors-0.3.json). The published 0.2 and 0.1 packages
+remain available under their [0.2](../compat/raptors-0.2.json) and
+[0.1](../compat/raptors-0.1.json) contracts.
 
 The published `0.1.0` release contains twelve version-specific wheels for its
 original four platform targets. The published `0.2.0` release contains eight
@@ -44,20 +45,19 @@ uv run --project raptors-python --extra dev --no-sync python scripts/check_clean
 The contract check verifies the `cp312-abi3` tag, platform family and architecture,
 `Requires-Python`, absence of runtime dependencies, native extension, and
 packaged MIT license. The clean install check creates an isolated environment
-with no NumPy and exercises construction, views, and mutation. The 0.2
-release workflow publishes wheels only; the source distribution remains
-disabled until the sibling storage crate can be built from a clean source
-archive.
+with no NumPy and exercises construction, views, and mutation. The release
+workflow publishes wheels only. Source distributions remain excluded until a
+clean source archive can build the workspace and sibling storage crate.
 
 ## Release
 
-Run the `Release to PyPI` workflow manually on the candidate branch to execute
-the full build-only gate before tagging. It builds and tests all eight target
+Run the `Release to PyPI` workflow manually on the release candidate commit to
+execute the full build-only gate before tagging. It builds and tests all eight target
 wheels on CPython 3.12, 3.13, and 3.14. Manual runs cannot publish. A valid
 `vX.Y.Z` tag runs the same checks and then uploads the eight already-tested
 wheels through PyPI Trusted Publishing. The publisher must name repository
 `eddiethedean/raptors`, workflow `release.yml`, and environment `pypi`.
 
 The compatibility subset and support policy are versioned in
-`compat/raptors-0.2.json`; release readiness also requires the safety and
-cross-platform evidence listed in [RELEASE_0_2.md](../docs/RELEASE_0_2.md).
+`compat/raptors-0.3.json`; release readiness also requires the safety and
+cross-platform evidence listed in [RELEASE_0_3.md](../docs/RELEASE_0_3.md).

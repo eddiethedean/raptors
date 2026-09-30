@@ -2,7 +2,7 @@
   "schema_version": 1,
   "release": "0.3",
   "package_version": "0.3.0",
-  "status": "implementation_in_progress",
+  "status": "release_candidate",
   "reference": {
     "distribution": "numpy",
     "version": "2.5.3",
@@ -2705,24 +2705,32 @@
     },
     "differential_cases": {
       "status": "passed",
-      "passed": 8682,
+      "passed": 8683,
       "skipped": 0,
-      "platform_conditional_skips": 3,
+      "platform_conditional_skips": 5,
       "platform_conditional_skip_reason": "Cases requiring native extended long double are skipped on Darwin arm64, where long double aliases binary64.",
       "binary_dtype_pairs": 7335,
-      "command": "python -m pytest -p xdist.plugin -n auto raptors-python/tests/preview/test_ufunc_differential.py -q -rs"
+      "source_commit": "daf0318f7eb475d70ebdd64598e76f9fa2e67f17",
+      "command": "PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python -m pytest -p xdist.plugin -n auto raptors-python/tests/preview/test_ufunc_differential.py -q -rs"
     },
     "python_preview_suite": {
       "status": "passed_locally",
-      "passed": 9456,
-      "skipped": 4,
-      "command": "python -m pytest -p xdist.plugin -n auto raptors-python/tests/preview -q"
+      "passed": 9457,
+      "skipped": 6,
+      "platform_conditional_skips": 6,
+      "platform_conditional_skip_reasons": [
+        "Windows-only C int versus C long typecode behavior.",
+        "Cases requiring native extended long double on Darwin arm64, where long double aliases binary64."
+      ],
+      "source_commit": "daf0318f7eb475d70ebdd64598e76f9fa2e67f17",
+      "command": "PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python -m pytest -p xdist.plugin -n auto raptors-python/tests/preview -q"
     },
     "python_xdist": {
       "status": "passed_locally",
       "workers": 12,
-      "pytest_seconds": 4.78,
-      "command": "python -m pytest -p xdist.plugin -n auto raptors-python/tests/preview -q"
+      "pytest_seconds": 5.97,
+      "source_commit": "daf0318f7eb475d70ebdd64598e76f9fa2e67f17",
+      "command": "PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python -m pytest -p xdist.plugin -n auto raptors-python/tests/preview -q"
     },
     "rust_workspace_tests": {
       "status": "passed_locally",
@@ -2756,9 +2764,11 @@
       "raptors-python/tests/preview/test_harness.py",
       "raptors-longdouble/src/lib.rs"
     ],
-    "release_gate": "pending",
+    "release_gate": "passed",
     "native_longdouble_bridge": {
       "status": "passed_hosted_wheel_matrix",
+      "source_commit": "daf0318f7eb475d70ebdd64598e76f9fa2e67f17",
+      "run_url": "https://github.com/eddiethedean/raptors/actions/runs/36647488291",
       "rust_tests": 2,
       "targets": [
         "Linux x86_64 (extended x87 long double)",
@@ -2804,14 +2814,14 @@
     },
     "hosted_validation": {
       "status": "passed",
-      "source_commit": "c815be7f8ef87d30e7e428328d1640bc127de4bb",
+      "source_commit": "daf0318f7eb475d70ebdd64598e76f9fa2e67f17",
       "ci": {
         "status": "passed",
-        "run_url": "https://github.com/eddiethedean/raptors/actions/runs/36643016198"
+        "run_url": "https://github.com/eddiethedean/raptors/actions/runs/36646697583"
       },
       "wheel_matrix": {
         "status": "passed",
-        "run_url": "https://github.com/eddiethedean/raptors/actions/runs/36643188463",
+        "run_url": "https://github.com/eddiethedean/raptors/actions/runs/36647488291",
         "artifacts": [
           "dist-linux-aarch64-manylinux_2_28",
           "dist-linux-aarch64-musllinux_1_2",

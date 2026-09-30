@@ -8,6 +8,8 @@ Version 0.2.0 is published as a numeric array and dtype foundation. It adds the 
 
 The tagged `v0.2.0` workflow passed Rust, Miri, AddressSanitizer, and the eight-target wheel matrix, then published the wheels to PyPI. Each stable-ABI wheel was tested on CPython 3.12, 3.13, and 3.14. These gates do not establish general NumPy compatibility or a general memory-safety guarantee. See the [0.2 release record](docs/RELEASE_0_2.md) and the historical [0.1 release record](docs/RELEASE_0_1.md).
 
+Version 0.3.0 is a release candidate adding the reviewed 101-name numeric ufunc contract, operators, and ufunc methods. Its hosted build, safety, and eight-target wheel gates passed; it has not yet been tagged or published. See the [0.3 release record](docs/RELEASE_0_3.md) for its exact support boundary and evidence.
+
 ## NumPy parity and performance
 
 <!-- BEGIN GENERATED RELEASE STATS -->
@@ -54,7 +56,7 @@ Stats are pinned to the newest release marked `published` in its compatibility c
 | [raptors-storage](raptors-storage/) | New checked, initialized storage and signed-stride views for the preview; no unsafe Rust |
 | [raptors-python](raptors-python/) | PyO3 preview, package metadata, and differential/property tests |
 | [raptors-core](raptors-core/) | Legacy engine retained for audit and future reference; not used by the preview |
-| [compat](compat/) | NumPy 2.5.3 API inventory and executable 0.2 numeric contract |
+| [compat](compat/) | NumPy 2.5.3 API inventory and executable 0.2/0.3 numeric contracts |
 | [numpy-reference](numpy-reference/) | Pinned NumPy 2.5.3 source checkout used for reference and provenance |
 | [docs](docs/README.md) | Rebuild plan, release roadmap, implementation evidence, and development guides |
 
@@ -81,4 +83,4 @@ The published 0.2.0 wheel set was built and tested by the [tagged release workfl
 
 ## Documentation
 
-Start with the [documentation index](docs/README.md), [rebuild plan](docs/REBUILD_PLAN.md), [0.2 release record](docs/RELEASE_0_2.md), and [release roadmap](docs/CONVERSION_ROADMAP.md). The project is MIT licensed; see [LICENSE](LICENSE).
+Start with the [documentation index](docs/README.md), [rebuild plan](docs/REBUILD_PLAN.md), [0.3 release record](docs/RELEASE_0_3.md), [0.2 release record](docs/RELEASE_0_2.md), and [release roadmap](docs/CONVERSION_ROADMAP.md). The project is MIT licensed; see [LICENSE](LICENSE).

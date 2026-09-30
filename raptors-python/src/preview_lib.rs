@@ -1,4 +1,4 @@
-//! Python entry point for the checked Raptors 0.2 numeric foundation.
+//! Python entry point for the checked Raptors 0.3 numeric ufunc preview.
 mod preview;
 use pyo3::prelude::*;
 

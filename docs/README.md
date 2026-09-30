@@ -1,6 +1,6 @@
 # Raptors documentation
 
-The [rebuild plan](REBUILD_PLAN.md) is the authoritative statement of direction. Raptors aims to provide NumPy's public functionality through a different Python import. Version 0.2.0 is published as a numeric foundation; its exact supported surface is in the [release record](RELEASE_0_2.md) and [compatibility contract](../compat/raptors-0.2.json). The legacy engine is retained separately for audit.
+The [rebuild plan](REBUILD_PLAN.md) is the authoritative statement of direction. Raptors aims to provide NumPy's public functionality through a different Python import. Version 0.2.0 is the latest published numeric foundation; version 0.3.0 is a release candidate awaiting its tag and publication. Their exact supported surfaces are in the [0.2 release record](RELEASE_0_2.md), [0.2 contract](../compat/raptors-0.2.json), [0.3 release record](RELEASE_0_3.md), and [0.3 contract](../compat/raptors-0.3.json). The legacy engine is retained separately for audit.
 
 ## Plan and engineering
 
@@ -10,7 +10,7 @@ The [rebuild plan](REBUILD_PLAN.md) is the authoritative statement of direction.
 | [0.x release roadmap](CONVERSION_ROADMAP.md) | Versioned deliverables, exit gates, and current release status |
 | [Release 0.1 execution plan](RELEASE_0_1.md) | Published preview API, validation evidence, and release gate |
 | [Release 0.2 execution plan](RELEASE_0_2.md) | Numeric dtype and array foundation scope, work order, risks, and release gate |
-| [Release 0.3 execution plan](RELEASE_0_3.md) | Numeric ufunc implementation status, pinned loop contract, differential cases, and release gate |
+| [Release 0.3 candidate record](RELEASE_0_3.md) | Numeric ufunc support boundary, pinned loop contract, differential cases, and release evidence |
 | [NumPy dtype architecture](DTYPE_ARCHITECTURE.md) | Full built-in dtype family inventory, shared descriptor/storage design, and release dependencies |
 | [Architecture](ARCHITECTURE.md) | Implemented 0.2 storage path, retained legacy code, and proposed later layers |
 | [API guide](API_GUIDE.md) | Existing entry points and target compatibility behavior |
