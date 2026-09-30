@@ -73,15 +73,15 @@
   ],
   "known_limits": [
     "Inputs are numeric Raptors arrays and supported Python numeric values; third-party dispatch, like=, foreign buffers, and specialized dtype families are outside 0.4.",
-    "The original v1 ARM64 and Linux x86-64 workflow ratios are retained as historical reports, but v1 timed calls with tracemalloc enabled and are superseded for latency qualification. Corrected v2 measurements on ARM64 record 1.131x for normalization, 1.020x for grouped counting, and 1.100x for assembly/reordering. All three miss the 0.80 median target; v2 cross-architecture confirmation remains pending.",
-    "The implementation is still based on scalar/native storage walkers in several routines; temporary-memory and allocation profiles must be measured before release."
+    "The original v1 ARM64 and Linux x86-64 workflow ratios are retained as historical reports, but v1 timed calls with tracemalloc enabled and are superseded for latency qualification. Corrected v2 measurements on ARM64 at candidate 22dc6648e25681fbb1d9e0daa677bf6dd41ad9ab record 0.631x for normalization, 0.588x for grouped counting, and 1.104x for assembly/reordering. Linux x86-64 records 0.638x, 1.149x, and 1.435x, respectively. Only normalization meets the 0.80 median target on both architectures; assembly misses it on both.",
+    "The implementation is still based on scalar/native storage walkers in several routines; temporary-memory and allocation profiles must be measured beyond the three frozen workflows before release."
   ],
   "evidence": {
     "release_gate": "pending",
     "performance_gate": "pending",
-    "performance_measurement_result": "v1_historical_only; v2_all_three_workflows_miss_median_target",
+    "performance_measurement_result": "v1_historical_only; v2_two_workflows_meet_median_and_confidence_targets; assembly_misses_median_target",
     "performance_measurement_v2": {
-      "status": "completed_on_arm64_release_gate_failed_cross_architecture_pending",
+      "status": "completed_on_arm64_and_linux_cross_architecture_gate_failed",
       "manifest": "docs/benchmarks/raptors-0.4-workloads-v2.json",
       "benchmark_script": "scripts/bench_0_4.py",
       "prior_manifest": "docs/benchmarks/raptors-0.4-workloads.json",
@@ -90,20 +90,21 @@
       "pre_optimization_candidate_commit": "1ca882425b91a00f396695e44330fe1bee20d0bd",
       "baseline_report": "docs/benchmarks/raptors-0.4-baseline-v2.json",
       "current_report": "docs/benchmarks/raptors-0.4-current-v2.json",
+      "candidate_commit": "22dc6648e25681fbb1d9e0daa677bf6dd41ad9ab",
       "host": "macOS 26.5.2 ARM64, CPython 3.14.3, release build",
       "warmup_calls": 5,
       "timed_samples": 21,
       "median_ratios": {
-        "column_normalization": 1.1308998529,
-        "grouped_count_and_histogram": 1.0201672846,
-        "assemble_transpose_and_order": 1.1000436395
+        "column_normalization": 0.6306078148,
+        "grouped_count_and_histogram": 0.5878163616,
+        "assemble_transpose_and_order": 1.1044558072
       },
       "median_ratio_ci95": {
-        "column_normalization": [1.106557377, 1.1404206553],
-        "grouped_count_and_histogram": [0.9962939866, 1.0949627006],
-        "assemble_transpose_and_order": [1.0573059844, 1.2258349923]
+        "column_normalization": [0.6166637184, 0.6354578042],
+        "grouped_count_and_histogram": [0.5560161943, 0.6362187325],
+        "assemble_transpose_and_order": [1.0631302945, 1.1711351351]
       },
-      "release_gate": "all_three_workflows_miss_median_ratio_0.80; linux_x86_64_v2_confirmation_pending"
+      "release_gate": "arm64_two_workflows_meet_threshold; linux_x86_64_only_normalization_meets_threshold; assembly_misses_on_both_hosts; cross_architecture_confirmation_run_36712436806"
     },
     "cross_phase_generated_sequences": {
       "status": "passed_locally",
@@ -124,14 +125,27 @@
   "full_python_regression": {
     "command": "uv run --project raptors-python --extra dev --no-sync python -m pytest raptors-python/tests/preview -q",
     "status": "passed_locally",
-    "candidate_commit": "57eb5f6b39915548179a4b30fdeb931a7fdad508",
-    "passed": 9750,
+    "candidate_commit": "22dc6648e25681fbb1d9e0daa677bf6dd41ad9ab",
+    "passed": 9752,
     "skipped": 8,
     "warnings": 1,
     "extension_builds": [
-      "default release build on candidate 57eb5f6b39915548179a4b30fdeb931a7fdad508",
+      "default release build on candidate 22dc6648e25681fbb1d9e0daa677bf6dd41ad9ab",
       "alloc-profile release build on candidate 28060bfc1405f683d01d4ebc52b69f4188734f47"
     ]
+  },
+  "native_fast_paths_22dc664": {
+    "status": "passed_locally",
+    "candidate_commit": "22dc6648e25681fbb1d9e0daa677bf6dd41ad9ab",
+    "cases": [
+      "test_float32_axis0_statistics_handle_contiguous_offset_views",
+      "test_float32_broadcast_binary_handles_contiguous_offset_views",
+      "int64_scalar_remainder_reads_and_writes_checked_native_bytes",
+      "int64_scalar_remainder_handles_offset_singletons_and_empty_views",
+      "int64_bincount_fast_path_falls_back_for_out_of_range_values",
+      "int32_sort_reads_and_writes_c_and_fortran_views_correctly"
+    ],
+    "behavior": "Float32 axis-0 statistics and final-axis broadcast subtraction/division traverse checked native bytes without full input snapshots; the early ufunc dispatch applies only to default calls and leaves explicit options or exceptional floating values on the generic path. Positive bounded int64 remainder and bincount kernels write checked output buffers and return to general validation for unsupported values. Contiguous int32 row sorting reads/writes byte slices directly and reuses sorted output only when repeated row blocks compare byte-for-byte equal."
   },
   "atleast_identity_and_view_contract": {
     "status": "passed_locally",
@@ -153,14 +167,16 @@
     },
     "cargo_tests": {
       "status": "passed_locally",
+      "candidate_commit": "22dc6648e25681fbb1d9e0daa677bf6dd41ad9ab",
       "command": "cargo test --locked --offline -p raptors-python -p raptors-storage",
-      "passed": 19,
+      "passed": 24,
       "failed": 0
     },
     "storage_miri": {
       "status": "passed_locally",
+      "candidate_commit": "22dc6648e25681fbb1d9e0daa677bf6dd41ad9ab",
       "command": "cargo +nightly miri test --locked --offline -p raptors-storage -- --test-threads=1",
-      "passed": 18,
+      "passed": 23,
       "failed": 0
     },
     "cargo_workspace_tests": {
@@ -171,7 +187,8 @@
     },
     "clippy": {
       "status": "passed_locally",
-      "command": "cargo clippy --locked --offline -p raptors-longdouble -p raptors-storage -p raptors-python --all-targets -- -D warnings"
+      "candidate_commit": "22dc6648e25681fbb1d9e0daa677bf6dd41ad9ab",
+      "command": "cargo clippy --locked --offline -p raptors-storage -p raptors-python --all-targets -- -D warnings"
     },
     "signature_audit": {
       "status": "open",
@@ -329,7 +346,7 @@
       "coverage_limit": "This checks inherited ufunc/reduction cells only; Phase 0.4 creation, shape, joining, selection, ordering, and histogram operations are not yet covered by the common-operation matrix."
     },
     "cross_architecture_performance": {
-      "status": "completed_performance_gate_failed",
+      "status": "historical_v1_performance_gate_failed_superseded_by_v2",
       "workflow": ".github/workflows/benchmark-0.4.yml",
       "target": "GitHub Actions Linux x86-64, CPython 3.14.3, release extension",
       "run_id": 36699843338,
@@ -352,7 +369,7 @@
       "release_gate": "assembly_workflow_misses_target_on_arm64_and_linux_x86_64"
     },
     "preregistered_workflows": {
-      "status": "captured_current_candidate_release_gate_pending",
+      "status": "historical_v1_measurement_not_used_for_qualification",
       "report": "docs/benchmarks/raptors-0.4-current.json",
       "candidate_commit": "0a5bfd565dcc90011ad14b1e11285dad570f281c",
       "host": "macOS 26.5.2 ARM64, CPython 3.14.3, release build",
@@ -368,7 +385,47 @@
         "grouped_count_and_histogram": [0.373035038, 0.4071803853],
         "assemble_transpose_and_order": [0.8538027782, 0.9876296296]
       },
-      "release_gate": "two_of_three_workflows_meet_median_threshold; assembly_median_misses_0.80_at_0.906_on_arm64_and_1.072_on_linux_x86_64"
+      "release_gate": "superseded_by_corrected_v2_measurements; retained_for_history_only"
+    },
+    "cross_architecture_performance_v2": {
+      "status": "completed_performance_gate_failed",
+      "workflow": ".github/workflows/benchmark-0.4.yml",
+      "target": "GitHub Actions Linux x86-64, CPython 3.14.3, release extension",
+      "run_id": 36712436806,
+      "run_url": "https://github.com/eddiethedean/raptors/actions/runs/36712436806",
+      "candidate_commit": "22dc6648e25681fbb1d9e0daa677bf6dd41ad9ab",
+      "report": "docs/benchmarks/raptors-0.4-linux-x86_64-22dc664.json",
+      "manifest": "docs/benchmarks/raptors-0.4-workloads-v2.json",
+      "host": "Linux 6.17 x86_64 with glibc 2.39, CPython 3.14.3",
+      "warmup_calls": 5,
+      "timed_samples": 21,
+      "median_ratios": {
+        "column_normalization": 0.6379498992,
+        "grouped_count_and_histogram": 1.1489075572,
+        "assemble_transpose_and_order": 1.4349478608
+      },
+      "median_ratio_ci95": {
+        "column_normalization": [0.6195869046, 0.6721623885],
+        "grouped_count_and_histogram": [1.0419071918, 1.168818185],
+        "assemble_transpose_and_order": [1.3998250219, 1.4644835293]
+      },
+      "release_gate": "normalization_meets_threshold; grouped_count_and_assembly_miss_on_linux; assembly_also_misses_on_arm64"
+    },
+    "hosted_ci_22dc664": {
+      "status": "passed",
+      "run_id": 36712406318,
+      "run_url": "https://github.com/eddiethedean/raptors/actions/runs/36712406318",
+      "candidate_commit": "22dc6648e25681fbb1d9e0daa677bf6dd41ad9ab",
+      "passed_jobs": [
+        "Safe storage and binding Rust checks",
+        "Miri storage and view tests",
+        "AddressSanitizer storage tests",
+        "Verify pinned NumPy API inventory",
+        "Verify README release stats",
+        "CPython 3.12 preview tests",
+        "CPython 3.13 preview tests",
+        "CPython 3.14 preview tests"
+      ]
     }
   }
 }
