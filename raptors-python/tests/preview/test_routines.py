@@ -500,6 +500,10 @@ def test_cpu_device_keyword_is_explicit_and_unsupported_dispatch_is_rejected():
     assert_array_matches(np.full((2,), 7), raptors.full((2,), 7, device="cpu"))
     assert_array_matches(np.eye(3), raptors.eye(3, device="cpu"))
     assert_array_matches(np.arange(5), raptors.arange(5, device="cpu"))
+    assert_array_matches(
+        np.arange(5, device=None, like=None),
+        raptors.arange(5, device=None, like=None),
+    )
     assert_array_matches(np.linspace(0, 1, 4), raptors.linspace(0, 1, 4, device="cpu"))
     assert_array_matches(
         np.ones((2, 3), dtype=np.int16),
@@ -508,8 +512,12 @@ def test_cpu_device_keyword_is_explicit_and_unsupported_dispatch_is_rejected():
 
     with pytest.raises(ValueError, match="cpu.*device"):
         raptors.ones((2,), device="gpu")
+    with pytest.raises(ValueError, match="only the 'cpu' device is supported"):
+        raptors.arange(5, device="gpu")
     with pytest.raises(TypeError, match="like-based dispatch"):
         raptors.ones((2,), like=raptors.array([1, 2], dtype=raptors.int64))
+    with pytest.raises(TypeError, match="like-based dispatch"):
+        raptors.arange(5, like=raptors.array([1, 2], dtype=raptors.int64))
 
 
 def test_full_infers_numeric_scalar_dtype_and_broadcasts_values():
