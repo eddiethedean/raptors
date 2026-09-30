@@ -144,12 +144,10 @@
         "nanmin", "nanpercentile", "nanquantile", "nanstd", "nanvar", "prod", "ptp", "sort",
         "std", "sum", "var"
       ],
-      "array_method_mismatches": 2,
+      "array_method_mismatches": 0,
       "array_method_count": 26,
-      "array_method_mismatch_names": [
-        "std", "var"
-      ],
-      "note": "The audit improved from 62/127 routines and 20/26 methods, then from 38/127 routines and 8/26 methods. Explicit copyto where positioning, ndarray all/any keyword-only masks, and multiple concrete default signatures are now covered. Remaining differences are mostly NumPy's hidden <no value> sentinel versus concrete defaults, eye's dtype=float default, top-level sort's descending sentinel, and ndarray std/var's catch-all kwargs/ddof representation; these still require review before release closure."
+      "array_method_mismatch_names": [],
+      "note": "The audit improved from 62/127 routines and 20/26 methods, then from 38/127 routines and 8/26 methods. Explicit copyto where positioning, ndarray all/any keyword-only masks, ndarray std/var defaults, and multiple concrete routine defaults are now covered. The remaining 28 top-level differences are mostly NumPy's hidden <no value> sentinel versus concrete defaults, eye's dtype=float default, top-level sort's axis/descending representation, and floating ddof defaults; these still require review before release closure."
     },
     "explicit_where_and_default_signatures": {
       "status": "passed_locally",
@@ -171,9 +169,9 @@
     },
     "hosted_ci": {
       "status": "passed",
-      "run_id": 36685965395,
-      "run_url": "https://github.com/eddiethedean/raptors/actions/runs/36685965395",
-      "commit": "5a76512149d431f174f17069c897c31adc1e57e4",
+      "run_id": 36690272924,
+      "run_url": "https://github.com/eddiethedean/raptors/actions/runs/36690272924",
+      "commit": "78ebe90dea24fe50bff23608babf8e4ae470a471",
       "passed_jobs": [
         "Safe storage and binding Rust checks",
         "AddressSanitizer storage tests",
@@ -186,9 +184,9 @@
     },
     "cross_python_and_wheel_matrix": {
       "status": "passed_on_build_only_release_workflow",
-      "run_id": 36685986415,
-      "run_url": "https://github.com/eddiethedean/raptors/actions/runs/36685986415",
-      "commit": "5a76512149d431f174f17069c897c31adc1e57e4",
+      "run_id": 36690287841,
+      "run_url": "https://github.com/eddiethedean/raptors/actions/runs/36690287841",
+      "commit": "78ebe90dea24fe50bff23608babf8e4ae470a471",
       "stable_abi_wheel_targets": [
         "linux-x86_64-manylinux2014",
         "linux-x86_64-musllinux_1_2",
@@ -200,25 +198,25 @@
         "windows-arm64"
       ],
       "tested_cpython_versions": ["3.12", "3.13", "3.14"],
-      "publish_job": "skipped_build_only_run"
+      "publish_job": "skipped_workflow_dispatch_build_only_run"
     },
-    "sanitizer_miri_and_alias_lifetime_gates": "hosted_miri_and_address_sanitizer_passed_all_18_storage_tests; all_8_wheel_targets_passed_clean_install_and_preview_tests; dedicated_extension_alias_lifetime_audit_pending",
+    "sanitizer_miri_and_alias_lifetime_gates": "current_candidate_hosted_miri_and_address_sanitizer_passed_all_18_storage_tests; all_8_wheel_targets_passed_clean_install_and_preview_tests; dedicated_extension_alias_lifetime_audit_pending",
     "preregistered_workflows": {
       "status": "captured_current_candidate_release_gate_pending",
       "report": "docs/benchmarks/raptors-0.4-current.json",
-      "candidate_commit": "14d97b4628e372ac5f8819111218e28d30ea3dfd",
+      "candidate_commit": "78ebe90dea24fe50bff23608babf8e4ae470a471",
       "host": "macOS 26.5.2 ARM64, CPython 3.14.3, release build",
       "warmup_calls": 5,
       "timed_samples": 21,
       "median_ratios": {
-        "column_normalization": 0.8692153392,
-        "grouped_count_and_histogram": 0.3644575063,
-        "assemble_transpose_and_order": 1.3441338416
+        "column_normalization": 0.8221890095,
+        "grouped_count_and_histogram": 0.3641328301,
+        "assemble_transpose_and_order": 1.5629818008
       },
       "median_ratio_ci95": {
-        "column_normalization": [0.8013295129, 0.9213451327],
-        "grouped_count_and_histogram": [0.3448701346, 0.375162723],
-        "assemble_transpose_and_order": [1.1787490674, 1.5175553669]
+        "column_normalization": [0.8167115903, 0.8274471545],
+        "grouped_count_and_histogram": [0.3425271695, 0.3761435309],
+        "assemble_transpose_and_order": [1.527673546, 1.595360411]
       },
       "release_gate": "failed_one_of_three_workflows_meet_median_threshold; confirmation_host_and_common_operation_guardrail_pending"
     }
