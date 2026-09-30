@@ -208,8 +208,10 @@ fn take(
     let count = checked_count(&output_shape, source.inner.dtype())?;
     let index_shape = indices.inner.shape();
     let mut values = reserve(count)?;
+    let mut output_coordinates = vec![0; output_shape.len()];
+    let mut source_coordinates = Vec::with_capacity(source.inner.ndim());
     for linear in 0..count {
-        let output_coordinates = coordinates_for_shape(&output_shape, linear);
+        coordinates_for_shape_into(&output_shape, linear, &mut output_coordinates);
         let prefix = &output_coordinates[..axis];
         let index_coordinates = &output_coordinates[axis..axis + index_shape.len()];
         let suffix = &output_coordinates[axis + index_shape.len()..];
@@ -220,7 +222,8 @@ fn take(
                 .map_err(map_storage_error)?,
         )?;
         let selected = normalize_index(raw_index, source.inner.shape()[axis], mode)?;
-        let mut source_coordinates = prefix.to_vec();
+        source_coordinates.clear();
+        source_coordinates.extend_from_slice(prefix);
         source_coordinates.push(selected);
         source_coordinates.extend_from_slice(suffix);
         values.push(
@@ -260,8 +263,9 @@ fn take_along_axis(
     let shape = indices.inner.shape().to_vec();
     let count = checked_count(&shape, source.inner.dtype())?;
     let mut values = reserve(count)?;
+    let mut coordinates = vec![0; shape.len()];
     for linear in 0..count {
-        let mut coordinates = coordinates_for_shape(&shape, linear);
+        coordinates_for_shape_into(&shape, linear, &mut coordinates);
         let raw_index = scalar_index(
             &indices
                 .inner
@@ -1443,15 +1447,20 @@ fn reserve(count: usize) -> PyResult<Vec<Scalar>> {
     Ok(values)
 }
 
-fn coordinates_for_shape(shape: &[usize], mut linear: usize) -> Vec<usize> {
+fn coordinates_for_shape(shape: &[usize], linear: usize) -> Vec<usize> {
     let mut coordinates = vec![0; shape.len()];
+    coordinates_for_shape_into(shape, linear, &mut coordinates);
+    coordinates
+}
+
+fn coordinates_for_shape_into(shape: &[usize], mut linear: usize, coordinates: &mut [usize]) {
+    debug_assert_eq!(shape.len(), coordinates.len());
     for axis in (0..shape.len()).rev() {
         if shape[axis] > 0 {
             coordinates[axis] = linear % shape[axis];
             linear /= shape[axis];
         }
     }
-    coordinates
 }
 
 pub(super) fn register(module: &Bound<'_, PyModule>) -> PyResult<()> {

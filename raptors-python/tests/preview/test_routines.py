@@ -1255,6 +1255,31 @@ def test_take_out_and_take_along_axis():
     assert_array_matches(expected, out)
 
 
+def test_take_coordinate_reuse_handles_strided_sources_and_multidimensional_indices():
+    values = np.arange(24, dtype=np.int32).reshape(4, 6)
+    candidate = raptors.transpose(raptors.array(values.tolist(), dtype=raptors.int32))
+    reference = values.T
+    indices = np.array([[5, 0], [2, 3]], dtype=np.int64)
+
+    expected = np.take(reference, indices, axis=0, mode="wrap")
+    actual = raptors.take(
+        candidate,
+        raptors.array(indices.tolist(), dtype=raptors.int64),
+        axis=0,
+        mode="wrap",
+    )
+    assert_array_matches(expected, actual)
+
+    along_indices = np.tile(np.array([[3, 0]], dtype=np.int64), (reference.shape[0], 1))
+    expected = np.take_along_axis(reference, along_indices, axis=1)
+    actual = raptors.take_along_axis(
+        candidate,
+        raptors.array(along_indices.tolist(), dtype=raptors.int64),
+        axis=1,
+    )
+    assert_array_matches(expected, actual)
+
+
 @pytest.mark.parametrize(
     "axis,right",
     [(None, [6, 7, 8]), (0, [[6, 7, 8]]), (1, [[6], [7]]), (-1, [[6], [7]])],
