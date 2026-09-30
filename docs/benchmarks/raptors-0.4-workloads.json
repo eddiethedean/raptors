@@ -1,0 +1,85 @@
+{
+  "schema_version": 1,
+  "release": "0.4",
+  "status": "preregistered",
+  "purpose": "Freeze the 0.4 end-to-end application workloads before profile-guided optimization.",
+  "reference": {
+    "distribution": "numpy",
+    "version": "2.5.3",
+    "python_versions": ["3.12", "3.13", "3.14"],
+    "primary_host": "macOS ARM64, CPython 3.14.3",
+    "confirmation_architecture": "A materially different supported wheel architecture"
+  },
+  "measurement": {
+    "build_profile": "release",
+    "thread_environment": {
+      "OMP_NUM_THREADS": "1",
+      "OPENBLAS_NUM_THREADS": "1",
+      "MKL_NUM_THREADS": "1"
+    },
+    "warmup_calls": 5,
+    "timed_samples": 21,
+    "worker_processes": "A fresh process for each backend and workload",
+    "timing": "Median wall-clock nanoseconds per equivalent eager public Python workflow call",
+    "confidence_interval": "Percentile 95% bootstrap interval of the Raptors/NumPy median ratio from independent resampling of each backend's timed samples",
+    "correctness": "Compare every output's shape, dtype, and complete values against NumPy before timing",
+    "memory": "Record tracemalloc peak and process peak RSS delta; disclose that RSS is allocator-dependent and tracemalloc omits native buffers"
+  },
+  "application_workflows": [
+    {
+      "name": "column_normalization",
+      "family": "reduction_and_ufunc",
+      "input": {
+        "shape": [256, 8],
+        "dtype": "float32",
+        "layout": "C contiguous",
+        "formula": "value[row,column] = ((row * 17 + column * 13) % 251 - 125) / 31"
+      },
+      "operations": ["mean(axis=0)", "std(axis=0)", "subtract", "true_divide"],
+      "output": "Normalized float32 matrix"
+    },
+    {
+      "name": "grouped_count_and_histogram",
+      "family": "search_and_binning",
+      "input": {
+        "shape": [4096],
+        "dtype": "int64",
+        "layout": "C contiguous",
+        "formula": "value[index] = (index * 37 + 11) % 1024"
+      },
+      "operations": ["remainder", "bincount(minlength=32)", "histogram(bins=32, range=(0, 1024))"],
+      "output": "Group counts plus histogram counts and edges"
+    },
+    {
+      "name": "assemble_transpose_and_order",
+      "family": "shape_join_and_ordering",
+      "input": {
+        "shape": [64, 32],
+        "dtype": "int32",
+        "layout": "C contiguous",
+        "formula": "value[row,column] = (row * 97 + column * 29) % 1009"
+      },
+      "operations": ["reshape", "transpose", "concatenate(axis=0)", "sort(axis=1)"],
+      "output": "Sorted concatenated int32 matrix"
+    }
+  ],
+  "release_threshold": {
+    "qualifying_workflows": 3,
+    "maximum_raptors_to_numpy_median_ratio": 0.8,
+    "maximum_95_percent_confidence_interval_upper_bound": 1.0,
+    "common_operation_regression_guardrail": "No cell may regress by more than 10% against the checked-in pre-optimization Raptors baseline without a reviewed, accepted explanation"
+  },
+  "baseline": {
+    "status": "captured_pre_optimization",
+    "report": "docs/benchmarks/raptors-0.4-baseline.json",
+    "host": "macOS 26.5.2 ARM64, CPython 3.14.3, release build",
+    "warmup_calls": 5,
+    "timed_samples": 21,
+    "median_raptors_to_numpy_ratios": {
+      "column_normalization": 21.83,
+      "grouped_count_and_histogram": 3.79,
+      "assemble_transpose_and_order": 46.1
+    },
+    "meaning": "Pre-optimization evidence only. None of the workflows currently meets the 0.8 median-ratio threshold; release qualification still requires profile-guided improvement, common-operation guardrails, and confirmation on a materially different supported architecture."
+  }
+}

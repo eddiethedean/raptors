@@ -1,0 +1,124 @@
+{
+  "schema_version": 1,
+  "release": "0.4",
+  "package_version": "0.4.0",
+  "status": "implementation_in_progress",
+  "reference": {
+    "distribution": "numpy",
+    "version": "2.5.3",
+    "source_tag": "v2.5.3",
+    "source_commit": "dd88c0c19b54ad9ed3533224221285bf0873249a"
+  },
+  "scope": {
+    "module": "raptors",
+    "dtype_kinds": ["b", "i", "u", "f", "c"],
+    "runtime_numpy_dependency": false,
+    "inventory_entry_count": 153,
+    "signature_source": {
+      "path": "compat/numpy-api-2.5.3.json",
+      "sha256": "249a4619498f8751f529de7282df35d25d697c96d19b1432fb0291948aa43acc"
+    },
+    "families": {
+      "creation": [
+        "arange", "empty_like", "eye", "full", "full_like", "geomspace", "identity",
+        "linspace", "logspace", "ones", "ones_like", "zeros_like"
+      ],
+      "shape_and_rearrangement": [
+        "broadcast_arrays", "broadcast_shapes", "broadcast_to", "diag", "diagflat", "diagonal",
+        "expand_dims", "flip", "fliplr", "flipud", "moveaxis", "permute_dims", "ravel",
+        "repeat", "reshape", "roll", "rollaxis", "squeeze", "swapaxes", "tile", "transpose"
+      ],
+      "joining_and_splitting": [
+        "array_split", "atleast_1d", "atleast_2d", "atleast_3d", "block", "column_stack",
+        "concat", "concatenate", "dsplit", "dstack", "hsplit", "hstack",
+        "split", "stack", "vsplit", "vstack"
+      ],
+      "reductions_and_statistics": [
+        "all", "amax", "amin", "any", "argmax", "argmin", "average", "count_nonzero",
+        "cumprod", "cumsum", "flatnonzero", "max", "mean", "median", "min", "nanargmax",
+        "nanargmin", "nanmax", "nanmean", "nanmedian", "nanmin", "nanpercentile",
+        "nanquantile", "nanstd", "nanvar", "nonzero", "percentile", "prod", "ptp",
+        "quantile", "std", "sum", "var", "argwhere"
+      ],
+      "selection_and_mutation": [
+        "append", "choose", "compress", "copy", "copyto", "delete", "extract", "fill_diagonal",
+        "insert", "place", "put", "put_along_axis", "putmask", "select", "take",
+        "take_along_axis", "tril", "triu", "where"
+      ],
+      "ordering_search_sets_and_bins": [
+        "argpartition", "argsort", "bincount", "digitize", "histogram", "histogram2d",
+        "histogramdd", "intersect1d", "isin", "lexsort", "partition", "searchsorted",
+        "setdiff1d", "setxor1d", "sort", "union1d", "unique", "unique_all", "unique_counts",
+        "unique_inverse", "unique_values"
+      ],
+      "numeric_convenience": ["allclose", "array_equal", "array_equiv", "isclose"]
+    },
+    "array_methods": [
+      "all", "any", "argmax", "argmin", "argpartition", "argsort", "cumprod", "cumsum",
+      "diagonal", "flatten", "max", "mean", "min", "partition", "prod", "put", "ravel",
+      "repeat", "searchsorted", "sort", "squeeze", "std", "sum", "swapaxes", "take", "var"
+    ],
+    "aliases": {
+      "amax": "max",
+      "amin": "min",
+      "concat": "concatenate"
+    },
+    "signature_policy": "The generated NumPy inventory freezes the oracle signatures. Raptors supports the numeric CPU forms implemented in the extension; device/like dispatch and specialized dtype variants stay with their owning later releases."
+  },
+  "known_gaps": [
+    "This is an implementation contract, not a release-candidate claim: full signature, warning/error-precedence, dtype, and aliasing closure is still in progress.",
+    "isclose/allclose use the native long-double bridge on targets where long double exceeds float64. The focused precision cases skip on this macOS ARM64 host because its NumPy long double has no extra mantissa bits; extended-native-host differential coverage remains required.",
+    "Ordering accepts NumPy's numeric kinds but does not promise identical internal permutations for partition/argpartition or algorithm-specific sort kinds where NumPy leaves ordering unspecified.",
+    "Public methods and routines outside the frozen 0.4 inventory remain owned by 0.5-0.8 as documented in the roadmap."
+  ],
+  "known_limits": [
+    "Inputs are numeric Raptors arrays and supported Python numeric values; third-party dispatch, like=, foreign buffers, and specialized dtype families are outside 0.4.",
+    "No performance advantage is claimed. The 0.4 performance threshold and cross-architecture confirmation remain release gates.",
+    "The implementation is still based on scalar/native storage walkers in several routines; temporary-memory and allocation profiles must be measured before release."
+  ],
+  "evidence": {
+    "release_gate": "pending",
+    "performance_gate": "pending",
+    "focused_differential": {
+      "command": "uv run --extra dev --no-sync python -m pytest tests/preview/test_routines.py -n0 -q",
+      "status": "passed_locally",
+      "passed": 247,
+      "skipped": 2,
+      "warnings": 1
+    },
+    "full_python_regression": {
+      "command": "uv run --extra dev --no-sync python -m pytest -n0 -q",
+      "status": "passed_locally",
+      "passed": 9704,
+      "skipped": 8,
+      "warnings": 1
+    },
+    "cargo_check": {"status": "passed_locally", "command": "cargo check --locked --offline"},
+    "cargo_tests": {
+      "status": "passed_locally",
+      "command": "cargo test --locked --offline -p raptors-python -p raptors-storage",
+      "passed": 15,
+      "failed": 0
+    },
+    "cargo_workspace_tests": {
+      "status": "passed_serially",
+      "command": "cargo test --locked --offline -- --test-threads=1",
+      "parallel_rerun_anomaly": "One default-parallel workspace rerun exited with SIGTRAP in raptors-core einsum_test; the isolated target and three immediate default-parallel reruns passed."
+    },
+    "cross_python_and_wheel_matrix": "not_run",
+    "sanitizer_miri_and_alias_lifetime_gates": "not_run",
+    "preregistered_workflows": {
+      "status": "captured_pre_optimization_baseline",
+      "report": "docs/benchmarks/raptors-0.4-baseline.json",
+      "host": "macOS 26.5.2 ARM64, CPython 3.14.3, release build",
+      "warmup_calls": 5,
+      "timed_samples": 21,
+      "median_ratios": {
+        "column_normalization": 21.83,
+        "grouped_count_and_histogram": 3.79,
+        "assemble_transpose_and_order": 46.1
+      },
+      "release_gate": "pending_optimization_and_confirmation_host"
+    }
+  }
+}

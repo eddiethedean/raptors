@@ -969,6 +969,7 @@ pub enum StorageError {
     InvalidAxes,
     InvalidOrder,
     InvalidFancyIndex,
+    ReadOnly,
     IndexOutOfBounds {
         axis: usize,
         index: isize,
@@ -1002,6 +1003,7 @@ impl fmt::Display for StorageError {
             Self::InvalidAxes => write!(f, "invalid axis permutation"),
             Self::InvalidOrder => write!(f, "order must be one of C, F, A, or K"),
             Self::InvalidFancyIndex => write!(f, "invalid advanced index array"),
+            Self::ReadOnly => write!(f, "assignment destination is read-only"),
             Self::IndexOutOfBounds { axis, index, length } => write!(f, "index {index} is out of bounds for axis {axis} with size {length}"),
             Self::TooManyIndices { provided, dimensions } => write!(f, "too many indices for array: array is {dimensions}-dimensional, but {provided} were indexed"),
             Self::WrongIndexRank { provided, dimensions } => write!(f, "incorrect number of indices: got {provided}, expected {dimensions}"),
@@ -1544,6 +1546,7 @@ pub struct View {
     strides: Vec<isize>,
     offset: isize,
     allocation_len: usize,
+    writeable: bool,
 }
 
 /// A write-through advanced-index selection. Unlike [`View::index`], this
@@ -1575,6 +1578,9 @@ impl IndexedView {
     }
 
     pub fn write_at(&self, coordinates: &[usize], value: Scalar) -> Result<(), StorageError> {
+        if !self.parent.writeable {
+            return Err(StorageError::ReadOnly);
+        }
         let linear = linear_for_shape(&self.shape, coordinates)?;
         let offset = *self
             .offsets
@@ -1661,6 +1667,7 @@ impl View {
             strides,
             offset: 0,
             allocation_len: len,
+            writeable: true,
         })
     }
     pub fn from_values(
@@ -1738,6 +1745,7 @@ impl View {
             strides,
             offset: 0,
             allocation_len: len,
+            writeable: true,
         })
     }
 
@@ -1823,6 +1831,7 @@ impl View {
             strides,
             offset: 0,
             allocation_len: len,
+            writeable: true,
         };
         view.validate_layout()?;
         Ok(view)
@@ -1848,6 +1857,135 @@ impl View {
     }
     pub fn shares_storage_with(&self, other: &Self) -> bool {
         Arc::ptr_eq(&self.storage, &other.storage)
+    }
+
+    pub fn is_writeable(&self) -> bool {
+        self.writeable
+    }
+
+    /// Returns a shared read-only view broadcast to `shape`.
+    pub fn broadcast_to(&self, shape: Vec<usize>) -> Result<Self, StorageError> {
+        self.broadcast_to_with_writeability(shape, false)
+    }
+
+    /// Returns a broadcast view whose writeability follows the caller's API contract.
+    pub fn broadcast_to_with_writeability(
+        &self,
+        shape: Vec<usize>,
+        writeable: bool,
+    ) -> Result<Self, StorageError> {
+        if self.ndim() > shape.len() {
+            return Err(StorageError::CannotBroadcast {
+                from: self.shape.clone(),
+                to: shape,
+            });
+        }
+        let leading = shape.len() - self.ndim();
+        let mut strides = vec![0; leading];
+        for axis in 0..self.ndim() {
+            let source = self.shape[axis];
+            let target = shape[leading + axis];
+            if source != target && source != 1 {
+                return Err(StorageError::CannotBroadcast {
+                    from: self.shape.clone(),
+                    to: shape,
+                });
+            }
+            strides.push(if source == target {
+                self.strides[axis]
+            } else {
+                0
+            });
+        }
+        let view = Self {
+            storage: Arc::clone(&self.storage),
+            dtype: self.dtype,
+            byte_order: self.byte_order,
+            shape,
+            strides,
+            offset: self.offset,
+            allocation_len: self.allocation_len,
+            writeable: self.writeable && writeable,
+        };
+        view.validate_layout()?;
+        Ok(view)
+    }
+
+    /// Returns a read-only diagonal view, with the diagonal dimension last.
+    pub fn diagonal(
+        &self,
+        offset: isize,
+        axis1: isize,
+        axis2: isize,
+    ) -> Result<Self, StorageError> {
+        let normalize = |axis: isize| {
+            let axis = if axis < 0 {
+                axis.checked_add(self.ndim() as isize)
+                    .ok_or(StorageError::InvalidAxes)?
+            } else {
+                axis
+            };
+            if axis < 0 || axis >= self.ndim() as isize {
+                return Err(StorageError::InvalidAxes);
+            }
+            Ok(axis as usize)
+        };
+        let axis1 = normalize(axis1)?;
+        let axis2 = normalize(axis2)?;
+        if axis1 == axis2 || self.ndim() < 2 {
+            return Err(StorageError::InvalidAxes);
+        }
+        let rows = self.shape[axis1];
+        let columns = self.shape[axis2];
+        let (row_start, column_start, length) = if offset >= 0 {
+            let column_start = usize::try_from(offset).map_err(|_| StorageError::ShapeOverflow)?;
+            (
+                0,
+                column_start,
+                rows.min(columns.saturating_sub(column_start)),
+            )
+        } else {
+            let row_start =
+                usize::try_from(offset.unsigned_abs()).map_err(|_| StorageError::ShapeOverflow)?;
+            (row_start, 0, rows.saturating_sub(row_start).min(columns))
+        };
+        let mut view_offset = self.offset;
+        for (axis, start) in [(axis1, row_start), (axis2, column_start)] {
+            let start = isize::try_from(start).map_err(|_| StorageError::ShapeOverflow)?;
+            view_offset = view_offset
+                .checked_add(
+                    start
+                        .checked_mul(self.strides[axis])
+                        .ok_or(StorageError::ShapeOverflow)?,
+                )
+                .ok_or(StorageError::ShapeOverflow)?;
+        }
+        let mut shape = Vec::with_capacity(self.ndim() - 1);
+        let mut strides = Vec::with_capacity(self.ndim() - 1);
+        for axis in 0..self.ndim() {
+            if axis != axis1 && axis != axis2 {
+                shape.push(self.shape[axis]);
+                strides.push(self.strides[axis]);
+            }
+        }
+        shape.push(length);
+        strides.push(
+            self.strides[axis1]
+                .checked_add(self.strides[axis2])
+                .ok_or(StorageError::ShapeOverflow)?,
+        );
+        let view = Self {
+            storage: Arc::clone(&self.storage),
+            dtype: self.dtype,
+            byte_order: self.byte_order,
+            shape,
+            strides,
+            offset: view_offset,
+            allocation_len: self.allocation_len,
+            writeable: false,
+        };
+        view.validate_layout()?;
+        Ok(view)
     }
 
     /// Returns a shared view with equivalent scalar and byte-order metadata.
@@ -1879,6 +2017,7 @@ impl View {
             strides: self.strides.clone(),
             offset: self.offset,
             allocation_len: self.allocation_len,
+            writeable: self.writeable,
         };
         view.validate_layout()?;
         Ok(view)
@@ -1960,6 +2099,7 @@ impl View {
             strides: permutation.iter().map(|&axis| self.strides[axis]).collect(),
             offset: self.offset,
             allocation_len: self.allocation_len,
+            writeable: self.writeable,
         };
         view.validate_layout()?;
         Ok(view)
@@ -2009,6 +2149,7 @@ impl View {
                 strides,
                 offset: 0,
                 allocation_len: len,
+                writeable: true,
             };
             view.validate_layout()?;
             return Ok(view);
@@ -2021,6 +2162,7 @@ impl View {
             shape,
             offset: self.offset,
             allocation_len: self.allocation_len,
+            writeable: self.writeable,
         };
         view.validate_layout()?;
         Ok(view)
@@ -2228,6 +2370,7 @@ impl View {
             strides,
             offset,
             allocation_len: self.allocation_len,
+            writeable: self.writeable,
         };
         view.validate_layout()?;
         Ok(view)
@@ -2258,6 +2401,9 @@ impl View {
             .read_as(offset, self.dtype, self.byte_order)
     }
     pub fn write_at(&self, coordinates: &[usize], value: Scalar) -> Result<(), StorageError> {
+        if !self.writeable {
+            return Err(StorageError::ReadOnly);
+        }
         if value.dtype() != self.dtype {
             return Err(StorageError::DTypeMismatch);
         }
@@ -2280,6 +2426,9 @@ impl View {
         self.write_at(&self.coordinates(index)?, value)
     }
     pub fn assign_scalar(&self, value: Scalar) -> Result<(), StorageError> {
+        if !self.writeable {
+            return Err(StorageError::ReadOnly);
+        }
         let value = value.cast(self.dtype)?;
         let offsets = self.all_element_offsets()?;
         let mut storage = self
@@ -2295,6 +2444,9 @@ impl View {
     /// used by sequence assignment to preserve writes made before a later
     /// Python scalar conversion fails.
     pub fn assign_prefix(&self, values: &[Scalar]) -> Result<(), StorageError> {
+        if !self.writeable {
+            return Err(StorageError::ReadOnly);
+        }
         let offsets = self.all_element_offsets()?;
         if values.len() > offsets.len() {
             return Err(StorageError::ShapeMismatch);
@@ -2313,6 +2465,9 @@ impl View {
     }
     /// Snapshots the source before taking the destination write lock, making overlapping assignments safe.
     pub fn assign_view(&self, source: &Self) -> Result<(), StorageError> {
+        if !self.writeable {
+            return Err(StorageError::ReadOnly);
+        }
         if source.ndim() > self.ndim()
             || source
                 .shape
@@ -2357,6 +2512,9 @@ impl View {
         indices: &[IndexItem],
         value: Scalar,
     ) -> Result<(), StorageError> {
+        if !self.writeable {
+            return Err(StorageError::ReadOnly);
+        }
         let value = value.cast(self.dtype)?;
         let layout = self.advanced_offsets(indices)?;
         let mut storage = self
@@ -2374,6 +2532,9 @@ impl View {
         indices: &[IndexItem],
         source: &Self,
     ) -> Result<(), StorageError> {
+        if !self.writeable {
+            return Err(StorageError::ReadOnly);
+        }
         let layout = self.advanced_offsets(indices)?;
         let target_shape = layout.output_shape;
         let offsets = layout.offsets;

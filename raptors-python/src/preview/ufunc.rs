@@ -3069,7 +3069,7 @@ fn finish_single(
 }
 
 #[allow(clippy::too_many_arguments)]
-fn reduce(
+pub(super) fn reduce(
     name: &str,
     py: Python<'_>,
     array: &Bound<'_, PyAny>,
@@ -3254,7 +3254,7 @@ fn reduce(
     Ok(result)
 }
 
-fn accumulate(
+pub(super) fn accumulate(
     name: &str,
     py: Python<'_>,
     array: &Bound<'_, PyAny>,

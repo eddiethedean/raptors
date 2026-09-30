@@ -78,6 +78,34 @@ SPECIALIZED_DTYPE_CLASSES = {
 }
 GENERALIZED_NUMERIC_UFUNCS = {"matmul", "matvec", "vecdot", "vecmat"}
 UFUNC_ERROR_STATE_API = {"errstate", "geterr", "seterr", "geterrcall", "seterrcall"}
+NUMERIC_0_4_FUNCTIONS = {
+    "ones", "full", "arange", "eye", "identity", "zeros_like", "ones_like",
+    "empty_like", "full_like", "linspace", "logspace", "geomspace", "reshape",
+    "ravel", "flatten", "transpose", "permute_dims", "squeeze", "expand_dims",
+    "swapaxes", "moveaxis", "flip", "fliplr", "flipud", "rollaxis", "roll",
+    "repeat", "tile", "broadcast_shapes", "broadcast_to", "broadcast_arrays",
+    "diagonal", "diag", "diagflat", "concatenate", "concat", "stack", "split",
+    "array_split", "hstack", "vstack", "dstack", "column_stack",
+    "atleast_1d", "atleast_2d", "atleast_3d", "vsplit", "hsplit", "dsplit",
+    "sum", "prod", "min", "max", "amin", "amax", "any", "all",
+    "cumsum", "cumprod", "mean", "var", "std", "ptp", "average", "median",
+    "quantile", "percentile", "argmin", "argmax", "count_nonzero", "nonzero",
+    "argwhere", "flatnonzero", "nanmean", "nanvar", "nanstd", "nanmin", "nanmax",
+    "nanmedian", "nanquantile", "nanpercentile", "nanargmin", "nanargmax", "where",
+    "copy", "copyto", "take", "take_along_axis", "append", "tril", "triu",
+    "fill_diagonal", "put", "put_along_axis", "compress", "extract", "select",
+    "putmask", "place", "choose", "delete", "insert", "sort", "argsort", "partition",
+    "argpartition", "lexsort", "searchsorted", "digitize", "bincount", "unique",
+    "unique_all", "unique_counts", "unique_inverse", "unique_values", "isin",
+    "intersect1d", "union1d", "setdiff1d", "setxor1d", "histogram", "histogram2d",
+    "histogramdd", "block", "array_equal", "array_equiv", "isclose", "allclose",
+}
+NUMERIC_0_4_ARRAY_METHODS = {
+    "sum", "prod", "min", "max", "mean", "std", "var", "argmin", "argmax",
+    "any", "all", "cumsum", "cumprod", "flatten", "ravel", "squeeze", "swapaxes",
+    "diagonal", "sort", "argsort", "partition", "argpartition", "searchsorted",
+    "take", "put", "repeat",
+}
 
 
 def in_module(path, module):
@@ -121,11 +149,13 @@ def target_release(path, value, module_name):
         if isinstance(ufunc, np.ufunc):
             return "0.3"
     if parent == "numpy.ndarray":
-        if name in NUMERIC_OPERATOR_METHODS or name in REDUCTION_METHODS:
-            return "0.4" if name in REDUCTION_METHODS else "0.3"
         if name in NUMERIC_FOUNDATION_ARRAY_MEMBERS:
             return "0.2"
-        return "0.4"
+        if name in NUMERIC_0_4_ARRAY_METHODS:
+            return "0.4"
+        if name in NUMERIC_OPERATOR_METHODS or name in REDUCTION_METHODS:
+            return "0.3"
+        return "0.8"
     if parent == "numpy.dtype":
         if name in NUMERIC_FOUNDATION_DTYPE_MEMBERS:
             return "0.2"
@@ -169,9 +199,11 @@ def target_release(path, value, module_name):
         return "0.3"
     if path == f"numpy.{name}" and name in NUMERIC_TYPES:
         return "0.2"
+    if path == f"numpy.{name}" and name in NUMERIC_0_4_FUNCTIONS:
+        return "0.4"
     if path.startswith("numpy.dtypes."):
         return "0.7"
-    return "0.4"
+    return "0.8"
 
 
 def signature_of(value):
@@ -245,6 +277,9 @@ def build_inventory():
         if module_name == "numpy":
             names = set(getattr(module, "__all__", ()))
             names.update(name for name in dir(module) if not name.startswith("_"))
+            # NumPy's lazy top-level aliases can be public but absent from both
+            # __all__ and dir(); include the explicitly audited numeric APIs.
+            names.update(name for name in NUMERIC_0_4_FUNCTIONS if hasattr(module, name))
         else:
             names = {name for name in dir(module) if not name.startswith("_")}
         for name in sorted(names):

@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
-"""Validate the generated NumPy inventory and the 0.1-0.3 release contracts."""
+"""Validate the generated NumPy inventory and the 0.1-0.4 release contracts."""
 import json
+import hashlib
 import re
 from pathlib import Path
 
@@ -10,6 +11,7 @@ INVENTORY = ROOT / "compat/numpy-api-2.5.3.json"
 CONTRACT = ROOT / "compat/raptors-0.1.json"
 DRAFT_CONTRACT = ROOT / "compat/raptors-0.2.json"
 UFUNC_CONTRACT = ROOT / "compat/raptors-0.3.json"
+ROUTINE_CONTRACT = ROOT / "compat/raptors-0.4.json"
 DTYPE_PLAN = ROOT / "docs/DTYPE_ARCHITECTURE.md"
 UFUNC_KERNELS = ROOT / "raptors-storage/src/ufunc.rs"
 UFUNC_SIGNATURES = ROOT / "raptors-storage/src/ufunc_signatures.rs"
@@ -23,6 +25,7 @@ def main():
     contract = json.loads(CONTRACT.read_text())
     draft_contract = json.loads(DRAFT_CONTRACT.read_text())
     ufunc_contract = json.loads(UFUNC_CONTRACT.read_text())
+    routine_contract = json.loads(ROUTINE_CONTRACT.read_text())
     entries = inventory.get("entries")
     if not isinstance(entries, list):
         raise SystemExit("inventory entries must be a JSON array")
@@ -73,6 +76,75 @@ def main():
     for name, release in expected_release.items():
         if release_by_name.get(name) != release:
             raise SystemExit(f"{name} must be assigned to {release}, got {release_by_name.get(name)!r}")
+
+    if routine_contract.get("schema_version") != 1:
+        raise SystemExit("unsupported 0.4 routine contract schema")
+    if routine_contract.get("release") != "0.4" or routine_contract.get("package_version") != "0.4.0":
+        raise SystemExit("0.4 routine contract must identify release and package version 0.4.0")
+    if routine_contract.get("status") not in {"implementation_in_progress", "release_candidate", "published"}:
+        raise SystemExit("invalid 0.4 routine contract status")
+    routine_reference = routine_contract.get("reference", {})
+    if any(
+        routine_reference.get(key) != inventory["reference"].get(key)
+        for key in ("distribution", "version", "source_tag", "source_commit")
+    ):
+        raise SystemExit("0.4 routine contract NumPy reference does not match the generated inventory")
+    routine_scope = routine_contract.get("scope", {})
+    routine_families = routine_scope.get("families", {})
+    accepted_top_level = set().union(*(set(names) for names in routine_families.values()))
+    accepted_array_methods = set(routine_scope.get("array_methods", []))
+    if len(accepted_top_level) != sum(len(names) for names in routine_families.values()):
+        raise SystemExit("0.4 routine families must not assign a top-level API more than once")
+    inventory_top_level = {
+        entry["name"].removeprefix("numpy.")
+        for entry in entries
+        if entry["target_release"] == "0.4"
+        and entry["name"].startswith("numpy.")
+        and entry["name"].count(".") == 1
+    }
+    inventory_array_methods = {
+        entry["name"].removeprefix("numpy.ndarray.")
+        for entry in entries
+        if entry["target_release"] == "0.4" and entry["name"].startswith("numpy.ndarray.")
+    }
+    if accepted_top_level != inventory_top_level:
+        raise SystemExit(
+            "0.4 contract top-level names do not match the reviewed inventory assignments; "
+            f"missing={sorted(inventory_top_level - accepted_top_level)}, "
+            f"extra={sorted(accepted_top_level - inventory_top_level)}"
+        )
+    if accepted_array_methods != inventory_array_methods:
+        raise SystemExit("0.4 contract ndarray methods do not match the reviewed inventory assignments")
+    routine_entry_count = sum(entry["target_release"] == "0.4" for entry in entries)
+    if routine_scope.get("inventory_entry_count") != routine_entry_count:
+        raise SystemExit("0.4 contract inventory entry count is stale")
+    if set(routine_scope.get("dtype_kinds", [])) != {"b", "i", "u", "f", "c"}:
+        raise SystemExit("0.4 routine contract must remain scoped to the five numeric dtype kinds")
+    signature_source = routine_scope.get("signature_source", {})
+    inventory_digest = hashlib.sha256(INVENTORY.read_bytes()).hexdigest()
+    if (
+        signature_source.get("path") != "compat/numpy-api-2.5.3.json"
+        or signature_source.get("sha256") != inventory_digest
+    ):
+        raise SystemExit("0.4 signature source does not match the pinned generated inventory")
+    aliases = routine_scope.get("aliases", {})
+    if any(name not in inventory_top_level or target not in inventory_top_level for name, target in aliases.items()):
+        raise SystemExit("0.4 contract aliases must map accepted top-level names to accepted canonical names")
+    if routine_scope.get("runtime_numpy_dependency") is not False:
+        raise SystemExit("0.4 numeric routines must not have a runtime NumPy dependency")
+    for key in ("known_gaps", "known_limits"):
+        if not isinstance(routine_contract.get(key), list):
+            raise SystemExit(f"0.4 routine contract {key} must be a JSON array")
+    routine_evidence = routine_contract.get("evidence", {})
+    routine_status = routine_contract.get("status")
+    if routine_status == "implementation_in_progress":
+        if routine_evidence.get("release_gate") != "pending" or routine_evidence.get("performance_gate") != "pending":
+            raise SystemExit("0.4 implementation-in-progress status requires pending release and performance gates")
+    else:
+        if routine_evidence.get("release_gate") != "passed" or routine_evidence.get("performance_gate") != "passed":
+            raise SystemExit("0.4 release candidate or published status requires passed release and performance gates")
+        if routine_contract.get("known_gaps"):
+            raise SystemExit("0.4 release candidate or published status cannot retain known gaps")
     numeric_ufunc_count = sum(
         entry["kind"] == "ufunc"
         and entry["target_release"] == "0.3"
@@ -259,7 +331,8 @@ def main():
         raise SystemExit("dtype plan must cover the eleven legacy families and NumPy 2.x StringDType")
     print(
         f"Validated {len(entries)} NumPy 2.5.3 inventory entries, the 0.1 preview contract, "
-        "the 0.2 numeric scope, the 0.3 ufunc contract, and the complete dtype-family plan."
+        "the 0.2 numeric scope, the 0.3 ufunc contract, the 0.4 numeric routine contract, "
+        "and the complete dtype-family plan."
     )
 
 

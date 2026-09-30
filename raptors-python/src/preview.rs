@@ -1,4 +1,5 @@
 //! Bindings for the NumPy-independent 0.2 numeric array foundation.
+mod routines;
 mod ufunc;
 use pyo3::basic::CompareOp;
 use pyo3::exceptions::{
@@ -357,7 +358,7 @@ impl PyArray {
     }
     #[getter]
     fn writeable(&self) -> bool {
-        true
+        self.inner.is_writeable()
     }
     #[getter]
     fn flags(&self, py: Python<'_>) -> PyResult<Py<PyArrayFlags>> {
@@ -366,7 +367,7 @@ impl PyArray {
             PyArrayFlags {
                 c_contiguous: self.inner.is_c_contiguous(),
                 f_contiguous: self.inner.is_f_contiguous(),
-                writeable: true,
+                writeable: self.inner.is_writeable(),
             },
         )
     }
@@ -469,6 +470,533 @@ impl PyArray {
             inner: self.inner.copy().map_err(map_storage_error)?,
             scalar_alias: self.scalar_alias,
         })
+    }
+    #[pyo3(signature = (order="C"))]
+    fn ravel(&self, py: Python<'_>, order: &str) -> PyResult<Py<PyAny>> {
+        let kwargs = PyDict::new(py);
+        kwargs.set_item("order", order)?;
+        call_array_api(py, "ravel", self, &kwargs)
+    }
+    #[pyo3(signature = (order="C"))]
+    fn flatten(&self, py: Python<'_>, order: &str) -> PyResult<Py<PyAny>> {
+        let kwargs = PyDict::new(py);
+        kwargs.set_item("order", order)?;
+        call_array_api(py, "flatten", self, &kwargs)
+    }
+    #[pyo3(signature = (axis=None))]
+    fn squeeze(&self, py: Python<'_>, axis: Option<&Bound<'_, PyAny>>) -> PyResult<Py<PyAny>> {
+        let kwargs = PyDict::new(py);
+        if let Some(axis) = axis {
+            kwargs.set_item("axis", axis)?;
+        }
+        call_array_api(py, "squeeze", self, &kwargs)
+    }
+    fn swapaxes(&self, py: Python<'_>, axis1: isize, axis2: isize) -> PyResult<Py<PyAny>> {
+        let kwargs = PyDict::new(py);
+        kwargs.set_item("axis1", axis1)?;
+        kwargs.set_item("axis2", axis2)?;
+        call_array_api(py, "swapaxes", self, &kwargs)
+    }
+    #[pyo3(signature = (offset=0, axis1=0, axis2=1))]
+    fn diagonal(
+        &self,
+        py: Python<'_>,
+        offset: isize,
+        axis1: isize,
+        axis2: isize,
+    ) -> PyResult<Py<PyAny>> {
+        let kwargs = PyDict::new(py);
+        kwargs.set_item("offset", offset)?;
+        kwargs.set_item("axis1", axis1)?;
+        kwargs.set_item("axis2", axis2)?;
+        call_array_api(py, "diagonal", self, &kwargs)
+    }
+    #[pyo3(signature = (axis=-1, kind=None, order=None, *, stable=None, descending=None))]
+    fn sort(
+        &self,
+        py: Python<'_>,
+        axis: isize,
+        kind: Option<&str>,
+        order: Option<&Bound<'_, PyAny>>,
+        stable: Option<bool>,
+        descending: Option<bool>,
+    ) -> PyResult<()> {
+        let kwargs = PyDict::new(py);
+        kwargs.set_item("axis", axis)?;
+        if let Some(kind) = kind {
+            kwargs.set_item("kind", kind)?;
+        }
+        if let Some(order) = order {
+            kwargs.set_item("order", order)?;
+        }
+        if let Some(stable) = stable {
+            kwargs.set_item("stable", stable)?;
+        }
+        if let Some(descending) = descending {
+            kwargs.set_item("descending", descending)?;
+        }
+        let result = call_array_api(py, "sort", self, &kwargs)?;
+        let sorted = result.bind(py).extract::<PyRef<'_, PyArray>>()?;
+        self.inner
+            .assign_view(&sorted.inner)
+            .map_err(map_storage_error)
+    }
+    #[pyo3(signature = (axis=-1, kind=None, order=None, *, stable=None, descending=None))]
+    fn argsort(
+        &self,
+        py: Python<'_>,
+        axis: isize,
+        kind: Option<&str>,
+        order: Option<&Bound<'_, PyAny>>,
+        stable: Option<bool>,
+        descending: Option<bool>,
+    ) -> PyResult<Py<PyAny>> {
+        let kwargs = PyDict::new(py);
+        kwargs.set_item("axis", axis)?;
+        if let Some(kind) = kind {
+            kwargs.set_item("kind", kind)?;
+        }
+        if let Some(order) = order {
+            kwargs.set_item("order", order)?;
+        }
+        if let Some(stable) = stable {
+            kwargs.set_item("stable", stable)?;
+        }
+        if let Some(descending) = descending {
+            kwargs.set_item("descending", descending)?;
+        }
+        call_array_api(py, "argsort", self, &kwargs)
+    }
+    #[pyo3(signature = (kth, axis=-1, kind="introselect", order=None))]
+    fn partition(
+        &self,
+        py: Python<'_>,
+        kth: &Bound<'_, PyAny>,
+        axis: isize,
+        kind: &str,
+        order: Option<&Bound<'_, PyAny>>,
+    ) -> PyResult<()> {
+        let kwargs = PyDict::new(py);
+        kwargs.set_item("axis", axis)?;
+        kwargs.set_item("kind", kind)?;
+        if let Some(order) = order {
+            kwargs.set_item("order", order)?;
+        }
+        let array = Py::new(py, self.clone())?;
+        let result = PyModule::import(py, "raptors")?
+            .getattr("partition")?
+            .call((array, kth), Some(&kwargs))?;
+        let partitioned = result.extract::<PyRef<'_, PyArray>>()?;
+        self.inner
+            .assign_view(&partitioned.inner)
+            .map_err(map_storage_error)
+    }
+    #[pyo3(signature = (kth, axis=-1, kind="introselect", order=None))]
+    fn argpartition(
+        &self,
+        py: Python<'_>,
+        kth: &Bound<'_, PyAny>,
+        axis: isize,
+        kind: &str,
+        order: Option<&Bound<'_, PyAny>>,
+    ) -> PyResult<Py<PyAny>> {
+        let kwargs = PyDict::new(py);
+        kwargs.set_item("axis", axis)?;
+        kwargs.set_item("kind", kind)?;
+        if let Some(order) = order {
+            kwargs.set_item("order", order)?;
+        }
+        let array = Py::new(py, self.clone())?;
+        Ok(PyModule::import(py, "raptors")?
+            .getattr("argpartition")?
+            .call((array, kth), Some(&kwargs))?
+            .unbind())
+    }
+    #[pyo3(signature = (v, side="left", sorter=None))]
+    fn searchsorted(
+        &self,
+        py: Python<'_>,
+        v: &Bound<'_, PyAny>,
+        side: &str,
+        sorter: Option<&Bound<'_, PyAny>>,
+    ) -> PyResult<Py<PyAny>> {
+        let kwargs = PyDict::new(py);
+        kwargs.set_item("side", side)?;
+        if let Some(sorter) = sorter {
+            kwargs.set_item("sorter", sorter)?;
+        }
+        let array = Py::new(py, self.clone())?;
+        Ok(PyModule::import(py, "raptors")?
+            .getattr("searchsorted")?
+            .call((array, v), Some(&kwargs))?
+            .unbind())
+    }
+    #[pyo3(signature = (indices, axis=None, out=None, mode="raise"))]
+    fn take(
+        &self,
+        py: Python<'_>,
+        indices: &Bound<'_, PyAny>,
+        axis: Option<&Bound<'_, PyAny>>,
+        out: Option<&Bound<'_, PyAny>>,
+        mode: &str,
+    ) -> PyResult<Py<PyAny>> {
+        let kwargs = PyDict::new(py);
+        if let Some(axis) = axis {
+            kwargs.set_item("axis", axis)?;
+        }
+        if let Some(out) = out {
+            kwargs.set_item("out", out)?;
+        }
+        kwargs.set_item("mode", mode)?;
+        let array = Py::new(py, self.clone())?;
+        Ok(PyModule::import(py, "raptors")?
+            .getattr("take")?
+            .call((array, indices), Some(&kwargs))?
+            .unbind())
+    }
+    #[pyo3(signature = (indices, values, mode="raise"))]
+    fn put(
+        &self,
+        py: Python<'_>,
+        indices: &Bound<'_, PyAny>,
+        values: &Bound<'_, PyAny>,
+        mode: &str,
+    ) -> PyResult<()> {
+        let array = Py::new(py, self.clone())?;
+        PyModule::import(py, "raptors")?
+            .getattr("put")?
+            .call((array, indices, values, mode), None)?;
+        Ok(())
+    }
+    #[pyo3(signature = (repeats, axis=None))]
+    fn repeat(
+        &self,
+        py: Python<'_>,
+        repeats: &Bound<'_, PyAny>,
+        axis: Option<&Bound<'_, PyAny>>,
+    ) -> PyResult<Py<PyAny>> {
+        let kwargs = PyDict::new(py);
+        if let Some(axis) = axis {
+            kwargs.set_item("axis", axis)?;
+        }
+        let array = Py::new(py, self.clone())?;
+        Ok(PyModule::import(py, "raptors")?
+            .getattr("repeat")?
+            .call((array, repeats), Some(&kwargs))?
+            .unbind())
+    }
+    #[pyo3(signature = (axis=None, dtype=None, out=None, keepdims=false, initial=None, **kwargs))]
+    fn sum(
+        &self,
+        py: Python<'_>,
+        axis: Option<&Bound<'_, PyAny>>,
+        dtype: Option<&Bound<'_, PyAny>>,
+        out: Option<&Bound<'_, PyAny>>,
+        keepdims: bool,
+        initial: Option<&Bound<'_, PyAny>>,
+        kwargs: Option<&Bound<'_, PyDict>>,
+    ) -> PyResult<Py<PyAny>> {
+        let extras = kwargs;
+        let kwargs = PyDict::new(py);
+        if let Some(axis) = axis {
+            kwargs.set_item("axis", axis)?;
+        }
+        if let Some(dtype) = dtype {
+            kwargs.set_item("dtype", dtype)?;
+        }
+        if let Some(out) = out {
+            kwargs.set_item("out", out)?;
+        }
+        kwargs.set_item("keepdims", keepdims)?;
+        if let Some(initial) = initial {
+            kwargs.set_item("initial", initial)?;
+        }
+        merge_array_method_kwargs(&kwargs, extras)?;
+        call_array_api(py, "sum", self, &kwargs)
+    }
+    #[pyo3(signature = (axis=None, dtype=None, out=None, keepdims=false, initial=None, **kwargs))]
+    fn prod(
+        &self,
+        py: Python<'_>,
+        axis: Option<&Bound<'_, PyAny>>,
+        dtype: Option<&Bound<'_, PyAny>>,
+        out: Option<&Bound<'_, PyAny>>,
+        keepdims: bool,
+        initial: Option<&Bound<'_, PyAny>>,
+        kwargs: Option<&Bound<'_, PyDict>>,
+    ) -> PyResult<Py<PyAny>> {
+        let extras = kwargs;
+        let kwargs = PyDict::new(py);
+        if let Some(axis) = axis {
+            kwargs.set_item("axis", axis)?;
+        }
+        if let Some(dtype) = dtype {
+            kwargs.set_item("dtype", dtype)?;
+        }
+        if let Some(out) = out {
+            kwargs.set_item("out", out)?;
+        }
+        kwargs.set_item("keepdims", keepdims)?;
+        if let Some(initial) = initial {
+            kwargs.set_item("initial", initial)?;
+        }
+        merge_array_method_kwargs(&kwargs, extras)?;
+        call_array_api(py, "prod", self, &kwargs)
+    }
+    #[pyo3(signature = (axis=None, out=None, keepdims=false, initial=None, **kwargs))]
+    fn min(
+        &self,
+        py: Python<'_>,
+        axis: Option<&Bound<'_, PyAny>>,
+        out: Option<&Bound<'_, PyAny>>,
+        keepdims: bool,
+        initial: Option<&Bound<'_, PyAny>>,
+        kwargs: Option<&Bound<'_, PyDict>>,
+    ) -> PyResult<Py<PyAny>> {
+        let extras = kwargs;
+        let kwargs = PyDict::new(py);
+        if let Some(axis) = axis {
+            kwargs.set_item("axis", axis)?;
+        }
+        if let Some(out) = out {
+            kwargs.set_item("out", out)?;
+        }
+        kwargs.set_item("keepdims", keepdims)?;
+        if let Some(initial) = initial {
+            kwargs.set_item("initial", initial)?;
+        }
+        merge_array_method_kwargs(&kwargs, extras)?;
+        call_array_api(py, "min", self, &kwargs)
+    }
+    #[pyo3(signature = (axis=None, out=None, keepdims=false, initial=None, **kwargs))]
+    fn max(
+        &self,
+        py: Python<'_>,
+        axis: Option<&Bound<'_, PyAny>>,
+        out: Option<&Bound<'_, PyAny>>,
+        keepdims: bool,
+        initial: Option<&Bound<'_, PyAny>>,
+        kwargs: Option<&Bound<'_, PyDict>>,
+    ) -> PyResult<Py<PyAny>> {
+        let extras = kwargs;
+        let kwargs = PyDict::new(py);
+        if let Some(axis) = axis {
+            kwargs.set_item("axis", axis)?;
+        }
+        if let Some(out) = out {
+            kwargs.set_item("out", out)?;
+        }
+        kwargs.set_item("keepdims", keepdims)?;
+        if let Some(initial) = initial {
+            kwargs.set_item("initial", initial)?;
+        }
+        merge_array_method_kwargs(&kwargs, extras)?;
+        call_array_api(py, "max", self, &kwargs)
+    }
+    #[pyo3(signature = (axis=None, dtype=None, out=None, keepdims=false, **kwargs))]
+    fn mean(
+        &self,
+        py: Python<'_>,
+        axis: Option<&Bound<'_, PyAny>>,
+        dtype: Option<&Bound<'_, PyAny>>,
+        out: Option<&Bound<'_, PyAny>>,
+        keepdims: bool,
+        kwargs: Option<&Bound<'_, PyDict>>,
+    ) -> PyResult<Py<PyAny>> {
+        let extras = kwargs;
+        let kwargs = PyDict::new(py);
+        if let Some(axis) = axis {
+            kwargs.set_item("axis", axis)?;
+        }
+        if let Some(dtype) = dtype {
+            kwargs.set_item("dtype", dtype)?;
+        }
+        if let Some(out) = out {
+            kwargs.set_item("out", out)?;
+        }
+        kwargs.set_item("keepdims", keepdims)?;
+        merge_array_method_kwargs(&kwargs, extras)?;
+        call_array_api(py, "mean", self, &kwargs)
+    }
+    #[pyo3(signature = (axis=None, dtype=None, out=None, ddof=0.0, keepdims=false, correction=None, **kwargs))]
+    fn var(
+        &self,
+        py: Python<'_>,
+        axis: Option<&Bound<'_, PyAny>>,
+        dtype: Option<&Bound<'_, PyAny>>,
+        out: Option<&Bound<'_, PyAny>>,
+        ddof: f64,
+        keepdims: bool,
+        correction: Option<f64>,
+        kwargs: Option<&Bound<'_, PyDict>>,
+    ) -> PyResult<Py<PyAny>> {
+        let extras = kwargs;
+        let kwargs = PyDict::new(py);
+        if let Some(axis) = axis {
+            kwargs.set_item("axis", axis)?;
+        }
+        if let Some(dtype) = dtype {
+            kwargs.set_item("dtype", dtype)?;
+        }
+        if let Some(out) = out {
+            kwargs.set_item("out", out)?;
+        }
+        kwargs.set_item("ddof", ddof)?;
+        kwargs.set_item("keepdims", keepdims)?;
+        if let Some(correction) = correction {
+            kwargs.set_item("correction", correction)?;
+        }
+        merge_array_method_kwargs(&kwargs, extras)?;
+        call_array_api(py, "var", self, &kwargs)
+    }
+    #[pyo3(signature = (axis=None, dtype=None, out=None, ddof=0.0, keepdims=false, correction=None, **kwargs))]
+    fn std(
+        &self,
+        py: Python<'_>,
+        axis: Option<&Bound<'_, PyAny>>,
+        dtype: Option<&Bound<'_, PyAny>>,
+        out: Option<&Bound<'_, PyAny>>,
+        ddof: f64,
+        keepdims: bool,
+        correction: Option<f64>,
+        kwargs: Option<&Bound<'_, PyDict>>,
+    ) -> PyResult<Py<PyAny>> {
+        let extras = kwargs;
+        let kwargs = PyDict::new(py);
+        if let Some(axis) = axis {
+            kwargs.set_item("axis", axis)?;
+        }
+        if let Some(dtype) = dtype {
+            kwargs.set_item("dtype", dtype)?;
+        }
+        if let Some(out) = out {
+            kwargs.set_item("out", out)?;
+        }
+        kwargs.set_item("ddof", ddof)?;
+        kwargs.set_item("keepdims", keepdims)?;
+        if let Some(correction) = correction {
+            kwargs.set_item("correction", correction)?;
+        }
+        merge_array_method_kwargs(&kwargs, extras)?;
+        call_array_api(py, "std", self, &kwargs)
+    }
+    #[pyo3(signature = (axis=None, out=None, keepdims=false, **kwargs))]
+    fn any(
+        &self,
+        py: Python<'_>,
+        axis: Option<&Bound<'_, PyAny>>,
+        out: Option<&Bound<'_, PyAny>>,
+        keepdims: bool,
+        kwargs: Option<&Bound<'_, PyDict>>,
+    ) -> PyResult<Py<PyAny>> {
+        let extras = kwargs;
+        let kwargs = PyDict::new(py);
+        if let Some(axis) = axis {
+            kwargs.set_item("axis", axis)?;
+        }
+        if let Some(out) = out {
+            kwargs.set_item("out", out)?;
+        }
+        kwargs.set_item("keepdims", keepdims)?;
+        merge_array_method_kwargs(&kwargs, extras)?;
+        call_array_api(py, "any", self, &kwargs)
+    }
+    #[pyo3(signature = (axis=None, out=None, keepdims=false, **kwargs))]
+    fn all(
+        &self,
+        py: Python<'_>,
+        axis: Option<&Bound<'_, PyAny>>,
+        out: Option<&Bound<'_, PyAny>>,
+        keepdims: bool,
+        kwargs: Option<&Bound<'_, PyDict>>,
+    ) -> PyResult<Py<PyAny>> {
+        let extras = kwargs;
+        let kwargs = PyDict::new(py);
+        if let Some(axis) = axis {
+            kwargs.set_item("axis", axis)?;
+        }
+        if let Some(out) = out {
+            kwargs.set_item("out", out)?;
+        }
+        kwargs.set_item("keepdims", keepdims)?;
+        merge_array_method_kwargs(&kwargs, extras)?;
+        call_array_api(py, "all", self, &kwargs)
+    }
+    #[pyo3(signature = (axis=None, out=None, keepdims=false))]
+    fn argmin(
+        &self,
+        py: Python<'_>,
+        axis: Option<&Bound<'_, PyAny>>,
+        out: Option<&Bound<'_, PyAny>>,
+        keepdims: bool,
+    ) -> PyResult<Py<PyAny>> {
+        let kwargs = PyDict::new(py);
+        if let Some(axis) = axis {
+            kwargs.set_item("axis", axis)?;
+        }
+        if let Some(out) = out {
+            kwargs.set_item("out", out)?;
+        }
+        kwargs.set_item("keepdims", keepdims)?;
+        call_array_api(py, "argmin", self, &kwargs)
+    }
+    #[pyo3(signature = (axis=None, out=None, keepdims=false))]
+    fn argmax(
+        &self,
+        py: Python<'_>,
+        axis: Option<&Bound<'_, PyAny>>,
+        out: Option<&Bound<'_, PyAny>>,
+        keepdims: bool,
+    ) -> PyResult<Py<PyAny>> {
+        let kwargs = PyDict::new(py);
+        if let Some(axis) = axis {
+            kwargs.set_item("axis", axis)?;
+        }
+        if let Some(out) = out {
+            kwargs.set_item("out", out)?;
+        }
+        kwargs.set_item("keepdims", keepdims)?;
+        call_array_api(py, "argmax", self, &kwargs)
+    }
+    #[pyo3(signature = (axis=None, dtype=None, out=None))]
+    fn cumsum(
+        &self,
+        py: Python<'_>,
+        axis: Option<&Bound<'_, PyAny>>,
+        dtype: Option<&Bound<'_, PyAny>>,
+        out: Option<&Bound<'_, PyAny>>,
+    ) -> PyResult<Py<PyAny>> {
+        let kwargs = PyDict::new(py);
+        if let Some(axis) = axis {
+            kwargs.set_item("axis", axis)?;
+        }
+        if let Some(dtype) = dtype {
+            kwargs.set_item("dtype", dtype)?;
+        }
+        if let Some(out) = out {
+            kwargs.set_item("out", out)?;
+        }
+        call_array_api(py, "cumsum", self, &kwargs)
+    }
+    #[pyo3(signature = (axis=None, dtype=None, out=None))]
+    fn cumprod(
+        &self,
+        py: Python<'_>,
+        axis: Option<&Bound<'_, PyAny>>,
+        dtype: Option<&Bound<'_, PyAny>>,
+        out: Option<&Bound<'_, PyAny>>,
+    ) -> PyResult<Py<PyAny>> {
+        let kwargs = PyDict::new(py);
+        if let Some(axis) = axis {
+            kwargs.set_item("axis", axis)?;
+        }
+        if let Some(dtype) = dtype {
+            kwargs.set_item("dtype", dtype)?;
+        }
+        if let Some(out) = out {
+            kwargs.set_item("out", out)?;
+        }
+        call_array_api(py, "cumprod", self, &kwargs)
     }
     fn __add__(&self, py: Python<'_>, other: &Bound<'_, PyAny>) -> PyResult<Py<PyAny>> {
         ufunc::operator_call(py, self, other, "add", false, false)
@@ -736,6 +1264,30 @@ impl PyArray {
             dtype.name()
         )
     }
+}
+
+fn call_array_api(
+    py: Python<'_>,
+    name: &str,
+    array: &PyArray,
+    kwargs: &Bound<'_, PyDict>,
+) -> PyResult<Py<PyAny>> {
+    let module = PyModule::import(py, "raptors")?;
+    let function = module.getattr(name)?;
+    let array = Py::new(py, array.clone())?.into_any();
+    Ok(function.call((array,), Some(kwargs))?.unbind())
+}
+
+fn merge_array_method_kwargs(
+    target: &Bound<'_, PyDict>,
+    extras: Option<&Bound<'_, PyDict>>,
+) -> PyResult<()> {
+    if let Some(extras) = extras {
+        for (key, value) in extras.iter() {
+            target.set_item(key, value)?;
+        }
+    }
+    Ok(())
 }
 
 fn native_bool<'py>(value: bool, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
@@ -2690,6 +3242,7 @@ fn map_storage_error(error: StorageError) -> PyErr {
         StorageError::DTypeMismatch => PyTypeError::new_err(error.to_string()),
         StorageError::ShapeMismatch => PyValueError::new_err(error.to_string()),
         StorageError::CannotBroadcast { .. } => PyValueError::new_err(error.to_string()),
+        StorageError::ReadOnly => PyValueError::new_err(error.to_string()),
         StorageError::InvalidScalar => PyValueError::new_err(error.to_string()),
         StorageError::CastOverflow => PyOverflowError::new_err(error.to_string()),
         StorageError::InvalidAxes
@@ -2802,6 +3355,7 @@ pub(super) fn register(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(zeros, module)?)?;
     module.add_function(wrap_pyfunction!(empty, module)?)?;
     module.add_function(wrap_pyfunction!(promote_types, module)?)?;
+    routines::register(module)?;
     ufunc::register(module)?;
     Ok(())
 }
