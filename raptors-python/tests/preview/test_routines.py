@@ -140,6 +140,7 @@ def test_phase_04_top_level_signature_shapes_and_documented_defaults_match_contr
     signature_audit = contract["evidence"]["signature_audit"]
     expected_mismatches = set(signature_audit["top_level_mismatch_names"])
     observed_mismatches = set()
+    array_method_names = contract["scope"]["array_methods"]
     concrete_defaults = {
         "keepdims": False,
         "initial": None,
@@ -177,6 +178,11 @@ def test_phase_04_top_level_signature_shapes_and_documented_defaults_match_contr
 
     assert observed_mismatches == expected_mismatches
     assert len(observed_mismatches) == signature_audit["top_level_mismatches"]
+    assert len(array_method_names) == signature_audit["array_method_count"] == 26
+    for name in array_method_names:
+        assert inspect.signature(getattr(raptors.Array, name)) == inspect.signature(
+            getattr(np.ndarray, name)
+        ), name
 
 
 def test_phase_04_ndarray_positional_only_signatures_match_numpy():
