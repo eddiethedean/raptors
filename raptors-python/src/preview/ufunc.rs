@@ -2363,35 +2363,30 @@ fn fast_float32_broadcast_binary(
     if right_values.len() != columns {
         return Ok(None);
     }
-    for (linear, &left) in left_values.iter().enumerate() {
-        let right = right_values[linear % columns];
-        let value = if name == "subtract" {
-            left - right
-        } else {
-            left / right
-        };
-        // Keep exception and underflow behavior on the generic path.
-        if !left.is_finite()
-            || !right.is_finite()
-            || !value.is_finite()
-            || value.is_subnormal()
-            || (value == 0.0 && name != "subtract" && left != 0.0)
-        {
-            return Ok(None);
-        }
-    }
+    let mut needs_generic = false;
     let inner = View::from_float32_iter(
         shape.to_vec(),
         left_values.iter().enumerate().map(|(linear, &left)| {
             let right = right_values[linear % columns];
-            if name == "subtract" {
+            let value = if name == "subtract" {
                 left - right
             } else {
                 left / right
-            }
+            };
+            // Exceptional inputs stay on the generic path so its warning and
+            // floating-point edge behavior remains authoritative.
+            needs_generic |= !left.is_finite()
+                || !right.is_finite()
+                || !value.is_finite()
+                || value.is_subnormal()
+                || (value == 0.0 && name != "subtract" && left != 0.0);
+            value
         }),
     )
     .map_err(map_storage_error)?;
+    if needs_generic {
+        return Ok(None);
+    }
     Ok(Some(inner))
 }
 

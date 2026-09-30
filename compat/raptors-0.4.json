@@ -83,14 +83,14 @@
     "focused_differential": {
       "command": "uv run --project raptors-python --extra dev --no-sync python -m pytest raptors-python/tests/preview/test_ufunc_differential.py raptors-python/tests/preview/test_routines.py -q",
       "status": "passed_locally",
-      "passed": 8950,
+      "passed": 8953,
       "skipped": 7,
       "warnings": 1
     },
     "full_python_regression": {
       "command": "uv run --project raptors-python --extra dev --no-sync python -m pytest raptors-python/tests/preview -q",
       "status": "passed_locally",
-      "passed": 9724,
+      "passed": 9727,
       "skipped": 8,
       "warnings": 1
     },
@@ -98,40 +98,94 @@
       "status": "passed_locally",
       "command": "cargo check --locked --offline -p raptors-python -p raptors-storage"
     },
-  "cargo_tests": {
-    "status": "passed_locally",
-    "command": "cargo test --locked --offline -p raptors-python -p raptors-storage",
-    "passed": 19,
-    "failed": 0
-  },
-  "storage_miri": {
-    "status": "passed_locally",
-    "command": "cargo +nightly miri test --locked --offline -p raptors-storage -- --test-threads=1",
-    "passed": 18,
-    "failed": 0
-  },
-  "cargo_workspace_tests": {
+    "cargo_tests": {
+      "status": "passed_locally",
+      "command": "cargo test --locked --offline -p raptors-python -p raptors-storage",
+      "passed": 19,
+      "failed": 0
+    },
+    "storage_miri": {
+      "status": "passed_locally",
+      "command": "cargo +nightly miri test --locked --offline -p raptors-storage -- --test-threads=1",
+      "passed": 18,
+      "failed": 0
+    },
+    "cargo_workspace_tests": {
       "status": "passed_serially_on_current_candidate",
       "command": "cargo test --locked --offline -- --test-threads=1",
       "parallel_rerun_anomaly": "One default-parallel workspace rerun exited with SIGTRAP in raptors-core einsum_test; the isolated target and three immediate default-parallel reruns passed."
     },
-    "cross_python_and_wheel_matrix": "not_run",
-  "sanitizer_miri_and_alias_lifetime_gates": "full_storage_crate_miri_passed_18_tests; extension_alias_lifetime_and_sanitizer_gates_pending",
+    "clippy": {
+      "status": "passed_locally",
+      "command": "cargo clippy --locked --offline -p raptors-longdouble -p raptors-storage -p raptors-python --all-targets -- -D warnings"
+    },
+    "signature_audit": {
+      "status": "open",
+      "command": "inspect.signature over frozen Phase 0.4 top-level routines and ndarray methods, compared with compat/numpy-api-2.5.3.json",
+      "top_level_mismatches": 62,
+      "top_level_count": 127,
+      "array_method_mismatches": 20,
+      "array_method_count": 26,
+      "note": "Differences include parameter names, positional/keyword-only markers, defaults, and later-release device/like controls; every in-scope deviation still requires review and an explicit contract boundary."
+    },
+    "extension_alias_lifetime_focused": {
+      "status": "passed_locally_full_audit_pending",
+      "command": "uv run --project raptors-python --extra dev --no-sync python -m pytest raptors-python/tests/preview/test_routines.py -q",
+      "added_cases": [
+        "test_phase_04_views_keep_storage_alive_and_preserve_mutation_contracts",
+        "test_phase_04_broadcast_and_diagonal_views_retain_their_owner",
+        "test_phase_04_overlap_assignment_snapshots_source_and_copy_results_do_not_alias"
+      ]
+    },
+    "hosted_ci": {
+      "status": "passed",
+      "run_id": 36678291345,
+      "run_url": "https://github.com/eddiethedean/raptors/actions/runs/36678291345",
+      "commit": "e6945c7654e3b975dd4306079c5b33c784385c51",
+      "passed_jobs": [
+        "Safe storage and binding Rust checks",
+        "AddressSanitizer storage tests",
+        "Miri storage and view tests",
+        "Verify pinned NumPy API inventory",
+        "CPython 3.12 preview tests",
+        "CPython 3.13 preview tests",
+        "CPython 3.14 preview tests"
+      ]
+    },
+    "cross_python_and_wheel_matrix": {
+      "status": "passed_on_build_only_release_workflow",
+      "run_id": 36678316744,
+      "run_url": "https://github.com/eddiethedean/raptors/actions/runs/36678316744",
+      "commit": "e6945c7654e3b975dd4306079c5b33c784385c51",
+      "stable_abi_wheel_targets": [
+        "linux-x86_64-manylinux2014",
+        "linux-x86_64-musllinux_1_2",
+        "linux-aarch64-manylinux_2_28",
+        "linux-aarch64-musllinux_1_2",
+        "macos-x86_64",
+        "macos-arm64",
+        "windows-x86_64",
+        "windows-arm64"
+      ],
+      "tested_cpython_versions": ["3.12", "3.13", "3.14"],
+      "publish_job": "skipped_build_only_run"
+    },
+    "sanitizer_miri_and_alias_lifetime_gates": "hosted_miri_and_address_sanitizer_passed_all_18_storage_tests; all_8_wheel_targets_passed_clean_install_and_preview_tests; dedicated_extension_alias_lifetime_audit_pending",
     "preregistered_workflows": {
-      "status": "captured_post_native_concatenate_and_sort_work_release_gate_pending",
+      "status": "captured_post_f_order_sort_and_single_pass_float32_ufunc_work_release_gate_pending",
       "report": "docs/benchmarks/raptors-0.4-current.json",
       "host": "macOS 26.5.2 ARM64, CPython 3.14.3, release build",
       "warmup_calls": 5,
       "timed_samples": 21,
       "median_ratios": {
-        "column_normalization": 0.9156666667,
-        "grouped_count_and_histogram": 0.3541616842,
-        "assemble_transpose_and_order": 1.5892525253
+        "column_normalization": 0.9117786975,
+        "grouped_count_and_histogram": 0.3682251539,
+        "assemble_transpose_and_order": 1.5150186835
       },
       "median_ratio_ci95": {
-        "column_normalization": [0.8698498002, 0.9840716418],
-        "grouped_count_and_histogram": [0.3369025888, 0.3631658456],
-        "assemble_transpose_and_order": [1.3237518911, 1.7601556799]
+        "column_normalization": [0.8279135135, 0.9519519520],
+        "grouped_count_and_histogram": [0.3406649077, 0.3768129284],
+        "assemble_transpose_and_order": [1.3750081524, 1.5915410508]
       },
       "release_gate": "failed_one_of_three_workflows_meet_median_threshold; confirmation_host_and_common_operation_guardrail_pending"
     }

@@ -1,3 +1,4 @@
+import gc
 import json
 import warnings
 from pathlib import Path
@@ -1306,6 +1307,62 @@ def test_broadcast_and_diagonal_views_match_numpy_alias_and_writeability():
     assert len(expected_arrays) == len(actual_arrays) == 2
     for expected, actual in zip(expected_arrays, actual_arrays):
         assert_array_matches(expected, actual)
+
+
+def test_phase_04_views_keep_storage_alive_and_preserve_mutation_contracts():
+    values = np.arange(12, dtype=np.int32).reshape(3, 4)
+    source = raptors.array(values.tolist(), dtype=raptors.int32)
+    reshaped = raptors.reshape(source, (4, 3))
+    flattened_view = raptors.ravel(source)
+    flattened_copy = raptors.flatten(source)
+
+    del source
+    gc.collect()
+
+    reshaped[0, 0] = 91
+    flattened_view[1] = 92
+    flattened_copy[2] = 93
+
+    expected = values.copy()
+    expected[0, 0] = 91
+    expected[0, 1] = 92
+    assert_array_matches(expected.reshape((4, 3)), reshaped)
+    assert flattened_copy[2] == 93
+    assert reshaped[0, 2] == values[0, 2]
+
+
+def test_phase_04_broadcast_and_diagonal_views_retain_their_owner():
+    values = np.arange(9, dtype=np.int32).reshape(3, 3)
+    source = raptors.array(values.tolist(), dtype=raptors.int32)
+    diagonal = raptors.diagonal(source)
+    broadcast = raptors.broadcast_to(source[0, :], (3, 3))
+
+    del source
+    gc.collect()
+
+    assert_array_matches(np.diagonal(values), diagonal)
+    assert_array_matches(np.broadcast_to(values[0, :], (3, 3)), broadcast)
+    assert not diagonal.flags.writeable
+    assert not broadcast.flags.writeable
+    with pytest.raises(ValueError, match="read-only"):
+        diagonal[0] = 100
+    with pytest.raises(ValueError, match="read-only"):
+        broadcast[0, 0] = 100
+
+
+def test_phase_04_overlap_assignment_snapshots_source_and_copy_results_do_not_alias():
+    expected = np.array([1, 2, 3, 4], dtype=np.int32)
+    candidate = raptors.array(expected.tolist(), dtype=raptors.int32)
+    expected[1:] = expected[:-1]
+    candidate[1:] = candidate[:-1]
+    assert_array_matches(expected, candidate)
+
+    original = raptors.array([4, 1, 3, 2], dtype=raptors.int32)
+    joined = raptors.concatenate((original, original))
+    ordered = raptors.sort(original)
+    joined[0] = 99
+    ordered[0] = 98
+    assert_array_matches(np.array([4, 1, 3, 2], dtype=np.int32), original)
 
 
 @pytest.mark.parametrize("mode", ["raise", "wrap", "clip"])
