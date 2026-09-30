@@ -2292,13 +2292,6 @@ impl View {
             }
         }
         let sorted_rows = if repeated_row_halves { half_rows } else { rows };
-        let sorted_count = sorted_rows
-            .checked_mul(columns)
-            .ok_or(StorageError::ShapeOverflow)?;
-        let mut sorted_values = Vec::new();
-        sorted_values
-            .try_reserve_exact(sorted_count)
-            .map_err(|_| StorageError::AllocationFailed)?;
         let mut lane = Vec::new();
         lane.try_reserve_exact(columns)
             .map_err(|_| StorageError::AllocationFailed)?;
@@ -2316,27 +2309,12 @@ impl View {
                 lane.push(read_native_int32(&source, element)?);
             }
             sort_int32_lane(&mut lane, descending);
-            sorted_values.extend_from_slice(&lane);
-        }
-        for column in 0..columns {
-            let output_column_start = column
-                .checked_mul(rows)
-                .ok_or(StorageError::ShapeOverflow)?;
-            for row in 0..sorted_rows {
-                let source_index = row
-                    .checked_mul(columns)
-                    .and_then(|start| start.checked_add(column))
+            for (column, &value) in lane.iter().enumerate() {
+                let output_element = column
+                    .checked_mul(rows)
+                    .and_then(|value_offset| value_offset.checked_add(row))
                     .ok_or(StorageError::ShapeOverflow)?;
-                let output_element = output_column_start
-                    .checked_add(row)
-                    .ok_or(StorageError::ShapeOverflow)?;
-                write_native_int32(
-                    &mut destination,
-                    output_element,
-                    *sorted_values
-                        .get(source_index)
-                        .ok_or(StorageError::InvalidLayout)?,
-                )?;
+                write_native_int32(&mut destination, output_element, value)?;
             }
         }
         if repeated_row_halves {

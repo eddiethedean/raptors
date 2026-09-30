@@ -124,14 +124,14 @@
       "warmup_calls": 5,
       "timed_samples": 21,
       "median_ratios": {
-        "column_normalization": 0.8876765499,
-        "grouped_count_and_histogram": 0.3603169681,
-        "assemble_transpose_and_order": 2.0664168394
+        "column_normalization": 0.9156666667,
+        "grouped_count_and_histogram": 0.3541616842,
+        "assemble_transpose_and_order": 1.5892525253
       },
       "median_ratio_ci95": {
-        "column_normalization": [0.8812437054, 0.8974834894],
-        "grouped_count_and_histogram": [0.3502128117, 0.3698146514],
-        "assemble_transpose_and_order": [2.0032621359, 2.1166400000]
+        "column_normalization": [0.8698498002, 0.9840716418],
+        "grouped_count_and_histogram": [0.3369025888, 0.3631658456],
+        "assemble_transpose_and_order": [1.3237518911, 1.7601556799]
       },
       "release_gate": "failed_one_of_three_workflows_meet_median_threshold; confirmation_host_and_common_operation_guardrail_pending"
     }
