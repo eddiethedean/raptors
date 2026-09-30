@@ -110,8 +110,8 @@ def test_generated_composed_numeric_operation_sequence(values, step, replacement
 
     # Exercise a 0.3 ufunc on the surviving strided view, then feed that
     # result through 0.4 ordering and reduction routines after its owner dies.
-    expected_mapped = np.add(expected_view, 0)
-    actual_mapped = raptors.add(actual_view, 0)
+    expected_mapped = np.remainder(expected_view, 17)
+    actual_mapped = raptors.remainder(actual_view, 17)
     assert_array_matches(expected_mapped, actual_mapped)
 
     expected_assembled = np.concatenate((expected_mapped, expected_mapped[::-1]))
