@@ -99,8 +99,8 @@
     "full_python_regression": {
       "command": "uv run --project raptors-python --extra dev --no-sync python -m pytest raptors-python/tests/preview -q",
       "status": "passed_locally",
-      "candidate_commit": "8cddae350a9873efc5d6759818da02c6393cd826",
-      "passed": 9749,
+      "candidate_commit": "9b7d3af01dea83f7d068422258ed2d6fdf53e196",
+      "passed": 9750,
     "skipped": 8,
     "warnings": 1
   },
@@ -158,7 +158,7 @@
       "array_method_mismatches": 0,
       "array_method_count": 26,
       "array_method_mismatch_names": [],
-      "note": "The remaining differences group into NumPy's hidden <no value> defaults versus concrete defaults (including sort/argsort descending) and eye's dtype=float default. Top-level sort/argsort axis and ddof type now reflect NumPy's defaults; representative omitted/explicit variance, eye, and sort calls match. Full per-routine signature and explicit-default review remains open."
+      "note": "Parameter order/kinds across all 127 top-level routines and exact signatures across all 26 ndarray methods are checked. The remaining 28 top-level differences are limited to documented hidden-default objects and eye's dtype=float default; sort/argsort axis and ddof type now reflect NumPy's defaults. Routine-specific explicit-default behavior, warning/error, and error-precedence review remains open."
     },
     "signature_default_refinements": {
       "status": "passed_locally",
@@ -169,6 +169,13 @@
         "test_phase_04_top_level_ddof_signature_and_default_match_numpy"
       ],
       "behavior": "Top-level sort/argsort inspect axis=-1, and std/var/nanstd/nanvar inspect the integer ddof=0 default; omitted and explicit ddof=1 calls match NumPy. The 28 top-level entries remain signature mismatches due to the documented defaults."
+    },
+    "top_level_signature_shape_audit": {
+      "status": "passed_locally",
+      "candidate_commit": "9b7d3af01dea83f7d068422258ed2d6fdf53e196",
+      "command": "uv run --project raptors-python --no-sync pytest raptors-python/tests/preview/test_routines.py -q -k top_level_signature_shapes_and_documented_defaults",
+      "case": "test_phase_04_top_level_signature_shapes_and_documented_defaults_match_contract",
+      "behavior": "All 127 contracted top-level signatures have matching parameter order and kinds; only the exact 28 documented defaults differ, and every permitted difference is checked against its frozen sentinel/default category. All 26 ndarray method signatures match NumPy exactly."
     },
     "signature_default_hosted_ci": {
       "status": "passed",
