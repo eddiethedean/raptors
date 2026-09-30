@@ -80,20 +80,29 @@
     "release_gate": "pending",
     "performance_gate": "pending",
     "performance_measurement_result": "failed_application_workflow_threshold_one_of_three_medians_meet_target",
-    "focused_differential": {
-      "command": "uv run --project raptors-python --extra dev --no-sync python -m pytest raptors-python/tests/preview/test_ufunc_differential.py raptors-python/tests/preview/test_routines.py -q",
-      "status": "passed_locally",
-      "passed": 8962,
+  "focused_differential": {
+    "command": "uv run --project raptors-python --extra dev --no-sync python -m pytest raptors-python/tests/preview/test_ufunc_differential.py raptors-python/tests/preview/test_routines.py -q",
+    "status": "passed_locally",
+    "passed": 8971,
       "skipped": 7,
       "warnings": 1
     },
-    "full_python_regression": {
-      "command": "uv run --project raptors-python --extra dev --no-sync python -m pytest raptors-python/tests/preview -q",
-      "status": "passed_locally",
-      "passed": 9736,
-      "skipped": 8,
-      "warnings": 1
-    },
+  "full_python_regression": {
+    "command": "uv run --project raptors-python --extra dev --no-sync python -m pytest raptors-python/tests/preview -q",
+    "status": "passed_locally",
+    "passed": 9745,
+    "skipped": 8,
+    "warnings": 1
+  },
+  "atleast_identity_and_view_contract": {
+    "status": "passed_locally",
+    "cases": [
+      "test_atleast_functions_preserve_identity_when_rank_is_sufficient",
+      "test_atleast_rank_increase_returns_a_sharing_view",
+      "test_atleast_multiple_inputs_return_tuple_and_preserve_each_input_identity"
+    ],
+    "behavior": "Sufficient-rank Raptors arrays preserve Python identity; rank increases match NumPy shape, dtype, strides, flags, values, and write-through storage sharing, including scalar stride layout."
+  },
     "copyto_where_none": {
       "status": "passed_locally",
       "case": "test_copyto_where_none_and_ndarray_reduction_masks_match_numpy",
@@ -127,21 +136,29 @@
     "signature_audit": {
       "status": "open",
       "command": "inspect.signature over frozen Phase 0.4 top-level routines and ndarray methods, compared with compat/numpy-api-2.5.3.json",
-      "top_level_mismatches": 38,
+      "top_level_mismatches": 28,
       "top_level_count": 127,
       "top_level_mismatch_names": [
-        "all", "amax", "amin", "any", "arange", "argmax", "argmin", "argpartition",
-        "argsort", "average", "copyto", "eye", "histogram", "histogram2d", "histogramdd",
-        "lexsort", "max", "mean", "min", "nanargmax", "nanargmin", "nanmax", "nanmean",
-        "nanmedian", "nanmin", "nanpercentile", "nanquantile", "nanstd", "nanvar", "partition",
-        "prod", "ptp", "select", "sort", "std", "sum", "take_along_axis", "var"
+        "all", "amax", "amin", "any", "argmax", "argmin", "argsort", "average", "eye",
+        "max", "mean", "min", "nanargmax", "nanargmin", "nanmax", "nanmean", "nanmedian",
+        "nanmin", "nanpercentile", "nanquantile", "nanstd", "nanvar", "prod", "ptp", "sort",
+        "std", "sum", "var"
       ],
-      "array_method_mismatches": 8,
+      "array_method_mismatches": 2,
       "array_method_count": 26,
       "array_method_mismatch_names": [
-        "all", "any", "argpartition", "argsort", "partition", "sort", "std", "var"
+        "std", "var"
       ],
-      "note": "The audit improved from 62/127 routines and 20/26 methods. Remaining differences are recorded by name above and are primarily sentinel/default representations, default integer values rendered as Ellipsis or 0.0, copyto/array-method keyword surfaces, and histogram's generic bins default. They still require review and explicit boundaries before release closure."
+      "note": "The audit improved from 62/127 routines and 20/26 methods, then from 38/127 routines and 8/26 methods. Explicit copyto where positioning, ndarray all/any keyword-only masks, and multiple concrete default signatures are now covered. Remaining differences are mostly NumPy's hidden <no value> sentinel versus concrete defaults, eye's dtype=float default, top-level sort's descending sentinel, and ndarray std/var's catch-all kwargs/ddof representation; these still require review before release closure."
+    },
+    "explicit_where_and_default_signatures": {
+      "status": "passed_locally",
+      "cases": [
+        "test_phase_04_copyto_and_ndarray_logical_reduction_signatures_match_numpy",
+        "test_phase_04_default_signatures_match_numpy",
+        "test_copyto_where_none_and_ndarray_reduction_masks_match_numpy"
+      ],
+      "behavior": "copyto accepts positional or keyword where with NumPy-compatible inspection; ndarray all/any expose keyword-only where and reject a positional mask."
     },
     "extension_alias_lifetime_focused": {
       "status": "passed_locally_full_audit_pending",
@@ -187,20 +204,21 @@
     },
     "sanitizer_miri_and_alias_lifetime_gates": "hosted_miri_and_address_sanitizer_passed_all_18_storage_tests; all_8_wheel_targets_passed_clean_install_and_preview_tests; dedicated_extension_alias_lifetime_audit_pending",
     "preregistered_workflows": {
-      "status": "captured_post_f_order_sort_and_single_pass_float32_ufunc_work_release_gate_pending",
+      "status": "captured_current_candidate_release_gate_pending",
       "report": "docs/benchmarks/raptors-0.4-current.json",
+      "candidate_commit": "14d97b4628e372ac5f8819111218e28d30ea3dfd",
       "host": "macOS 26.5.2 ARM64, CPython 3.14.3, release build",
       "warmup_calls": 5,
       "timed_samples": 21,
       "median_ratios": {
-        "column_normalization": 0.8183373567,
-        "grouped_count_and_histogram": 0.3784029038,
-        "assemble_transpose_and_order": 1.952784081
+        "column_normalization": 0.8692153392,
+        "grouped_count_and_histogram": 0.3644575063,
+        "assemble_transpose_and_order": 1.3441338416
       },
       "median_ratio_ci95": {
-        "column_normalization": [0.7527021466, 0.9365558912],
-        "grouped_count_and_histogram": [0.3611651865, 0.387425488],
-        "assemble_transpose_and_order": [1.8673548387, 2.1066796082]
+        "column_normalization": [0.8013295129, 0.9213451327],
+        "grouped_count_and_histogram": [0.3448701346, 0.375162723],
+        "assemble_transpose_and_order": [1.1787490674, 1.5175553669]
       },
       "release_gate": "failed_one_of_three_workflows_meet_median_threshold; confirmation_host_and_common_operation_guardrail_pending"
     }
