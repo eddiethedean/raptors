@@ -42,6 +42,9 @@ jobs:
       - name: Check Python binding crate
         run: cargo check --locked -p raptors-python
 
+      - name: Check opt-in native allocation profiler
+        run: cargo check --locked --features alloc-profile -p raptors-python
+
       - name: Run Clippy on preview crates
         run: cargo clippy --locked -p raptors-longdouble -p raptors-storage -p raptors-python --all-targets -- -D warnings
 

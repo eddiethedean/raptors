@@ -10,6 +10,10 @@ name = "raptors"
 crate-type = ["cdylib"]
 path = "src/preview_lib.rs"
 
+[features]
+default = []
+alloc-profile = []
+
 [dependencies]
 pyo3 = { version = "0.27", features = ["extension-module", "num-complex", "abi3-py312"] }
 raptors-storage = { path = "../raptors-storage" }
