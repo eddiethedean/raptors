@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import gc
+import hashlib
 import json
 import os
 import platform
@@ -326,12 +327,18 @@ def bootstrap_ratio_interval(baseline_samples, current_samples, iterations=4000,
     return [ratios[int(0.025 * (iterations - 1))], ratios[int(0.975 * (iterations - 1))]]
 
 
-def compare_reports(baseline_path, current_path, output_path):
-    manifest = json.loads(MANIFEST.read_text())
+def compare_reports(baseline_path, current_path, output_path, review_path=None):
+    manifest_bytes = MANIFEST.read_bytes()
+    manifest = json.loads(manifest_bytes)
     baseline = json.loads(Path(baseline_path).read_text())
     current = json.loads(Path(current_path).read_text())
     if baseline["candidate_commit"] != manifest["revision"]["baseline_commit"]:
         raise SystemExit("baseline report candidate does not match the preregistered commit")
+    if current["baseline_candidate_commit"] != manifest["revision"]["baseline_commit"]:
+        raise SystemExit("current report does not identify the preregistered baseline")
+    expected_manifest = "docs/benchmarks/raptors-0.4-common-workloads-v1.json"
+    if baseline.get("manifest") != expected_manifest or current.get("manifest") != expected_manifest:
+        raise SystemExit("measurement reports do not identify the preregistered manifest")
     def key(row):
         return row["workload"], row["input_size"]
 
@@ -341,40 +348,88 @@ def compare_reports(baseline_path, current_path, output_path):
         raise SystemExit("baseline and current reports do not contain identical cells")
 
     threshold = manifest["regression_threshold"]["maximum_current_to_baseline_median_ratio"]
+    review = json.loads(Path(review_path).read_text()) if review_path else None
+    accepted_exceptions = {}
+    if review is not None:
+        if review["manifest"] != expected_manifest:
+            raise SystemExit("review file does not identify the preregistered manifest")
+        if review["manifest_sha256"] != hashlib.sha256(manifest_bytes).hexdigest():
+            raise SystemExit("review file does not match the frozen preregistered manifest")
+        if review["baseline_candidate_commit"] != baseline["candidate_commit"]:
+            raise SystemExit("review file does not match the measured baseline commit")
+        if review["current_candidate_commit"] != current["candidate_commit"]:
+            raise SystemExit("review file does not match the measured candidate commit")
+        if review["baseline_report_sha256"] != hashlib.sha256(
+            Path(baseline_path).read_bytes()
+        ).hexdigest():
+            raise SystemExit("review file does not match the measured baseline report")
+        if review["current_report_sha256"] != hashlib.sha256(
+            Path(current_path).read_bytes()
+        ).hexdigest():
+            raise SystemExit("review file does not match the measured candidate report")
+        for item in review.get("accepted_exceptions", []):
+            if item.get("decision") != "accepted":
+                continue
+            key = (item["workload"], item["input_size"])
+            if key in accepted_exceptions:
+                raise SystemExit(f"duplicate accepted exception for {key}")
+            accepted_exceptions[key] = item["reason"]
     cells = []
     for workload, size in sorted(baseline_cells):
         before = baseline_cells[(workload, size)]
         after = current_cells[(workload, size)]
         ratio = after["median_ns"] / before["median_ns"]
-        cells.append(
-            {
-                "workload": workload,
-                "input_size": size,
-                "size_label": after["size_label"],
-                "baseline_median_ns": before["median_ns"],
-                "current_median_ns": after["median_ns"],
-                "current_to_baseline_median_ratio": ratio,
-                "ratio_ci95": bootstrap_ratio_interval(
-                    before["samples_ns"],
-                    after["samples_ns"],
-                    seed=404 + len(cells),
-                ),
-                "exceeds_10_percent": ratio > threshold,
-            }
-        )
+        cell = {
+            "workload": workload,
+            "input_size": size,
+            "size_label": after["size_label"],
+            "baseline_median_ns": before["median_ns"],
+            "current_median_ns": after["median_ns"],
+            "current_to_baseline_median_ratio": ratio,
+            "ratio_ci95": bootstrap_ratio_interval(
+                before["samples_ns"],
+                after["samples_ns"],
+                seed=404 + len(cells),
+            ),
+            "exceeds_10_percent": ratio > threshold,
+        }
+        if (workload, size) in accepted_exceptions:
+            cell["reviewed_accepted_exception"] = accepted_exceptions[(workload, size)]
+        cells.append(cell)
     regressions = [cell for cell in cells if cell["exceeds_10_percent"]]
+    unaccepted_regressions = [
+        cell for cell in regressions if "reviewed_accepted_exception" not in cell
+    ]
+    regression_keys = {(cell["workload"], cell["input_size"]) for cell in regressions}
+    misplaced_exceptions = accepted_exceptions.keys() - regression_keys
+    if misplaced_exceptions:
+        raise SystemExit(
+            f"review file accepts cells that do not exceed the threshold: {sorted(misplaced_exceptions)}"
+        )
     summary = {
         "schema_version": 1,
-        "status": "passed" if not regressions else "regressions_require_review",
+        "status": (
+            "passed"
+            if not regressions
+            else "passed_with_accepted_exceptions"
+            if not unaccepted_regressions
+            else "regressions_require_review"
+        ),
         "manifest": "docs/benchmarks/raptors-0.4-common-workloads-v1.json",
+        "manifest_sha256": hashlib.sha256(manifest_bytes).hexdigest(),
+        "review_file": str(Path(review_path)) if review_path else None,
         "baseline_report": str(Path(baseline_path)),
+        "baseline_report_sha256": hashlib.sha256(Path(baseline_path).read_bytes()).hexdigest(),
         "baseline_candidate_commit": baseline["candidate_commit"],
         "current_report": str(Path(current_path)),
+        "current_report_sha256": hashlib.sha256(Path(current_path).read_bytes()).hexdigest(),
         "current_candidate_commit": current["candidate_commit"],
         "threshold_current_to_baseline": threshold,
         "cell_count": len(cells),
         "regression_count": len(regressions),
         "regressions_over_10_percent": regressions,
+        "unaccepted_regression_count": len(unaccepted_regressions),
+        "unaccepted_regressions": unaccepted_regressions,
         "cells": cells,
     }
     Path(output_path).write_text(json.dumps(summary, indent=2) + "\n")
@@ -391,6 +446,7 @@ def main():
     parser.add_argument("--worker", nargs=2, metavar=("WORKLOAD", "SIZE"))
     parser.add_argument("--baseline-report")
     parser.add_argument("--current-report")
+    parser.add_argument("--review-file")
     parser.add_argument("--summary-output")
     args = parser.parse_args()
 
@@ -401,8 +457,15 @@ def main():
     if args.baseline_report or args.current_report:
         if not (args.baseline_report and args.current_report and args.summary_output):
             parser.error("comparison requires --baseline-report, --current-report, and --summary-output")
-        compare_reports(args.baseline_report, args.current_report, args.summary_output)
+        compare_reports(
+            args.baseline_report,
+            args.current_report,
+            args.summary_output,
+            args.review_file,
+        )
         return
+    if args.review_file:
+        parser.error("--review-file is only valid when comparing baseline and current reports")
     if args.warmup < 0 or args.samples < 2:
         parser.error("warmup must be nonnegative and samples must be at least two")
     candidate_commit = args.candidate_commit or git_head()

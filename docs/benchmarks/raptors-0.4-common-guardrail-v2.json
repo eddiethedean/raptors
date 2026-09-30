@@ -1,0 +1,505 @@
+{
+  "schema_version": 1,
+  "status": "passed_with_accepted_exceptions",
+  "manifest": "docs/benchmarks/raptors-0.4-common-workloads-v1.json",
+  "manifest_sha256": "78f9838a630c00c9b1a3b0972a8b8550e5cb3cbaa517a1e27790b39ab717387b",
+  "review_file": "docs/benchmarks/raptors-0.4-common-review-v1.json",
+  "baseline_report": "docs/benchmarks/raptors-0.4-common-baseline-v1.json",
+  "baseline_report_sha256": "de88013175cbc50fa2afd35350d47070c65a73a73fce6a19f12bec55af601773",
+  "baseline_candidate_commit": "1ca882425b91a00f396695e44330fe1bee20d0bd",
+  "current_report": "docs/benchmarks/raptors-0.4-common-current-v1-4f63297.json",
+  "current_report_sha256": "d23c5bdb91948830746ed37b993a3d2be3790fb2bc01936ffee371671f6b1b77",
+  "current_candidate_commit": "4f63297332da56eee1be6fb00ee3d071ce1d1f50",
+  "threshold_current_to_baseline": 1.1,
+  "cell_count": 36,
+  "regression_count": 1,
+  "regressions_over_10_percent": [
+    {
+      "workload": "arange_creation",
+      "input_size": 16,
+      "size_label": "tiny",
+      "baseline_median_ns": 458,
+      "current_median_ns": 625,
+      "current_to_baseline_median_ratio": 1.3646288209606987,
+      "ratio_ci95": [
+        1.3616557734204793,
+        1.5995203836930456
+      ],
+      "exceeds_10_percent": true,
+      "reviewed_accepted_exception": "The 0.4 NumPy-compatible arange API adds optional device and like controls, including validation, compared with baseline 1ca8824. On the 16-element cell the current call is 625 ns versus 458 ns at baseline (+167 ns, 1.365x; bootstrap ratio interval 1.362\u20131.600). This fixed sub-microsecond binding cost is accepted for the required API and error behavior; at 4,096 and 250,000 elements the same workload is faster than baseline. The preregistered manifest remains unchanged."
+    }
+  ],
+  "unaccepted_regression_count": 0,
+  "unaccepted_regressions": [],
+  "cells": [
+    {
+      "workload": "arange_creation",
+      "input_size": 16,
+      "size_label": "tiny",
+      "baseline_median_ns": 458,
+      "current_median_ns": 625,
+      "current_to_baseline_median_ratio": 1.3646288209606987,
+      "ratio_ci95": [
+        1.3616557734204793,
+        1.5995203836930456
+      ],
+      "exceeds_10_percent": true,
+      "reviewed_accepted_exception": "The 0.4 NumPy-compatible arange API adds optional device and like controls, including validation, compared with baseline 1ca8824. On the 16-element cell the current call is 625 ns versus 458 ns at baseline (+167 ns, 1.365x; bootstrap ratio interval 1.362\u20131.600). This fixed sub-microsecond binding cost is accepted for the required API and error behavior; at 4,096 and 250,000 elements the same workload is faster than baseline. The preregistered manifest remains unchanged."
+    },
+    {
+      "workload": "arange_creation",
+      "input_size": 4096,
+      "size_label": "medium",
+      "baseline_median_ns": 58292,
+      "current_median_ns": 47334,
+      "current_to_baseline_median_ratio": 0.8120153708913744,
+      "ratio_ci95": [
+        0.8011441531404973,
+        0.824295010845987
+      ],
+      "exceeds_10_percent": false
+    },
+    {
+      "workload": "arange_creation",
+      "input_size": 250000,
+      "size_label": "large",
+      "baseline_median_ns": 3265958,
+      "current_median_ns": 3073375,
+      "current_to_baseline_median_ratio": 0.9410332282288995,
+      "ratio_ci95": [
+        0.9172947482127742,
+        0.9564425613005706
+      ],
+      "exceeds_10_percent": false
+    },
+    {
+      "workload": "bincount",
+      "input_size": 16,
+      "size_label": "tiny",
+      "baseline_median_ns": 6500,
+      "current_median_ns": 500,
+      "current_to_baseline_median_ratio": 0.07692307692307693,
+      "ratio_ci95": [
+        0.0550755939524838,
+        0.0784313725490196
+      ],
+      "exceeds_10_percent": false
+    },
+    {
+      "workload": "bincount",
+      "input_size": 4096,
+      "size_label": "medium",
+      "baseline_median_ns": 121541,
+      "current_median_ns": 3375,
+      "current_to_baseline_median_ratio": 0.027768407368706855,
+      "ratio_ci95": [
+        0.02771117971623752,
+        0.028163440292847015
+      ],
+      "exceeds_10_percent": false
+    },
+    {
+      "workload": "bincount",
+      "input_size": 250000,
+      "size_label": "large",
+      "baseline_median_ns": 7262541,
+      "current_median_ns": 180000,
+      "current_to_baseline_median_ratio": 0.02478471377992909,
+      "ratio_ci95": [
+        0.02473150176411176,
+        0.024932688501454314
+      ],
+      "exceeds_10_percent": false
+    },
+    {
+      "workload": "concatenate",
+      "input_size": 16,
+      "size_label": "tiny",
+      "baseline_median_ns": 2167,
+      "current_median_ns": 500,
+      "current_to_baseline_median_ratio": 0.23073373327180433,
+      "ratio_ci95": [
+        0.21181356714351637,
+        0.26903553299492383
+      ],
+      "exceeds_10_percent": false
+    },
+    {
+      "workload": "concatenate",
+      "input_size": 4096,
+      "size_label": "medium",
+      "baseline_median_ns": 351459,
+      "current_median_ns": 2042,
+      "current_to_baseline_median_ratio": 0.005810066038997436,
+      "ratio_ci95": [
+        0.005767573295655246,
+        0.0068827847798477075
+      ],
+      "exceeds_10_percent": false
+    },
+    {
+      "workload": "concatenate",
+      "input_size": 250000,
+      "size_label": "large",
+      "baseline_median_ns": 21958166,
+      "current_median_ns": 80375,
+      "current_to_baseline_median_ratio": 0.003660369449798312,
+      "ratio_ci95": [
+        0.0036013322927557715,
+        0.0037331682054721474
+      ],
+      "exceeds_10_percent": false
+    },
+    {
+      "workload": "histogram",
+      "input_size": 16,
+      "size_label": "tiny",
+      "baseline_median_ns": 5875,
+      "current_median_ns": 3417,
+      "current_to_baseline_median_ratio": 0.5816170212765958,
+      "ratio_ci95": [
+        0.5703904005408146,
+        0.5899516574585635
+      ],
+      "exceeds_10_percent": false
+    },
+    {
+      "workload": "histogram",
+      "input_size": 4096,
+      "size_label": "medium",
+      "baseline_median_ns": 491833,
+      "current_median_ns": 19209,
+      "current_to_baseline_median_ratio": 0.03905593971937629,
+      "ratio_ci95": [
+        0.0388976862670452,
+        0.03959886860375418
+      ],
+      "exceeds_10_percent": false
+    },
+    {
+      "workload": "histogram",
+      "input_size": 250000,
+      "size_label": "large",
+      "baseline_median_ns": 29039417,
+      "current_median_ns": 982125,
+      "current_to_baseline_median_ratio": 0.03382041037531849,
+      "ratio_ci95": [
+        0.03285111008905799,
+        0.03542303054749356
+      ],
+      "exceeds_10_percent": false
+    },
+    {
+      "workload": "isclose",
+      "input_size": 16,
+      "size_label": "tiny",
+      "baseline_median_ns": 1791,
+      "current_median_ns": 1167,
+      "current_to_baseline_median_ratio": 0.6515912897822446,
+      "ratio_ci95": [
+        0.6510329424902289,
+        0.6902857142857143
+      ],
+      "exceeds_10_percent": false
+    },
+    {
+      "workload": "isclose",
+      "input_size": 4096,
+      "size_label": "medium",
+      "baseline_median_ns": 303000,
+      "current_median_ns": 166333,
+      "current_to_baseline_median_ratio": 0.5489537953795379,
+      "ratio_ci95": [
+        0.5455291222313372,
+        0.5600561983471074
+      ],
+      "exceeds_10_percent": false
+    },
+    {
+      "workload": "isclose",
+      "input_size": 250000,
+      "size_label": "large",
+      "baseline_median_ns": 18051667,
+      "current_median_ns": 10671333,
+      "current_to_baseline_median_ratio": 0.5911549886223804,
+      "ratio_ci95": [
+        0.5765148704915581,
+        0.612313482056256
+      ],
+      "exceeds_10_percent": false
+    },
+    {
+      "workload": "mean",
+      "input_size": 16,
+      "size_label": "tiny",
+      "baseline_median_ns": 1792,
+      "current_median_ns": 708,
+      "current_to_baseline_median_ratio": 0.3950892857142857,
+      "ratio_ci95": [
+        0.3638843426077469,
+        0.46484375
+      ],
+      "exceeds_10_percent": false
+    },
+    {
+      "workload": "mean",
+      "input_size": 4096,
+      "size_label": "medium",
+      "baseline_median_ns": 283459,
+      "current_median_ns": 42000,
+      "current_to_baseline_median_ratio": 0.1481695765525173,
+      "ratio_ci95": [
+        0.14714512110702327,
+        0.14938090894305495
+      ],
+      "exceeds_10_percent": false
+    },
+    {
+      "workload": "mean",
+      "input_size": 250000,
+      "size_label": "large",
+      "baseline_median_ns": 17063958,
+      "current_median_ns": 2860000,
+      "current_to_baseline_median_ratio": 0.16760472570314577,
+      "ratio_ci95": [
+        0.16489444234189043,
+        0.16971754614083087
+      ],
+      "exceeds_10_percent": false
+    },
+    {
+      "workload": "reshape_transpose",
+      "input_size": 16,
+      "size_label": "tiny",
+      "baseline_median_ns": 584,
+      "current_median_ns": 583,
+      "current_to_baseline_median_ratio": 0.9982876712328768,
+      "ratio_ci95": [
+        0.928082191780822,
+        1.072041166380789
+      ],
+      "exceeds_10_percent": false
+    },
+    {
+      "workload": "reshape_transpose",
+      "input_size": 4096,
+      "size_label": "medium",
+      "baseline_median_ns": 542,
+      "current_median_ns": 583,
+      "current_to_baseline_median_ratio": 1.0756457564575646,
+      "ratio_ci95": [
+        1.0,
+        1.1531365313653137
+      ],
+      "exceeds_10_percent": false
+    },
+    {
+      "workload": "reshape_transpose",
+      "input_size": 250000,
+      "size_label": "large",
+      "baseline_median_ns": 583,
+      "current_median_ns": 542,
+      "current_to_baseline_median_ratio": 0.9296740994854202,
+      "ratio_ci95": [
+        0.8672,
+        1.0756457564575646
+      ],
+      "exceeds_10_percent": false
+    },
+    {
+      "workload": "searchsorted",
+      "input_size": 16,
+      "size_label": "tiny",
+      "baseline_median_ns": 709,
+      "current_median_ns": 625,
+      "current_to_baseline_median_ratio": 0.8815232722143864,
+      "ratio_ci95": [
+        0.5173841059602649,
+        1.0
+      ],
+      "exceeds_10_percent": false
+    },
+    {
+      "workload": "searchsorted",
+      "input_size": 4096,
+      "size_label": "medium",
+      "baseline_median_ns": 88250,
+      "current_median_ns": 90875,
+      "current_to_baseline_median_ratio": 1.0297450424929178,
+      "ratio_ci95": [
+        1.0028301993592428,
+        1.0387564367216386
+      ],
+      "exceeds_10_percent": false
+    },
+    {
+      "workload": "searchsorted",
+      "input_size": 250000,
+      "size_label": "large",
+      "baseline_median_ns": 9072083,
+      "current_median_ns": 9386500,
+      "current_to_baseline_median_ratio": 1.034657641469991,
+      "ratio_ci95": [
+        1.026861646138161,
+        1.03924331493685
+      ],
+      "exceeds_10_percent": false
+    },
+    {
+      "workload": "sort",
+      "input_size": 16,
+      "size_label": "tiny",
+      "baseline_median_ns": 1542,
+      "current_median_ns": 292,
+      "current_to_baseline_median_ratio": 0.1893644617380026,
+      "ratio_ci95": [
+        0.18382817435249527,
+        0.1893644617380026
+      ],
+      "exceeds_10_percent": false
+    },
+    {
+      "workload": "sort",
+      "input_size": 4096,
+      "size_label": "medium",
+      "baseline_median_ns": 625667,
+      "current_median_ns": 23917,
+      "current_to_baseline_median_ratio": 0.03822640478081791,
+      "ratio_ci95": [
+        0.03799240151969606,
+        0.038992201559688064
+      ],
+      "exceeds_10_percent": false
+    },
+    {
+      "workload": "sort",
+      "input_size": 250000,
+      "size_label": "large",
+      "baseline_median_ns": 36952667,
+      "current_median_ns": 1348791,
+      "current_to_baseline_median_ratio": 0.036500504821478784,
+      "ratio_ci95": [
+        0.036274241546934545,
+        0.03672681653064735
+      ],
+      "exceeds_10_percent": false
+    },
+    {
+      "workload": "take",
+      "input_size": 16,
+      "size_label": "tiny",
+      "baseline_median_ns": 875,
+      "current_median_ns": 666,
+      "current_to_baseline_median_ratio": 0.7611428571428571,
+      "ratio_ci95": [
+        0.7142857142857143,
+        0.8102857142857143
+      ],
+      "exceeds_10_percent": false
+    },
+    {
+      "workload": "take",
+      "input_size": 4096,
+      "size_label": "medium",
+      "baseline_median_ns": 110333,
+      "current_median_ns": 57958,
+      "current_to_baseline_median_ratio": 0.525300680666709,
+      "ratio_ci95": [
+        0.5150994704451124,
+        0.543511716102083
+      ],
+      "exceeds_10_percent": false
+    },
+    {
+      "workload": "take",
+      "input_size": 250000,
+      "size_label": "large",
+      "baseline_median_ns": 6789041,
+      "current_median_ns": 3634916,
+      "current_to_baseline_median_ratio": 0.5354093457382273,
+      "ratio_ci95": [
+        0.5328399502452104,
+        0.5415318565021544
+      ],
+      "exceeds_10_percent": false
+    },
+    {
+      "workload": "unique",
+      "input_size": 16,
+      "size_label": "tiny",
+      "baseline_median_ns": 1292,
+      "current_median_ns": 1375,
+      "current_to_baseline_median_ratio": 1.0642414860681115,
+      "ratio_ci95": [
+        1.0325077399380804,
+        1.0650658404337723
+      ],
+      "exceeds_10_percent": false
+    },
+    {
+      "workload": "unique",
+      "input_size": 4096,
+      "size_label": "medium",
+      "baseline_median_ns": 292292,
+      "current_median_ns": 279916,
+      "current_to_baseline_median_ratio": 0.9576587795765878,
+      "ratio_ci95": [
+        0.9263176682906836,
+        0.9858905510371309
+      ],
+      "exceeds_10_percent": false
+    },
+    {
+      "workload": "unique",
+      "input_size": 250000,
+      "size_label": "large",
+      "baseline_median_ns": 18047750,
+      "current_median_ns": 17938833,
+      "current_to_baseline_median_ratio": 0.9939650648972863,
+      "ratio_ci95": [
+        0.9777800490596893,
+        1.0113440467182628
+      ],
+      "exceeds_10_percent": false
+    },
+    {
+      "workload": "where",
+      "input_size": 16,
+      "size_label": "tiny",
+      "baseline_median_ns": 1708,
+      "current_median_ns": 1667,
+      "current_to_baseline_median_ratio": 0.9759953161592506,
+      "ratio_ci95": [
+        0.9748390871854886,
+        1.0
+      ],
+      "exceeds_10_percent": false
+    },
+    {
+      "workload": "where",
+      "input_size": 4096,
+      "size_label": "medium",
+      "baseline_median_ns": 263208,
+      "current_median_ns": 252875,
+      "current_to_baseline_median_ratio": 0.9607420747089754,
+      "ratio_ci95": [
+        0.9154310897842467,
+        0.965497765616831
+      ],
+      "exceeds_10_percent": false
+    },
+    {
+      "workload": "where",
+      "input_size": 250000,
+      "size_label": "large",
+      "baseline_median_ns": 15913458,
+      "current_median_ns": 15801583,
+      "current_to_baseline_median_ratio": 0.9929697869564239,
+      "ratio_ci95": [
+        0.9726401570933978,
+        1.0124747659665554
+      ],
+      "exceeds_10_percent": false
+    }
+  ]
+}

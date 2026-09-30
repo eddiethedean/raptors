@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "reviewed_on": "2026-09-30",
+  "review_scope": "Post-measurement review of the sole cell above the frozen Phase 0.4 common-operation regression threshold.",
+  "manifest": "docs/benchmarks/raptors-0.4-common-workloads-v1.json",
+  "manifest_sha256": "78f9838a630c00c9b1a3b0972a8b8550e5cb3cbaa517a1e27790b39ab717387b",
+  "baseline_candidate_commit": "1ca882425b91a00f396695e44330fe1bee20d0bd",
+  "current_candidate_commit": "4f63297332da56eee1be6fb00ee3d071ce1d1f50",
+  "baseline_report_sha256": "de88013175cbc50fa2afd35350d47070c65a73a73fce6a19f12bec55af601773",
+  "current_report_sha256": "d23c5bdb91948830746ed37b993a3d2be3790fb2bc01936ffee371671f6b1b77",
+  "accepted_exceptions": [
+    {
+      "workload": "arange_creation",
+      "input_size": 16,
+      "decision": "accepted",
+      "reason": "The 0.4 NumPy-compatible arange API adds optional device and like controls, including validation, compared with baseline 1ca8824. On the 16-element cell the current call is 625 ns versus 458 ns at baseline (+167 ns, 1.365x; bootstrap ratio interval 1.362–1.600). This fixed sub-microsecond binding cost is accepted for the required API and error behavior; at 4,096 and 250,000 elements the same workload is faster than baseline. The preregistered manifest remains unchanged."
+    }
+  ]
+}
