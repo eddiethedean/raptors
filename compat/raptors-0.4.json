@@ -73,52 +73,61 @@
   ],
   "known_limits": [
     "Inputs are numeric Raptors arrays and supported Python numeric values; third-party dispatch, like=, foreign buffers, and specialized dtype families are outside 0.4.",
-    "No performance advantage is claimed. The 0.4 performance threshold and cross-architecture confirmation remain release gates.",
+    "Two of the three preregistered workflow medians meet the 0.80 NumPy ratio, but assembly/reordering does not; therefore no overall 0.4 performance pass is claimed. The common-operation guardrail and cross-architecture confirmation also remain open.",
     "The implementation is still based on scalar/native storage walkers in several routines; temporary-memory and allocation profiles must be measured before release."
   ],
   "evidence": {
     "release_gate": "pending",
     "performance_gate": "pending",
+    "performance_measurement_result": "failed_application_workflow_threshold_two_of_three_medians_meet_target",
     "focused_differential": {
-      "command": "uv run --extra dev --no-sync python -m pytest tests/preview/test_routines.py -n0 -q",
+      "command": "uv run --project raptors-python --extra dev --no-sync python -m pytest raptors-python/tests/preview/test_ufunc_differential.py raptors-python/tests/preview/test_routines.py -q",
       "status": "passed_locally",
-      "passed": 247,
-      "skipped": 2,
+      "passed": 8930,
+      "skipped": 7,
       "warnings": 1
     },
     "full_python_regression": {
-      "command": "uv run --extra dev --no-sync python -m pytest -n0 -q",
+      "command": "uv run --project raptors-python --extra dev --no-sync python -m pytest raptors-python/tests/preview -q",
       "status": "passed_locally",
       "passed": 9704,
       "skipped": 8,
       "warnings": 1
     },
-    "cargo_check": {"status": "passed_locally", "command": "cargo check --locked --offline"},
+    "cargo_check": {
+      "status": "passed_locally",
+      "command": "cargo check --locked --offline -p raptors-python -p raptors-storage"
+    },
     "cargo_tests": {
       "status": "passed_locally",
       "command": "cargo test --locked --offline -p raptors-python -p raptors-storage",
-      "passed": 15,
+      "passed": 16,
       "failed": 0
     },
     "cargo_workspace_tests": {
-      "status": "passed_serially",
+      "status": "passed_serially_on_current_candidate",
       "command": "cargo test --locked --offline -- --test-threads=1",
       "parallel_rerun_anomaly": "One default-parallel workspace rerun exited with SIGTRAP in raptors-core einsum_test; the isolated target and three immediate default-parallel reruns passed."
     },
     "cross_python_and_wheel_matrix": "not_run",
     "sanitizer_miri_and_alias_lifetime_gates": "not_run",
     "preregistered_workflows": {
-      "status": "captured_pre_optimization_baseline",
-      "report": "docs/benchmarks/raptors-0.4-baseline.json",
+      "status": "captured_post_optimization_measurement_release_gate_pending",
+      "report": "docs/benchmarks/raptors-0.4-optimized.json",
       "host": "macOS 26.5.2 ARM64, CPython 3.14.3, release build",
       "warmup_calls": 5,
       "timed_samples": 21,
       "median_ratios": {
-        "column_normalization": 21.83,
-        "grouped_count_and_histogram": 3.79,
-        "assemble_transpose_and_order": 46.1
+        "column_normalization": 0.7964842105,
+        "grouped_count_and_histogram": 0.3477067585,
+        "assemble_transpose_and_order": 2.9081035923
       },
-      "release_gate": "pending_optimization_and_confirmation_host"
+      "median_ratio_ci95": {
+        "column_normalization": [0.7786456693, 0.8634412467],
+        "grouped_count_and_histogram": [0.3258033334, 0.3681782348],
+        "assemble_transpose_and_order": [2.6388888889, 3.2118333333]
+      },
+      "release_gate": "failed_two_of_three_workflows_meet_median_threshold; confirmation_host_and_common_operation_guardrail_pending"
     }
   }
 }

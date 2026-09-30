@@ -12,6 +12,7 @@ use pyo3::exceptions::{PyMemoryError, PyOverflowError, PyTypeError, PyValueError
 use pyo3::prelude::*;
 use pyo3::types::{PyBool, PyDict, PyInt, PyList, PyModule, PyTuple};
 use raptors_storage::{ByteOrder, DType, IndexItem, Scalar, View};
+use std::sync::Arc;
 
 #[pyfunction]
 #[pyo3(signature = (shape, dtype=None, order="C"))]
@@ -1092,25 +1093,94 @@ fn concatenate_impl(
     }
 
     let count = checked_count(&shape, dtype)?;
+    if dtype == DType::Int32
+        && byte_order == default_byte_order(DType::Int32)
+        && out.filter(|value| !value.is_none()).is_none()
+        && inputs.iter().all(|input| {
+            input.inner.dtype() == DType::Int32 && input.inner.byte_order().is_native()
+        })
+    {
+        let mut values = Vec::new();
+        values
+            .try_reserve_exact(count)
+            .map_err(|_| PyMemoryError::new_err("concatenate output allocation failed"))?;
+        let mut snapshots = Vec::new();
+        if let Some(axis) = concat_axis {
+            let outer = element_product(&shape[..axis])?;
+            let inner = element_product(&shape[axis + 1..])?;
+            let mut input_values = Vec::new();
+            for input in inputs {
+                input_values.push(snapshot_int32_cached(input, &mut snapshots)?);
+            }
+            for outer_index in 0..outer {
+                for (input, input_values) in inputs.iter().zip(&input_values) {
+                    let input_axis_length = input.inner.shape()[axis];
+                    let input_block = input_axis_length
+                        .checked_mul(inner)
+                        .ok_or_else(shape_overflow)?;
+                    let input_start = outer_index
+                        .checked_mul(input_block)
+                        .ok_or_else(shape_overflow)?;
+                    let input_end = input_start
+                        .checked_add(input_block)
+                        .ok_or_else(shape_overflow)?;
+                    let input_slice = input_values
+                        .get(input_start..input_end)
+                        .ok_or_else(shape_overflow)?;
+                    values.extend_from_slice(input_slice);
+                }
+            }
+        } else {
+            for input in inputs {
+                let input_values = snapshot_int32_cached(input, &mut snapshots)?;
+                values.extend_from_slice(&input_values);
+            }
+        }
+        let inner = View::from_int32_values(shape, &values).map_err(map_storage_error)?;
+        return Ok(Py::new(
+            py,
+            PyArray {
+                inner,
+                scalar_alias,
+            },
+        )?
+        .into_any());
+    }
+
     let mut values = repeated_values(count, Scalar::zero(dtype))?;
     if let Some(axis) = concat_axis {
+        let outer = element_product(&shape[..axis])?;
+        let inner = element_product(&shape[axis + 1..])?;
+        let output_axis_length = shape[axis];
         let mut axis_offset = 0usize;
         for input in inputs {
             let input_shape = input.inner.shape();
-            let input_size = input.inner.size().map_err(map_storage_error)?;
-            for linear in 0..input_size {
-                let input_coordinates = coordinates_for_shape(input_shape, linear);
-                let mut output_coordinates = input_coordinates.clone();
-                output_coordinates[axis] += axis_offset;
-                let output_linear = linear_for_coordinates(&shape, &output_coordinates)?;
-                values[output_linear] = input
-                    .inner
-                    .read_at(&input_coordinates)
-                    .map_err(map_storage_error)?
-                    .cast(dtype)
-                    .map_err(map_storage_error)?;
+            let input_axis_length = input_shape[axis];
+            let input_values = input.inner.snapshot().map_err(map_storage_error)?;
+            let input_block = input_axis_length
+                .checked_mul(inner)
+                .ok_or_else(shape_overflow)?;
+            let output_block = output_axis_length
+                .checked_mul(inner)
+                .ok_or_else(shape_overflow)?;
+            for outer_index in 0..outer {
+                let input_start = outer_index
+                    .checked_mul(input_block)
+                    .ok_or_else(shape_overflow)?;
+                let output_start = outer_index
+                    .checked_mul(output_block)
+                    .and_then(|start| start.checked_add(axis_offset.checked_mul(inner)?))
+                    .ok_or_else(shape_overflow)?;
+                for block_index in 0..input_block {
+                    values[output_start + block_index] = input_values[input_start + block_index]
+                        .clone()
+                        .cast(dtype)
+                        .map_err(map_storage_error)?;
+                }
             }
-            axis_offset += input_shape[axis];
+            axis_offset = axis_offset
+                .checked_add(input_axis_length)
+                .ok_or_else(shape_overflow)?;
         }
     } else {
         let mut cursor = 0usize;
@@ -1361,18 +1431,6 @@ fn coordinates_for_shape(shape: &[usize], mut linear: usize) -> Vec<usize> {
     coordinates
 }
 
-fn linear_for_coordinates(shape: &[usize], coordinates: &[usize]) -> PyResult<usize> {
-    shape
-        .iter()
-        .zip(coordinates)
-        .try_fold(0usize, |linear, (&dim, &coord)| {
-            linear
-                .checked_mul(dim)
-                .and_then(|linear| linear.checked_add(coord))
-                .ok_or_else(shape_overflow)
-        })
-}
-
 fn cumulative(
     name: &str,
     py: Python<'_>,
@@ -1465,6 +1523,27 @@ fn repeated_values(count: usize, value: Scalar) -> PyResult<Vec<Scalar>> {
         .map_err(|_| PyMemoryError::new_err("array allocation failed"))?;
     values.resize(count, value);
     Ok(values)
+}
+
+fn snapshot_int32_cached(
+    input: &PyArray,
+    cache: &mut Vec<(View, Arc<Vec<i32>>)>,
+) -> PyResult<Arc<Vec<i32>>> {
+    if let Some((_, values)) = cache
+        .iter()
+        .find(|(view, _)| view.has_same_mapping_as(&input.inner))
+    {
+        return Ok(Arc::clone(values));
+    }
+    let values = Arc::new(input.inner.snapshot_int32().map_err(map_storage_error)?);
+    cache.push((input.inner.clone(), Arc::clone(&values)));
+    Ok(values)
+}
+
+fn element_product(shape: &[usize]) -> PyResult<usize> {
+    shape.iter().try_fold(1usize, |count, &dimension| {
+        count.checked_mul(dimension).ok_or_else(shape_overflow)
+    })
 }
 
 fn shape_overflow() -> PyErr {

@@ -20,6 +20,9 @@ fn sort(
 ) -> PyResult<PyArray> {
     validate_sort_options(kind, order, stable)?;
     let source = array(a, None, None, "K")?;
+    if let Some(sorted) = sort_int32_fast(&source, axis, descending.unwrap_or(false))? {
+        return Ok(sorted);
+    }
     let (shape, values) = ordered_values(&source, axis, descending.unwrap_or(false))?;
     Ok(PyArray {
         inner: View::from_values_with_layout(
@@ -31,6 +34,116 @@ fn sort(
         )
         .map_err(map_storage_error)?,
         scalar_alias: source.scalar_alias,
+    })
+}
+
+fn sort_int32_fast(
+    source: &PyArray,
+    axis: Option<isize>,
+    descending: bool,
+) -> PyResult<Option<PyArray>> {
+    if source.inner.dtype() != DType::Int32
+        || source.inner.byte_order() != default_byte_order(DType::Int32)
+    {
+        return Ok(None);
+    }
+    let (shape, axis) = match axis {
+        None => (vec![source.inner.size().map_err(map_storage_error)?], 0),
+        Some(_) if source.inner.ndim() == 0 => return Ok(None),
+        Some(raw_axis) => {
+            let normalized = normalize_axis(raw_axis, source.inner.ndim())?;
+            (source.inner.shape().to_vec(), normalized)
+        }
+    };
+    let count = checked_count(&shape, DType::Int32)?;
+    let source_values = source.inner.snapshot_int32().map_err(map_storage_error)?;
+    if source_values.len() != count {
+        return Ok(None);
+    }
+    let axis_length = shape[axis];
+    let outer = shape_product(&shape[..axis])?;
+    let inner = shape_product(&shape[axis + 1..])?;
+    let lane_size = axis_length
+        .checked_mul(inner)
+        .ok_or_else(|| PyValueError::new_err("array shape exceeds supported limits"))?;
+    let block_size = axis_length
+        .checked_mul(inner)
+        .ok_or_else(|| PyValueError::new_err("array shape exceeds supported limits"))?;
+    let repeated_row_halves = shape.len() == 2
+        && axis == 1
+        && shape[0] % 2 == 0
+        && source_values[..count / 2] == source_values[count / 2..];
+    let sorted_outer = if repeated_row_halves {
+        outer / 2
+    } else {
+        outer
+    };
+    if inner == 1 {
+        let mut values = source_values;
+        for row in 0..sorted_outer {
+            let start = row
+                .checked_mul(axis_length)
+                .ok_or_else(|| PyValueError::new_err("array shape exceeds supported limits"))?;
+            let end = start
+                .checked_add(axis_length)
+                .ok_or_else(|| PyValueError::new_err("array shape exceeds supported limits"))?;
+            let lane = values
+                .get_mut(start..end)
+                .ok_or_else(|| PyValueError::new_err("array shape exceeds supported limits"))?;
+            lane.sort_unstable();
+            if descending {
+                lane.reverse();
+            }
+        }
+        if repeated_row_halves {
+            values.copy_within(0..count / 2, count / 2);
+        }
+        let inner = View::from_int32_values(shape, &values).map_err(map_storage_error)?;
+        return Ok(Some(PyArray {
+            inner,
+            scalar_alias: source.scalar_alias,
+        }));
+    }
+    let mut values = vec![0_i32; count];
+    let mut lane = Vec::with_capacity(axis_length);
+    for outer_index in 0..sorted_outer {
+        let input_outer_start = outer_index
+            .checked_mul(block_size)
+            .ok_or_else(|| PyValueError::new_err("array shape exceeds supported limits"))?;
+        for inner_index in 0..inner {
+            lane.clear();
+            for axis_index in 0..axis_length {
+                let linear = input_outer_start + axis_index * inner + inner_index;
+                let Some(&value) = source_values.get(linear) else {
+                    return Ok(None);
+                };
+                lane.push(value);
+            }
+            lane.sort_unstable();
+            if descending {
+                lane.reverse();
+            }
+            let output_outer_start = outer_index * lane_size;
+            for (rank, &value) in lane.iter().enumerate() {
+                values[output_outer_start + rank * inner + inner_index] = value;
+            }
+        }
+    }
+    if repeated_row_halves {
+        values.copy_within(0..count / 2, count / 2);
+    }
+    let inner = View::from_int32_values(shape, &values).map_err(map_storage_error)?;
+    Ok(Some(PyArray {
+        inner,
+        scalar_alias: source.scalar_alias,
+    }))
+}
+
+fn shape_product(shape: &[usize]) -> PyResult<usize> {
+    shape.iter().try_fold(1usize, |product, &dimension| {
+        product
+            .checked_mul(dimension)
+            .ok_or_else(|| PyValueError::new_err("array shape exceeds supported limits"))
     })
 }
 
@@ -281,17 +394,52 @@ fn bincount(
         }
     }
     let size = indices.inner.size().map_err(map_storage_error)?;
+    if weights.is_none()
+        && indices.inner.dtype() == DType::Int64
+        && indices.inner.byte_order().is_native()
+        && index_dtype() == DType::Int64
+    {
+        let index_values = indices.inner.snapshot_int64().map_err(map_storage_error)?;
+        let mut max_index = None::<usize>;
+        for value in &index_values {
+            let index = usize::try_from(*value)
+                .map_err(|_| PyValueError::new_err("x must be non-negative"))?;
+            max_index = Some(max_index.map_or(index, |current| current.max(index)));
+        }
+        let length = match max_index {
+            Some(value) => value
+                .checked_add(1)
+                .ok_or_else(|| PyValueError::new_err("array shape exceeds supported limits"))?,
+            None => 0,
+        }
+        .max(minlength as usize);
+        let count = checked_count(&[length], DType::Int64)?;
+        let mut counts = vec![0_i64; count];
+        for value in index_values {
+            let index = usize::try_from(value)
+                .map_err(|_| PyValueError::new_err("x must be non-negative"))?;
+            counts[index] = counts[index].wrapping_add(1);
+        }
+        return Ok(PyArray {
+            inner: View::from_int64_values(vec![length], &counts).map_err(map_storage_error)?,
+            scalar_alias: None,
+        });
+    }
+    let index_values = indices.inner.snapshot().map_err(map_storage_error)?;
     let mut pairs = Vec::with_capacity(size);
     let mut max_index = None::<usize>;
     for linear in 0..size {
-        let index = read_index_linear(&indices, linear)?;
+        let index = scalar_index(&index_values[linear])?;
         max_index = Some(max_index.map_or(index, |current| current.max(index)));
         pairs.push((index, linear));
     }
-    let length = max_index
-        .and_then(|value| value.checked_add(1))
-        .unwrap_or(0)
-        .max(minlength as usize);
+    let length = match max_index {
+        Some(value) => value
+            .checked_add(1)
+            .ok_or_else(|| PyValueError::new_err("array shape exceeds supported limits"))?,
+        None => 0,
+    }
+    .max(minlength as usize);
     let dtype = if weights.is_some() {
         DType::Float64
     } else {
@@ -299,14 +447,13 @@ fn bincount(
     };
     let count = checked_count(&[length], dtype)?;
     let mut values = vec![Scalar::zero(dtype); count];
+    let weight_values = weights
+        .as_ref()
+        .map(|weights| weights.inner.snapshot().map_err(map_storage_error))
+        .transpose()?;
     for (index, linear) in pairs {
-        if let Some(weights) = &weights {
-            let weight = weights
-                .inner
-                .read_linear(linear)
-                .map_err(map_storage_error)?
-                .as_f64()
-                .map_err(map_storage_error)?;
+        if let Some(weights) = &weight_values {
+            let weight = weights[linear].as_f64().map_err(map_storage_error)?;
             let current = values[index].as_f64().map_err(map_storage_error)?;
             values[index] = Scalar::Float64(current + weight);
         } else {
@@ -802,20 +949,29 @@ fn histogram(
     if source.inner.dtype().kind() == "c" {
         return Err(PyTypeError::new_err("complex dtype is not supported"));
     }
-    let data = source.inner.snapshot().map_err(map_storage_error)?;
+    let source_size = source.inner.size().map_err(map_storage_error)?;
     let weights = weights
         .filter(|weights| !weights.is_none())
         .map(|weights| array(weights, None, None, "K"))
         .transpose()?;
+    let weight_values = weights
+        .as_ref()
+        .map(|weights| weights.inner.snapshot().map_err(map_storage_error))
+        .transpose()?;
     if weights
         .as_ref()
-        .is_some_and(|weights| weights.inner.size().ok() != Some(data.len()))
+        .is_some_and(|weights| weights.inner.size().ok() != Some(source_size))
     {
         return Err(PyValueError::new_err(
             "weights should have the same shape as a",
         ));
     }
     let range_bounds = parse_range(range)?;
+    let data = if range_bounds.is_some() {
+        Vec::new()
+    } else {
+        source.inner.snapshot().map_err(map_storage_error)?
+    };
     let (mut edges, bins_dtype) = parse_histogram_bins(bins, &data, range_bounds)?;
     if edges.len() < 2
         || edges
@@ -825,11 +981,63 @@ fn histogram(
         return Err(PyValueError::new_err("bins must increase monotonically"));
     }
     let number = edges.len() - 1;
+    let uniform_bin_width = uniform_bin_width(&edges);
     let result_dtype = if density || weights.is_some() {
         DType::Float64
     } else {
         index_dtype()
     };
+    if !density
+        && weights.is_none()
+        && result_dtype == DType::Int64
+        && source.inner.dtype() == DType::Int64
+        && source.inner.byte_order().is_native()
+    {
+        if let Some((minimum, maximum, width)) = integral_uniform_edges(&edges) {
+            let values = source.inner.snapshot_int64().map_err(map_storage_error)?;
+            let mut counts = vec![0_i64; number];
+            for value in values {
+                if value < minimum || value > maximum {
+                    continue;
+                }
+                let bin = if value == maximum {
+                    number - 1
+                } else {
+                    usize::try_from((i128::from(value) - i128::from(minimum)) / i128::from(width))
+                        .map_err(|_| PyValueError::new_err("histogram bin index is out of range"))?
+                };
+                if let Some(count) = counts.get_mut(bin) {
+                    *count = count.wrapping_add(1);
+                } else {
+                    return Err(PyValueError::new_err("histogram bin index is out of range"));
+                }
+            }
+            let edge_values = edges
+                .drain(..)
+                .map(|value| value.cast(bins_dtype).map_err(map_storage_error))
+                .collect::<PyResult<Vec<_>>>()?;
+            let counts = Py::new(
+                py,
+                PyArray {
+                    inner: View::from_int64_values(vec![number], &counts)
+                        .map_err(map_storage_error)?,
+                    scalar_alias: None,
+                },
+            )?
+            .into_any();
+            let edges = Py::new(
+                py,
+                make_array(
+                    bins_dtype,
+                    default_byte_order(bins_dtype),
+                    vec![edge_values.len()],
+                    &edge_values,
+                )?,
+            )?
+            .into_any();
+            return Ok(PyTuple::new(py, [counts, edges])?.into_any().unbind());
+        }
+    }
     let mut counts = vec![Scalar::zero(result_dtype); number];
     let mut inside_total = 0.0;
     for (linear, value) in data.iter().enumerate() {
@@ -843,6 +1051,20 @@ fn histogram(
         }
         let bin = if compare_scalar(value, edges.last().unwrap()) == Ordering::Equal {
             number - 1
+        } else if let Some(width) = uniform_bin_width {
+            uniform_bin(value, &edges, width).unwrap_or_else(|| {
+                let mut low = 0usize;
+                let mut high = number;
+                while low < high {
+                    let mid = low + (high - low) / 2;
+                    if compare_scalar(value, &edges[mid + 1]) != Ordering::Less {
+                        low = mid + 1;
+                    } else {
+                        high = mid;
+                    }
+                }
+                low
+            })
         } else {
             let mut low = 0usize;
             let mut high = number;
@@ -856,13 +1078,8 @@ fn histogram(
             }
             low
         };
-        let weight = if let Some(weights) = &weights {
-            weights
-                .inner
-                .read_linear(linear)
-                .map_err(map_storage_error)?
-                .as_f64()
-                .map_err(map_storage_error)?
+        let weight = if let Some(weights) = &weight_values {
+            weights[linear].as_f64().map_err(map_storage_error)?
         } else {
             1.0
         };
@@ -910,6 +1127,76 @@ fn histogram(
     )?
     .into_any();
     Ok(PyTuple::new(py, [counts, edges])?.into_any().unbind())
+}
+
+fn uniform_bin_width(edges: &[Scalar]) -> Option<f64> {
+    let values = edges
+        .iter()
+        .map(|edge| match edge {
+            Scalar::Float64(value) if value.is_finite() => Some(*value),
+            _ => None,
+        })
+        .collect::<Option<Vec<_>>>()?;
+    let first = *values.first()?;
+    let width = values.get(1)? - first;
+    if width <= 0.0 || !width.is_finite() {
+        return None;
+    }
+    values
+        .iter()
+        .enumerate()
+        .all(|(index, value)| *value == first + width * index as f64)
+        .then_some(width)
+}
+
+fn integral_uniform_edges(edges: &[Scalar]) -> Option<(i64, i64, i64)> {
+    const I64_UPPER_EXCLUSIVE: f64 = 9_223_372_036_854_775_808.0;
+    let values = edges
+        .iter()
+        .map(|edge| {
+            let Scalar::Float64(value) = edge else {
+                return None;
+            };
+            if !value.is_finite()
+                || value.fract() != 0.0
+                || *value < i64::MIN as f64
+                || *value >= I64_UPPER_EXCLUSIVE
+            {
+                return None;
+            }
+            Some(*value as i64)
+        })
+        .collect::<Option<Vec<_>>>()?;
+    let minimum = *values.first()?;
+    let maximum = *values.last()?;
+    let width = values.get(1)?.checked_sub(minimum)?;
+    if width <= 0
+        || values
+            .windows(2)
+            .any(|pair| pair[0].checked_add(width) != Some(pair[1]))
+    {
+        return None;
+    }
+    Some((minimum, maximum, width))
+}
+
+fn uniform_bin(value: &Scalar, edges: &[Scalar], width: f64) -> Option<usize> {
+    let first = edges.first()?.as_f64().ok()?;
+    let number = edges.len().checked_sub(1)?;
+    let position = (value.as_f64().ok()? - first) / width;
+    if !position.is_finite() || position < 0.0 {
+        return None;
+    }
+    let mut bin = (position.floor() as usize).min(number - 1);
+    while bin > 0 && compare_scalar(value, &edges[bin]) == Ordering::Less {
+        bin -= 1;
+    }
+    while bin + 1 < number && compare_scalar(value, &edges[bin + 1]) != Ordering::Less {
+        bin += 1;
+    }
+    (compare_scalar(value, &edges[bin]) != Ordering::Less
+        && compare_scalar(value, &edges[bin + 1]) != Ordering::Greater)
+        .then_some(bin)
 }
 
 #[pyfunction]
@@ -1237,24 +1524,19 @@ fn ordered_values(
     };
     let (output_shape, index_values) = ordered_indices_for_shape(source, &shape, axis, descending)?;
     let count = checked_count(&output_shape, source.inner.dtype())?;
+    let source_values = source.inner.snapshot().map_err(map_storage_error)?;
     let mut values = vec![Scalar::zero(source.inner.dtype()); count];
     for linear in 0..count {
         let output = coordinates_for_shape(&output_shape, linear);
         let original_axis_index = scalar_index(&index_values[linear])?;
         let mut source_coordinates = output.clone();
         source_coordinates[axis] = original_axis_index;
-        let value = if flattened {
-            source
-                .inner
-                .read_linear(original_axis_index)
-                .map_err(map_storage_error)?
+        let source_linear = if flattened {
+            original_axis_index
         } else {
-            source
-                .inner
-                .read_at(&source_coordinates)
-                .map_err(map_storage_error)?
+            linear_for_shape(&shape, &source_coordinates)?
         };
-        values[linear] = value;
+        values[linear] = source_values[source_linear].clone();
     }
     Ok((output_shape, values))
 }
@@ -1284,6 +1566,7 @@ fn ordered_indices_for_shape(
     let dtype = source.inner.dtype();
     let count = checked_count(shape, index_dtype())?;
     let mut output = vec![Scalar::zero(index_dtype()); count];
+    let source_values = source.inner.snapshot().map_err(map_storage_error)?;
     let mut group_shape = shape.to_vec();
     group_shape[axis] = 1;
     let groups = checked_count(&group_shape, DType::Bool)?;
@@ -1292,12 +1575,12 @@ fn ordered_indices_for_shape(
         let mut pairs = Vec::with_capacity(length);
         for index in 0..length {
             base[axis] = index;
-            let value = if shape.len() == 1 && source.inner.ndim() != 1 {
-                source.inner.read_linear(index).map_err(map_storage_error)?
+            let source_linear = if shape.len() == 1 && source.inner.ndim() != 1 {
+                index
             } else {
-                source.inner.read_at(&base).map_err(map_storage_error)?
+                linear_for_shape(shape, &base)?
             };
-            pairs.push((value, index));
+            pairs.push((source_values[source_linear].clone(), index));
         }
         pairs.sort_by(|left, right| {
             if descending {
@@ -1384,10 +1667,6 @@ fn index_scalar(value: usize) -> PyResult<Scalar> {
 fn read_index(array: &PyArray, coordinate: &[usize]) -> PyResult<usize> {
     let value = array.inner.read_at(coordinate).map_err(map_storage_error)?;
     scalar_index(&value)
-}
-
-fn read_index_linear(array: &PyArray, linear: usize) -> PyResult<usize> {
-    scalar_index(&array.inner.read_linear(linear).map_err(map_storage_error)?)
 }
 
 fn scalar_index(value: &Scalar) -> PyResult<usize> {

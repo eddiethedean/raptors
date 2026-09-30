@@ -52,27 +52,49 @@ fn mean_impl(
     let mask = parse_where(py, kwargs)?;
     let reduction = Reduction::new(&source, axis, keepdims, mask.as_ref())?;
     let result_dtype = mean_dtype(source.inner.dtype(), dtype)?;
+    if !skip_nan
+        && mask.is_none()
+        && out.filter(|value| !value.is_none()).is_none()
+        && dtype.filter(|value| !value.is_none()).is_none()
+        && !keepdims
+        && result_dtype == DType::Float32
+    {
+        if let Some(fast_values) = float32_axis0_statistics(&source, &reduction, 0.0, false, false)?
+        {
+            let inner = View::from_float32_values(reduction.output_shape.clone(), &fast_values)
+                .map_err(map_storage_error)?;
+            return Ok(Py::new(
+                py,
+                PyArray {
+                    inner,
+                    scalar_alias: None,
+                },
+            )?
+            .into_any());
+        }
+    }
+    let source_values = source.inner.snapshot().map_err(map_storage_error)?;
     let mut values = Vec::new();
     values
         .try_reserve_exact(reduction.output_size)
         .map_err(|_| PyMemoryError::new_err("mean result allocation failed"))?;
     for output_linear in 0..reduction.output_size {
-        let (base_coordinates, reduced_coordinates) = reduction.coordinates(output_linear);
+        let (base_coordinates, reduced_coordinates) = if mask.is_some() {
+            let (base, reduced) = reduction.coordinates(output_linear);
+            (Some(base), Some(reduced))
+        } else {
+            (None, None)
+        };
         let mut sum = (0.0, 0.0);
         let mut count = 0usize;
         for reduced_linear in 0..reduction.reduction_size {
-            let coordinates = reduction.input_coordinates(
-                &base_coordinates,
-                &reduced_coordinates,
-                reduced_linear,
-            );
-            if !selected(mask.as_ref(), &coordinates, source.inner.shape())? {
-                continue;
+            if let (Some(base), Some(reduced)) = (&base_coordinates, &reduced_coordinates) {
+                let coordinates = reduction.input_coordinates(base, reduced, reduced_linear);
+                if !selected(mask.as_ref(), &coordinates, source.inner.shape())? {
+                    continue;
+                }
             }
-            let value = source
-                .inner
-                .read_at(&coordinates)
-                .map_err(map_storage_error)?;
+            let value = &source_values[reduction.input_linear(output_linear, reduced_linear)];
             if skip_nan && value.is_nan() {
                 continue;
             }
@@ -148,26 +170,50 @@ fn variance_impl(
     let mask = parse_where(py, kwargs)?;
     let reduction = Reduction::new(&source, axis, keepdims, mask.as_ref())?;
     let result_dtype = variance_dtype(source.inner.dtype(), dtype)?;
+    if !skip_nan
+        && mask.is_none()
+        && out.filter(|value| !value.is_none()).is_none()
+        && dtype.filter(|value| !value.is_none()).is_none()
+        && !keepdims
+        && result_dtype == DType::Float32
+        && ddof.is_finite()
+    {
+        if let Some(fast_values) = float32_axis0_statistics(&source, &reduction, ddof, true, false)?
+        {
+            let inner = View::from_float32_values(reduction.output_shape.clone(), &fast_values)
+                .map_err(map_storage_error)?;
+            return Ok(Py::new(
+                py,
+                PyArray {
+                    inner,
+                    scalar_alias: None,
+                },
+            )?
+            .into_any());
+        }
+    }
+    let source_values = source.inner.snapshot().map_err(map_storage_error)?;
     let mut values = Vec::new();
     values
         .try_reserve_exact(reduction.output_size)
         .map_err(|_| PyMemoryError::new_err("variance result allocation failed"))?;
     for output_linear in 0..reduction.output_size {
-        let (base_coordinates, reduced_coordinates) = reduction.coordinates(output_linear);
+        let (base_coordinates, reduced_coordinates) = if mask.is_some() {
+            let (base, reduced) = reduction.coordinates(output_linear);
+            (Some(base), Some(reduced))
+        } else {
+            (None, None)
+        };
         let mut selected_values = Vec::new();
         for reduced_linear in 0..reduction.reduction_size {
-            let coordinates = reduction.input_coordinates(
-                &base_coordinates,
-                &reduced_coordinates,
-                reduced_linear,
-            );
-            if !selected(mask.as_ref(), &coordinates, source.inner.shape())? {
-                continue;
+            if let (Some(base), Some(reduced)) = (&base_coordinates, &reduced_coordinates) {
+                let coordinates = reduction.input_coordinates(base, reduced, reduced_linear);
+                if !selected(mask.as_ref(), &coordinates, source.inner.shape())? {
+                    continue;
+                }
             }
-            let value = source
-                .inner
-                .read_at(&coordinates)
-                .map_err(map_storage_error)?;
+            let value =
+                source_values[reduction.input_linear(output_linear, reduced_linear)].clone();
             if skip_nan && value.is_nan() {
                 continue;
             }
@@ -213,9 +259,70 @@ fn std(
     correction: Option<f64>,
     kwargs: Option<&Bound<'_, PyDict>>,
 ) -> PyResult<Py<PyAny>> {
+    if correction.is_some() && ddof != 0.0 {
+        return Err(PyValueError::new_err(
+            "ddof and correction cannot be provided simultaneously",
+        ));
+    }
+    let effective_ddof = correction.unwrap_or(ddof);
+    let requested_axis_zero = axis
+        .filter(|axis| !axis.is_none())
+        .and_then(|axis| axis.extract::<isize>().ok())
+        .is_some_and(|axis| axis == 0 || axis == -2);
+    if requested_axis_zero
+        && kwargs.is_none()
+        && dtype.filter(|value| !value.is_none()).is_none()
+        && out.filter(|value| !value.is_none()).is_none()
+        && !keepdims
+        && effective_ddof.is_finite()
+        && a.extract::<PyRef<'_, PyArray>>().is_ok_and(|input| {
+            input.inner.dtype() == DType::Float32
+                && input.inner.ndim() == 2
+                && input.inner.is_c_contiguous()
+        })
+    {
+        let source = array(a, None, None, "K")?;
+        let reduction = Reduction::new(&source, axis, keepdims, None)?;
+        if let Some(fast_values) =
+            float32_axis0_statistics(&source, &reduction, effective_ddof, true, true)?
+        {
+            let inner = View::from_float32_values(reduction.output_shape.clone(), &fast_values)
+                .map_err(map_storage_error)?;
+            return Ok(Py::new(
+                py,
+                PyArray {
+                    inner,
+                    scalar_alias: None,
+                },
+            )?
+            .into_any());
+        }
+    }
     let result = var(py, a, axis, dtype, None, ddof, keepdims, correction, kwargs)?;
     let result = array(result.bind(py).as_any(), None, None, "K")?;
     let dtype = result.inner.dtype();
+    if dtype == DType::Float32
+        && !result.inner.shape().is_empty()
+        && out.filter(|value| !value.is_none()).is_none()
+    {
+        let values = result
+            .inner
+            .snapshot_float32()
+            .map_err(map_storage_error)?
+            .into_iter()
+            .map(|value| f64::from(value).sqrt() as f32)
+            .collect::<Vec<_>>();
+        let inner = View::from_float32_values(result.inner.shape().to_vec(), &values)
+            .map_err(map_storage_error)?;
+        return Ok(Py::new(
+            py,
+            PyArray {
+                inner,
+                scalar_alias: None,
+            },
+        )?
+        .into_any());
+    }
     let values = result
         .inner
         .snapshot()
@@ -1486,12 +1593,16 @@ fn coordinate_result(
 
 struct Reduction {
     axes: Vec<usize>,
+    reduced_positions: Vec<Option<usize>>,
+    output_positions: Vec<Option<usize>>,
     input_shape: Vec<usize>,
     output_shape: Vec<usize>,
     reduced_shape: Vec<usize>,
+    input_c_strides: Vec<usize>,
+    output_c_strides: Vec<usize>,
+    reduced_c_strides: Vec<usize>,
     output_size: usize,
     reduction_size: usize,
-    keepdims: bool,
 }
 
 impl Reduction {
@@ -1508,14 +1619,19 @@ impl Reduction {
             }
             validate_broadcast(mask.inner.shape(), source.inner.shape())?;
         }
-        let set = axes.iter().copied().collect::<HashSet<_>>();
+        let mut axis_mask = vec![false; source.inner.ndim()];
+        let mut reduced_positions = vec![None; source.inner.ndim()];
+        for (position, &axis) in axes.iter().enumerate() {
+            axis_mask[axis] = true;
+            reduced_positions[axis] = Some(position);
+        }
         let output_shape: Vec<usize> = if keepdims {
             source
                 .inner
                 .shape()
                 .iter()
                 .enumerate()
-                .map(|(axis, &dimension)| if set.contains(&axis) { 1 } else { dimension })
+                .map(|(axis, &dimension)| if axis_mask[axis] { 1 } else { dimension })
                 .collect()
         } else {
             source
@@ -1523,37 +1639,42 @@ impl Reduction {
                 .shape()
                 .iter()
                 .enumerate()
-                .filter_map(|(axis, &dimension)| (!set.contains(&axis)).then_some(dimension))
+                .filter_map(|(axis, &dimension)| (!axis_mask[axis]).then_some(dimension))
                 .collect()
         };
         let reduced_shape = axes
             .iter()
             .map(|&axis| source.inner.shape()[axis])
             .collect::<Vec<_>>();
+        let mut output_positions = vec![None; source.inner.ndim()];
+        let mut output_axis = 0;
+        for axis in 0..source.inner.ndim() {
+            if !axis_mask[axis] {
+                output_positions[axis] = Some(if keepdims { axis } else { output_axis });
+                output_axis += 1;
+            }
+        }
         Ok(Self {
             output_size: shape_size(&output_shape)?,
             reduction_size: shape_size(&reduced_shape)?,
             axes,
+            reduced_positions,
+            output_positions,
             input_shape: source.inner.shape().to_vec(),
+            input_c_strides: c_strides(source.inner.shape()),
+            output_c_strides: c_strides(&output_shape),
+            reduced_c_strides: c_strides(&reduced_shape),
             output_shape,
             reduced_shape,
-            keepdims,
         })
     }
 
     fn coordinates(&self, output_linear: usize) -> (Vec<usize>, Vec<usize>) {
         let output_coordinates = coordinates_for_shape(&self.output_shape, output_linear);
         let mut base = vec![0; self.input_shape.len()];
-        let reduced_set = self.axes.iter().copied().collect::<HashSet<_>>();
-        let mut output_axis = 0;
         for axis in 0..base.len() {
-            if !reduced_set.contains(&axis) {
-                base[axis] = if self.keepdims {
-                    output_coordinates[axis]
-                } else {
-                    output_coordinates[output_axis]
-                };
-                output_axis += 1;
+            if let Some(output_axis) = self.output_positions[axis] {
+                base[axis] = output_coordinates[output_axis];
             }
         }
         (base, Vec::new())
@@ -1567,18 +1688,70 @@ impl Reduction {
     ) -> Vec<usize> {
         let reduced = coordinates_for_shape(&self.reduced_shape, reduced_linear);
         let mut coordinates = vec![0; base.len()];
-        let reduced_set = self.axes.iter().copied().collect::<HashSet<_>>();
-        let mut reduced_axis = 0;
         for axis in 0..coordinates.len() {
-            if reduced_set.contains(&axis) {
+            if let Some(reduced_axis) = self.reduced_positions[axis] {
                 coordinates[axis] = reduced[reduced_axis];
-                reduced_axis += 1;
             } else {
                 coordinates[axis] = base[axis];
             }
         }
         coordinates
     }
+
+    fn input_linear(&self, output_linear: usize, reduced_linear: usize) -> usize {
+        let mut input_linear = 0usize;
+        for axis in 0..self.input_shape.len() {
+            let dimension = self.input_shape[axis];
+            let coordinate = if let Some(reduced_axis) = self.reduced_positions[axis] {
+                (reduced_linear / self.reduced_c_strides[reduced_axis]) % dimension
+            } else {
+                let output_axis =
+                    self.output_positions[axis].expect("retained axis has output position");
+                (output_linear / self.output_c_strides[output_axis]) % dimension
+            };
+            input_linear += coordinate * self.input_c_strides[axis];
+        }
+        input_linear
+    }
+}
+
+fn c_strides(shape: &[usize]) -> Vec<usize> {
+    let mut strides = vec![1; shape.len()];
+    let mut stride = 1usize;
+    for axis in (0..shape.len()).rev() {
+        strides[axis] = stride;
+        stride = stride.saturating_mul(shape[axis]);
+    }
+    strides
+}
+
+fn float32_axis0_statistics(
+    source: &PyArray,
+    reduction: &Reduction,
+    ddof: f64,
+    variance: bool,
+    square_root: bool,
+) -> PyResult<Option<Vec<f32>>> {
+    if source.inner.dtype() != DType::Float32
+        || source.inner.ndim() != 2
+        || source.inner.shape().len() != 2
+        || reduction.axes.as_slice() != [0]
+        || !source.inner.is_c_contiguous()
+    {
+        return Ok(None);
+    }
+    let rows = source.inner.shape()[0];
+    let columns = source.inner.shape()[1];
+    if reduction.output_shape.as_slice() != [columns]
+        || reduction.output_size != columns
+        || reduction.reduction_size != rows
+    {
+        return Ok(None);
+    }
+    source
+        .inner
+        .float32_axis0_statistics(ddof, variance, square_root)
+        .map_err(map_storage_error)
 }
 
 fn parse_where(py: Python<'_>, kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<Option<PyArray>> {

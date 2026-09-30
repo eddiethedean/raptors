@@ -378,8 +378,44 @@ impl Operand {
             Ok(self.scalar.clone().expect("scalar operand has value"))
         }
     }
+    fn read_from_snapshot(
+        &self,
+        snapshot: Option<&[Scalar]>,
+        coordinates: &[usize],
+        result_shape: &[usize],
+    ) -> PyResult<Scalar> {
+        if let (Some(view), Some(snapshot)) = (&self.view, snapshot) {
+            let lead = result_shape.len().saturating_sub(view.ndim());
+            let mut linear = 0usize;
+            for (axis, &dim) in view.shape().iter().enumerate() {
+                let coordinate = if dim == 1 {
+                    0
+                } else {
+                    coordinates[lead + axis]
+                };
+                linear = linear
+                    .checked_mul(dim)
+                    .and_then(|value| value.checked_add(coordinate))
+                    .ok_or_else(|| PyValueError::new_err("operand index exceeds array bounds"))?;
+            }
+            return snapshot
+                .get(linear)
+                .cloned()
+                .ok_or_else(|| PyValueError::new_err("operand index exceeds array bounds"));
+        }
+        self.read(coordinates, result_shape)
+    }
     fn read_as(
         &self,
+        coordinates: &[usize],
+        result_shape: &[usize],
+        dtype: DType,
+    ) -> PyResult<Scalar> {
+        self.read_as_from_snapshot(None, coordinates, result_shape, dtype)
+    }
+    fn read_as_from_snapshot(
+        &self,
+        snapshot: Option<&[Scalar]>,
         coordinates: &[usize],
         result_shape: &[usize],
         dtype: DType,
@@ -406,7 +442,7 @@ impl Operand {
                 ));
             }
         }
-        self.read(coordinates, result_shape)?
+        self.read_from_snapshot(snapshot, coordinates, result_shape)?
             .cast(dtype)
             .map_err(map_storage_error)
     }
@@ -2020,6 +2056,53 @@ fn call(
     }
     let size = element_count(&shape)?;
     let scalar_call = !operands.iter().any(|operand| operand.is_array);
+    if nout == 1
+        && mask_operand.is_none()
+        && out.as_ref().map_or(true, |value| value.is_none())
+        && order == "K"
+    {
+        if outputs == [DType::Float32] {
+            if let Some(inner) = fast_float32_broadcast_binary(name, &shape, &operands)? {
+                return Ok(Py::new(
+                    py,
+                    PyArray {
+                        inner,
+                        scalar_alias: inferred_output_alias(name, &operands, DType::Float32),
+                    },
+                )?
+                .into_any());
+            }
+        }
+        if outputs == [DType::Int64] {
+            if let Some(fast_values) = fast_int64_scalar_remainder(name, &shape, &operands)? {
+                let inner =
+                    View::from_int64_values(shape, &fast_values).map_err(map_storage_error)?;
+                return Ok(Py::new(
+                    py,
+                    PyArray {
+                        inner,
+                        scalar_alias: inferred_output_alias(name, &operands, DType::Int64),
+                    },
+                )?
+                .into_any());
+            }
+        }
+    }
+    let operand_snapshots = operands
+        .iter()
+        .map(|operand| {
+            operand
+                .view
+                .as_ref()
+                .map(|view| view.snapshot().map_err(map_storage_error))
+                .transpose()
+        })
+        .collect::<PyResult<Vec<_>>>()?;
+    let mask_snapshot = mask_operand
+        .as_ref()
+        .and_then(|mask| mask.view.as_ref())
+        .map(|view| view.snapshot().map_err(map_storage_error))
+        .transpose()?;
     let mut values = vec![Vec::with_capacity(size); nout];
     let mut selected_elements = Vec::with_capacity(size);
     let mut error_flags = ErrorFlags::default();
@@ -2027,7 +2110,10 @@ fn call(
         let coordinates = coordinates_for_shape(&shape, linear);
         let selected = mask_operand
             .as_ref()
-            .map(|mask| mask.read(&coordinates, &shape).map(|value| value.truthy()))
+            .map(|mask| {
+                mask.read_from_snapshot(mask_snapshot.as_deref(), &coordinates, &shape)
+                    .map(|value| value.truthy())
+            })
             .transpose()?
             .unwrap_or(true);
         selected_elements.push(selected);
@@ -2039,9 +2125,14 @@ fn call(
         }
         let left = if let Some(dtypes) = &cast_input_dtypes {
             let dtype = dtypes[0];
-            operands[0].read_as(&coordinates, &shape, dtype)?
+            operands[0].read_as_from_snapshot(
+                operand_snapshots[0].as_deref(),
+                &coordinates,
+                &shape,
+                dtype,
+            )?
         } else {
-            operands[0].read(&coordinates, &shape)?
+            operands[0].read_from_snapshot(operand_snapshots[0].as_deref(), &coordinates, &shape)?
         };
         let (loop_inputs, mut result) = if nin == 1 {
             let loop_inputs = vec![left.clone()];
@@ -2050,9 +2141,18 @@ fn call(
         } else {
             let right = if let Some(dtypes) = &cast_input_dtypes {
                 let dtype = dtypes[1];
-                operands[1].read_as(&coordinates, &shape, dtype)?
+                operands[1].read_as_from_snapshot(
+                    operand_snapshots[1].as_deref(),
+                    &coordinates,
+                    &shape,
+                    dtype,
+                )?
             } else {
-                operands[1].read(&coordinates, &shape)?
+                operands[1].read_from_snapshot(
+                    operand_snapshots[1].as_deref(),
+                    &coordinates,
+                    &shape,
+                )?
             };
             let loop_inputs = vec![left.clone(), right.clone()];
             let result =
@@ -2229,6 +2329,109 @@ fn call(
     } else {
         Ok(PyTuple::new(py, py_arrays)?.into_any().unbind())
     }
+}
+
+fn fast_float32_broadcast_binary(
+    name: &str,
+    shape: &[usize],
+    operands: &[Operand],
+) -> PyResult<Option<View>> {
+    if !matches!(name, "subtract" | "divide" | "true_divide") || shape.len() < 2 {
+        return Ok(None);
+    }
+    let Some(left) = operands.first().and_then(|operand| operand.view.as_ref()) else {
+        return Ok(None);
+    };
+    let Some(right) = operands.get(1).and_then(|operand| operand.view.as_ref()) else {
+        return Ok(None);
+    };
+    let Some(&columns) = shape.last() else {
+        return Ok(None);
+    };
+    if columns == 0
+        || left.dtype() != DType::Float32
+        || right.dtype() != DType::Float32
+        || left.shape() != shape
+        || right.shape() != [columns]
+        || !left.is_c_contiguous()
+        || !right.is_c_contiguous()
+    {
+        return Ok(None);
+    }
+    let left_values = left.snapshot_float32().map_err(map_storage_error)?;
+    let right_values = right.snapshot_float32().map_err(map_storage_error)?;
+    if right_values.len() != columns {
+        return Ok(None);
+    }
+    for (linear, &left) in left_values.iter().enumerate() {
+        let right = right_values[linear % columns];
+        let value = if name == "subtract" {
+            left - right
+        } else {
+            left / right
+        };
+        // Keep exception and underflow behavior on the generic path.
+        if !left.is_finite()
+            || !right.is_finite()
+            || !value.is_finite()
+            || value.is_subnormal()
+            || (value == 0.0 && name != "subtract" && left != 0.0)
+        {
+            return Ok(None);
+        }
+    }
+    let inner = View::from_float32_iter(
+        shape.to_vec(),
+        left_values.iter().enumerate().map(|(linear, &left)| {
+            let right = right_values[linear % columns];
+            if name == "subtract" {
+                left - right
+            } else {
+                left / right
+            }
+        }),
+    )
+    .map_err(map_storage_error)?;
+    Ok(Some(inner))
+}
+
+fn fast_int64_scalar_remainder(
+    name: &str,
+    shape: &[usize],
+    operands: &[Operand],
+) -> PyResult<Option<Vec<i64>>> {
+    if !matches!(name, "remainder" | "mod") || shape.is_empty() {
+        return Ok(None);
+    }
+    let Some(left) = operands.first().and_then(|operand| operand.view.as_ref()) else {
+        return Ok(None);
+    };
+    let Some(right) = operands.get(1) else {
+        return Ok(None);
+    };
+    if left.dtype() != DType::Int64
+        || left.shape() != shape
+        || !left.is_c_contiguous()
+        || right.is_array
+        || right.view.is_some()
+    {
+        return Ok(None);
+    }
+    let Some(scalar) = right.scalar.as_ref() else {
+        return Ok(None);
+    };
+    let Ok(Scalar::Int64(divisor)) = scalar.clone().cast(DType::Int64) else {
+        return Ok(None);
+    };
+    if divisor <= 0 {
+        return Ok(None);
+    }
+    let input = left.snapshot_int64().map_err(map_storage_error)?;
+    let mut result = Vec::with_capacity(input.len());
+    for value in input {
+        result.push(value.rem_euclid(divisor));
+    }
+    Ok(Some(result))
 }
 
 fn inferred_output_alias(name: &str, operands: &[Operand], output: DType) -> Option<ScalarAlias> {

@@ -1055,6 +1055,63 @@ impl Buffer {
         Ok(buffer)
     }
 
+    fn from_float32_iter(values: impl ExactSizeIterator<Item = f32>) -> Result<Self, StorageError> {
+        let byte_len = values
+            .len()
+            .checked_mul(DType::Float32.itemsize())
+            .ok_or(StorageError::ShapeOverflow)?;
+        let mut bytes = Vec::new();
+        bytes
+            .try_reserve_exact(byte_len)
+            .map_err(|_| StorageError::AllocationFailed)?;
+        for value in values {
+            bytes.extend_from_slice(&value.to_ne_bytes());
+        }
+        Ok(Self {
+            dtype: DType::Float32,
+            byte_order: ByteOrder::Native,
+            bytes,
+        })
+    }
+
+    fn from_int64_values(values: &[i64]) -> Result<Self, StorageError> {
+        let byte_len = values
+            .len()
+            .checked_mul(DType::Int64.itemsize())
+            .ok_or(StorageError::ShapeOverflow)?;
+        let mut bytes = Vec::new();
+        bytes
+            .try_reserve_exact(byte_len)
+            .map_err(|_| StorageError::AllocationFailed)?;
+        for value in values {
+            bytes.extend_from_slice(&value.to_ne_bytes());
+        }
+        Ok(Self {
+            dtype: DType::Int64,
+            byte_order: ByteOrder::Native,
+            bytes,
+        })
+    }
+
+    fn from_int32_values(values: &[i32]) -> Result<Self, StorageError> {
+        let byte_len = values
+            .len()
+            .checked_mul(DType::Int32.itemsize())
+            .ok_or(StorageError::ShapeOverflow)?;
+        let mut bytes = Vec::new();
+        bytes
+            .try_reserve_exact(byte_len)
+            .map_err(|_| StorageError::AllocationFailed)?;
+        for value in values {
+            bytes.extend_from_slice(&value.to_ne_bytes());
+        }
+        Ok(Self {
+            dtype: DType::Int32,
+            byte_order: ByteOrder::Native,
+            bytes,
+        })
+    }
+
     fn element_bytes(&self, index: usize) -> Result<&[u8], StorageError> {
         let start = index
             .checked_mul(self.dtype.itemsize())
@@ -1687,6 +1744,90 @@ impl View {
         Self::from_values_with_layout(dtype, byte_order, shape, values, false)
     }
 
+    /// Builds a C-contiguous float32 array without materializing scalar wrappers.
+    pub fn from_float32_values(shape: Vec<usize>, values: &[f32]) -> Result<Self, StorageError> {
+        Self::from_float32_iter(shape, values.iter().copied())
+    }
+
+    /// Builds a C-contiguous float32 array from a sized iterator without an
+    /// intermediate typed output buffer.
+    pub fn from_float32_iter(
+        shape: Vec<usize>,
+        values: impl ExactSizeIterator<Item = f32>,
+    ) -> Result<Self, StorageError> {
+        let len = element_count(&shape)?;
+        if len
+            .checked_mul(DType::Float32.itemsize())
+            .ok_or(StorageError::ShapeOverflow)?
+            > isize::MAX as usize
+        {
+            return Err(StorageError::ShapeOverflow);
+        }
+        if len != values.len() {
+            return Err(StorageError::ShapeMismatch);
+        }
+        Ok(Self {
+            storage: Arc::new(RwLock::new(Buffer::from_float32_iter(values)?)),
+            dtype: DType::Float32,
+            byte_order: ByteOrder::Native,
+            strides: c_strides(DType::Float32, &shape)?,
+            offset: 0,
+            allocation_len: len,
+            writeable: true,
+            shape,
+        })
+    }
+
+    /// Builds a C-contiguous int64 array without materializing scalar wrappers.
+    pub fn from_int64_values(shape: Vec<usize>, values: &[i64]) -> Result<Self, StorageError> {
+        let len = element_count(&shape)?;
+        if len
+            .checked_mul(DType::Int64.itemsize())
+            .ok_or(StorageError::ShapeOverflow)?
+            > isize::MAX as usize
+        {
+            return Err(StorageError::ShapeOverflow);
+        }
+        if len != values.len() {
+            return Err(StorageError::ShapeMismatch);
+        }
+        Ok(Self {
+            storage: Arc::new(RwLock::new(Buffer::from_int64_values(values)?)),
+            dtype: DType::Int64,
+            byte_order: ByteOrder::Native,
+            strides: c_strides(DType::Int64, &shape)?,
+            offset: 0,
+            allocation_len: len,
+            writeable: true,
+            shape,
+        })
+    }
+
+    /// Builds a C-contiguous int32 array without materializing scalar wrappers.
+    pub fn from_int32_values(shape: Vec<usize>, values: &[i32]) -> Result<Self, StorageError> {
+        let len = element_count(&shape)?;
+        if len
+            .checked_mul(DType::Int32.itemsize())
+            .ok_or(StorageError::ShapeOverflow)?
+            > isize::MAX as usize
+        {
+            return Err(StorageError::ShapeOverflow);
+        }
+        if len != values.len() {
+            return Err(StorageError::ShapeMismatch);
+        }
+        Ok(Self {
+            storage: Arc::new(RwLock::new(Buffer::from_int32_values(values)?)),
+            dtype: DType::Int32,
+            byte_order: ByteOrder::Native,
+            strides: c_strides(DType::Int32, &shape)?,
+            offset: 0,
+            allocation_len: len,
+            writeable: true,
+            shape,
+        })
+    }
+
     /// Builds an array from values in logical C iteration order while storing
     /// them in the requested physical memory order.
     pub fn from_values_with_layout(
@@ -1857,6 +1998,15 @@ impl View {
     }
     pub fn shares_storage_with(&self, other: &Self) -> bool {
         Arc::ptr_eq(&self.storage, &other.storage)
+    }
+
+    pub fn has_same_mapping_as(&self, other: &Self) -> bool {
+        self.shares_storage_with(other)
+            && self.dtype == other.dtype
+            && self.byte_order == other.byte_order
+            && self.shape == other.shape
+            && self.strides == other.strides
+            && self.offset == other.offset
     }
 
     pub fn is_writeable(&self) -> bool {
@@ -2912,15 +3062,250 @@ impl View {
         )
     }
     pub fn snapshot(&self) -> Result<Vec<Scalar>, StorageError> {
-        let offsets = self.all_element_offsets()?;
+        let size = self.size()?;
+        let mut values = Vec::new();
+        values
+            .try_reserve_exact(size)
+            .map_err(|_| StorageError::AllocationFailed)?;
         let storage = self
             .storage
             .read()
             .map_err(|_| StorageError::LockPoisoned)?;
-        offsets
-            .into_iter()
-            .map(|offset| storage.read_as(offset, self.dtype, self.byte_order))
-            .collect()
+        if size == 0 {
+            return Ok(values);
+        }
+        if self.is_c_contiguous() {
+            let itemsize =
+                isize::try_from(self.dtype.itemsize()).map_err(|_| StorageError::ShapeOverflow)?;
+            if self.offset < 0 || self.offset % itemsize != 0 {
+                return Err(StorageError::InvalidLayout);
+            }
+            let start =
+                usize::try_from(self.offset / itemsize).map_err(|_| StorageError::InvalidLayout)?;
+            let end = start.checked_add(size).ok_or(StorageError::ShapeOverflow)?;
+            if end > self.allocation_len {
+                return Err(StorageError::InvalidLayout);
+            }
+            for index in start..end {
+                values.push(storage.read_as(index, self.dtype, self.byte_order)?);
+            }
+            return Ok(values);
+        }
+
+        for linear in 0..size {
+            let offset = self.element_offset_linear(linear, size)?;
+            values.push(storage.read_as(offset, self.dtype, self.byte_order)?);
+        }
+        Ok(values)
+    }
+
+    pub fn snapshot_float32(&self) -> Result<Vec<f32>, StorageError> {
+        self.snapshot_typed(DType::Float32, |bytes, order| {
+            Ok(f32::from_bits(read_unsigned(bytes, order)? as u32))
+        })
+    }
+
+    pub fn snapshot_int32(&self) -> Result<Vec<i32>, StorageError> {
+        self.snapshot_typed(DType::Int32, |bytes, order| {
+            Ok(read_unsigned(bytes, order)? as u32 as i32)
+        })
+    }
+
+    pub fn snapshot_int64(&self) -> Result<Vec<i64>, StorageError> {
+        self.snapshot_typed(DType::Int64, |bytes, order| {
+            Ok(read_unsigned(bytes, order)? as u64 as i64)
+        })
+    }
+
+    pub fn float32_axis0_statistics(
+        &self,
+        ddof: f64,
+        variance: bool,
+        square_root: bool,
+    ) -> Result<Option<Vec<f32>>, StorageError> {
+        if self.dtype != DType::Float32
+            || self.ndim() != 2
+            || !self.is_c_contiguous()
+            || (variance && !ddof.is_finite())
+        {
+            return Ok(None);
+        }
+        let rows = self.shape[0];
+        let columns = self.shape[1];
+        let values = self.snapshot_float32()?;
+        let mut result = Vec::new();
+        result
+            .try_reserve_exact(columns)
+            .map_err(|_| StorageError::AllocationFailed)?;
+        if rows == 0 || columns == 0 || (variance && rows as f64 <= ddof) {
+            if rows == 0 || (variance && rows as f64 <= ddof) {
+                result.resize(columns, f32::NAN);
+            }
+            return Ok(Some(result));
+        }
+        let mut sums = Vec::new();
+        sums.try_reserve_exact(columns)
+            .map_err(|_| StorageError::AllocationFailed)?;
+        sums.resize(columns, 0.0_f64);
+        for row in 0..rows {
+            let row_start = row
+                .checked_mul(columns)
+                .ok_or(StorageError::ShapeOverflow)?;
+            for column in 0..columns {
+                let index = row_start
+                    .checked_add(column)
+                    .ok_or(StorageError::ShapeOverflow)?;
+                sums[column] += f64::from(values[index]);
+            }
+        }
+        let divisor = rows as f64;
+        for sum in &mut sums {
+            *sum /= divisor;
+        }
+        if !variance {
+            result.extend(sums.into_iter().map(|value| value as f32));
+            return Ok(Some(result));
+        }
+
+        let mut sum_squares = Vec::new();
+        sum_squares
+            .try_reserve_exact(columns)
+            .map_err(|_| StorageError::AllocationFailed)?;
+        sum_squares.resize(columns, 0.0_f64);
+        for row in 0..rows {
+            let row_start = row
+                .checked_mul(columns)
+                .ok_or(StorageError::ShapeOverflow)?;
+            for column in 0..columns {
+                let index = row_start
+                    .checked_add(column)
+                    .ok_or(StorageError::ShapeOverflow)?;
+                let difference = f64::from(values[index]) - sums[column];
+                sum_squares[column] += difference * difference;
+            }
+        }
+        let denominator = rows as f64 - ddof;
+        for sum in sum_squares {
+            let value = (sum / denominator) as f32;
+            result.push(if square_root {
+                f64::from(value).sqrt() as f32
+            } else {
+                value
+            });
+        }
+        Ok(Some(result))
+    }
+
+    fn snapshot_typed<T>(
+        &self,
+        dtype: DType,
+        mut decode: impl FnMut(&[u8], ByteOrder) -> Result<T, StorageError>,
+    ) -> Result<Vec<T>, StorageError> {
+        if self.dtype != dtype {
+            return Err(StorageError::DTypeMismatch);
+        }
+        let size = self.size()?;
+        let mut values = Vec::new();
+        values
+            .try_reserve_exact(size)
+            .map_err(|_| StorageError::AllocationFailed)?;
+        let storage = self
+            .storage
+            .read()
+            .map_err(|_| StorageError::LockPoisoned)?;
+        if size == 0 {
+            return Ok(values);
+        }
+        if self.is_c_contiguous() {
+            let itemsize =
+                isize::try_from(dtype.itemsize()).map_err(|_| StorageError::ShapeOverflow)?;
+            if self.offset < 0 || self.offset % itemsize != 0 {
+                return Err(StorageError::InvalidLayout);
+            }
+            let start =
+                usize::try_from(self.offset / itemsize).map_err(|_| StorageError::InvalidLayout)?;
+            let end = start.checked_add(size).ok_or(StorageError::ShapeOverflow)?;
+            if end > self.allocation_len {
+                return Err(StorageError::InvalidLayout);
+            }
+            for index in start..end {
+                values.push(decode(storage.element_bytes(index)?, self.byte_order)?);
+            }
+            return Ok(values);
+        }
+        if self.ndim() == 2 {
+            let itemsize =
+                isize::try_from(dtype.itemsize()).map_err(|_| StorageError::ShapeOverflow)?;
+            for outer in 0..self.shape[0] {
+                let outer = isize::try_from(outer).map_err(|_| StorageError::ShapeOverflow)?;
+                let outer_offset = outer
+                    .checked_mul(self.strides[0])
+                    .and_then(|offset| self.offset.checked_add(offset))
+                    .ok_or(StorageError::ShapeOverflow)?;
+                for inner in 0..self.shape[1] {
+                    let inner = isize::try_from(inner).map_err(|_| StorageError::ShapeOverflow)?;
+                    let byte_offset = inner
+                        .checked_mul(self.strides[1])
+                        .and_then(|offset| outer_offset.checked_add(offset))
+                        .ok_or(StorageError::ShapeOverflow)?;
+                    if byte_offset < 0 || byte_offset % itemsize != 0 {
+                        return Err(StorageError::InvalidLayout);
+                    }
+                    let index = usize::try_from(byte_offset / itemsize)
+                        .map_err(|_| StorageError::InvalidLayout)?;
+                    if index >= self.allocation_len {
+                        return Err(StorageError::InvalidLayout);
+                    }
+                    values.push(decode(storage.element_bytes(index)?, self.byte_order)?);
+                }
+            }
+            return Ok(values);
+        }
+        for linear in 0..size {
+            let index = self.element_offset_linear(linear, size)?;
+            values.push(decode(storage.element_bytes(index)?, self.byte_order)?);
+        }
+        Ok(values)
+    }
+
+    fn element_offset_linear(&self, linear: usize, size: usize) -> Result<usize, StorageError> {
+        if linear >= size {
+            return Err(StorageError::IndexOutOfBounds {
+                axis: 0,
+                index: isize::try_from(linear).unwrap_or(isize::MAX),
+                length: size,
+            });
+        }
+        let mut rest = linear;
+        let mut byte_offset = self.offset;
+        for axis in (0..self.ndim()).rev() {
+            let dim = self.shape[axis];
+            if dim == 0 {
+                return Err(StorageError::InvalidLayout);
+            }
+            let coordinate = rest % dim;
+            rest /= dim;
+            let coordinate =
+                isize::try_from(coordinate).map_err(|_| StorageError::ShapeOverflow)?;
+            byte_offset = byte_offset
+                .checked_add(
+                    coordinate
+                        .checked_mul(self.strides[axis])
+                        .ok_or(StorageError::ShapeOverflow)?,
+                )
+                .ok_or(StorageError::ShapeOverflow)?;
+        }
+        let itemsize =
+            isize::try_from(self.dtype.itemsize()).map_err(|_| StorageError::ShapeOverflow)?;
+        if byte_offset < 0 || byte_offset % itemsize != 0 {
+            return Err(StorageError::InvalidLayout);
+        }
+        let element =
+            usize::try_from(byte_offset / itemsize).map_err(|_| StorageError::InvalidLayout)?;
+        if element >= self.allocation_len {
+            return Err(StorageError::InvalidLayout);
+        }
+        Ok(element)
     }
 
     fn coordinates(&self, linear: usize) -> Result<Vec<usize>, StorageError> {
@@ -3547,8 +3932,56 @@ fn f_strides(dtype: DType, shape: &[usize]) -> Result<Vec<isize>, StorageError> 
 
 #[cfg(test)]
 mod tests {
-    use super::{native_longdouble, ufunc, DType, IndexItem, Scalar, StorageError, View};
+    use super::{
+        native_longdouble, ufunc, ByteOrder, DType, IndexItem, Scalar, StorageError, View,
+    };
     use std::sync::Arc;
+
+    #[test]
+    fn typed_array_constructors_preserve_values_and_c_layout() {
+        let floats = View::from_float32_values(vec![2, 2], &[1.25, -2.5, 0.0, 4.0]).unwrap();
+        assert_eq!(floats.dtype(), DType::Float32);
+        assert!(floats.is_c_contiguous());
+        assert_eq!(
+            floats.snapshot().unwrap(),
+            vec![
+                Scalar::Float32(1.25),
+                Scalar::Float32(-2.5),
+                Scalar::Float32(0.0),
+                Scalar::Float32(4.0),
+            ]
+        );
+        assert_eq!(floats.snapshot_float32().unwrap(), [1.25, -2.5, 0.0, 4.0]);
+
+        let integers = View::from_int64_values(vec![2, 2], &[i64::MIN, -1, 0, i64::MAX]).unwrap();
+        assert_eq!(integers.dtype(), DType::Int64);
+        assert!(integers.is_c_contiguous());
+        assert_eq!(
+            integers.snapshot().unwrap(),
+            vec![
+                Scalar::Int64(i64::MIN),
+                Scalar::Int64(-1),
+                Scalar::Int64(0),
+                Scalar::Int64(i64::MAX),
+            ]
+        );
+        assert_eq!(
+            integers.snapshot_int64().unwrap(),
+            [i64::MIN, -1, 0, i64::MAX]
+        );
+
+        let int32 = View::from_int32_values(vec![2, 3], &[1, 2, 3, 4, 5, 6]).unwrap();
+        let transposed = int32.transpose(None).unwrap();
+        assert_eq!(transposed.snapshot_int32().unwrap(), [1, 4, 2, 5, 3, 6]);
+        let big_endian = View::from_values_with_order(
+            DType::Int32,
+            ByteOrder::Big,
+            vec![2],
+            &[Scalar::Int32(7), Scalar::Int32(-9)],
+        )
+        .unwrap();
+        assert_eq!(big_endian.snapshot_int32().unwrap(), [7, -9]);
+    }
 
     #[test]
     fn longdouble_truthiness_matches_nonzero_values() {
