@@ -1,0 +1,128 @@
+{
+  "schema_version": 1,
+  "release": "0.4",
+  "status": "preregistered",
+  "registered_on": "2026-09-30",
+  "purpose": "Extend the common-operation regression guardrail to the numeric routine families added in 0.4.",
+  "revision": {
+    "previous_report": "docs/benchmarks/raptors-0.4-common-guardrail.json",
+    "reason": "The prior report covered only ten inherited ufunc/reduction workloads. This preregistration adds representative 0.4 creation, shape, joining, statistics, selection, ordering/search, binning, set, and numeric-convenience calls; it does not change the separate three application workflows or their thresholds.",
+    "baseline_commit": "1ca882425b91a00f396695e44330fe1bee20d0bd",
+    "baseline_meaning": "First complete 0.4 numeric-routine implementation, before later profile-guided optimization commits."
+  },
+  "reference": {
+    "distribution": "numpy",
+    "version": "2.5.3",
+    "correctness_only": true
+  },
+  "measurement": {
+    "build_profile": "release",
+    "input_sizes": {
+      "tiny": 16,
+      "medium": 4096,
+      "large": 250000
+    },
+    "warmup_calls": 5,
+    "timed_samples": 21,
+    "worker_processes": "A fresh process for every workload and input size.",
+    "timing": "Median wall-clock nanoseconds per eager Raptors API call; tracemalloc is disabled during every timed sample.",
+    "python_memory": "Separate one-call tracemalloc peak after timing; Python allocations only.",
+    "process_memory": "Separate process high-water RSS increment after imports and input preparation; allocator and page-size effects apply.",
+    "correctness": "Compare shape and dtype and all values up to 4096 output elements; compare shape, dtype, and first/middle/last values for larger outputs. Full representative results remain covered by the differential suite.",
+    "thread_environment": {
+      "OMP_NUM_THREADS": "1",
+      "OPENBLAS_NUM_THREADS": "1",
+      "MKL_NUM_THREADS": "1"
+    }
+  },
+  "regression_threshold": {
+    "maximum_current_to_baseline_median_ratio": 1.1,
+    "explanation": "A cell above 1.10 requires a reviewed, accepted explanation; otherwise the common-operation guardrail remains open. This is a Raptors-to-Raptors regression check, not a NumPy speed target."
+  },
+  "workloads": [
+    {
+      "name": "arange_creation",
+      "family": "creation",
+      "call": "arange(0, n, dtype=int32)",
+      "input": "No input array; generate n consecutive int32 values.",
+      "output": "One int32 vector of length n."
+    },
+    {
+      "name": "reshape_transpose",
+      "family": "shape_and_rearrangement",
+      "call": "transpose(reshape(source, (sqrt(n), sqrt(n))))",
+      "input": "C-contiguous int32 values 0 through n-1; each preregistered n is a perfect square.",
+      "output": "A square transposed int32 view/result."
+    },
+    {
+      "name": "concatenate",
+      "family": "joining_and_splitting",
+      "call": "concatenate((left, right), axis=0)",
+      "input": "Two C-contiguous int32 vectors of length n with distinct deterministic modular sequences.",
+      "output": "One int32 vector of length 2n."
+    },
+    {
+      "name": "mean",
+      "family": "reductions_and_statistics",
+      "call": "mean(source)",
+      "input": "C-contiguous float32 values from ((i*17+7)%251-125)/31.",
+      "output": "A float32 scalar."
+    },
+    {
+      "name": "take",
+      "family": "selection_and_mutation",
+      "call": "take(source, indices)",
+      "input": "C-contiguous int32 values 0 through n-1; int64 indices 0, 2, 4, ... .",
+      "output": "Selected int32 values, approximately n/2 elements."
+    },
+    {
+      "name": "where",
+      "family": "selection_and_mutation",
+      "call": "where(condition, left, right)",
+      "input": "A parity boolean mask and two deterministic C-contiguous float32 vectors of length n.",
+      "output": "One float32 vector of length n."
+    },
+    {
+      "name": "sort",
+      "family": "ordering_search_sets_and_bins",
+      "call": "sort(source)",
+      "input": "C-contiguous int32 values ((i*37+11)%1024)-512.",
+      "output": "One sorted int32 vector of length n."
+    },
+    {
+      "name": "searchsorted",
+      "family": "ordering_search_sets_and_bins",
+      "call": "searchsorted(sorted_source, queries)",
+      "input": "A sorted int32 vector 0 through n-1 and int32 queries (i*37)%n for i in range(0,n,11).",
+      "output": "An int64 insertion-index vector."
+    },
+    {
+      "name": "bincount",
+      "family": "ordering_search_sets_and_bins",
+      "call": "bincount(source, minlength=512)",
+      "input": "Nonnegative int64 values i%512.",
+      "output": "512 int64 bin counts."
+    },
+    {
+      "name": "histogram",
+      "family": "ordering_search_sets_and_bins",
+      "call": "histogram(source, bins=64, range=(0, 1024))",
+      "input": "Int64 values i%1024.",
+      "output": "64 counts and 65 bin edges."
+    },
+    {
+      "name": "unique",
+      "family": "ordering_search_sets_and_bins",
+      "call": "unique(source)",
+      "input": "Int32 values i%max(2,n//8).",
+      "output": "Sorted unique int32 values."
+    },
+    {
+      "name": "isclose",
+      "family": "numeric_convenience",
+      "call": "isclose(left, right)",
+      "input": "C-contiguous float64 vectors, with right=left+1e-8.",
+      "output": "A boolean comparison vector."
+    }
+  ]
+}

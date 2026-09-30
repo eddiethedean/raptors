@@ -399,7 +399,26 @@
       "workloads": 10,
       "regressions_over_10_percent": [],
       "largest_current_to_baseline_ratio": 0.9819854567,
-      "coverage_limit": "This checks inherited ufunc/reduction cells only; Phase 0.4 creation, shape, joining, selection, ordering, and histogram operations are not yet covered by the common-operation matrix."
+      "coverage_limit": "This historical report checks inherited ufunc/reduction cells only; the expanded Phase 0.4 routine matrix is preregistered separately and has not yet been measured.",
+      "expanded_0_4_matrix": {
+        "status": "preregistered_pending_execution",
+        "manifest": "docs/benchmarks/raptors-0.4-common-workloads-v1.json",
+        "benchmark_script": "scripts/bench_0_4_guardrail.py",
+        "baseline_candidate_commit": "1ca882425b91a00f396695e44330fe1bee20d0bd",
+        "workloads": 12,
+        "input_sizes": [16, 4096, 250000],
+        "cells": 36,
+        "maximum_current_to_baseline_median_ratio": 1.1,
+        "covered_families": [
+          "creation",
+          "shape_and_rearrangement",
+          "joining_and_splitting",
+          "reductions_and_statistics",
+          "selection_and_mutation",
+          "ordering_search_sets_and_bins",
+          "numeric_convenience"
+        ]
+      }
     },
     "cross_architecture_performance": {
       "status": "historical_v1_performance_gate_failed_superseded_by_v2",
