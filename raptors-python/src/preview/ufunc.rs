@@ -363,17 +363,8 @@ impl Operand {
     }
     fn read(&self, coordinates: &[usize], result_shape: &[usize]) -> PyResult<Scalar> {
         if let Some(view) = &self.view {
-            let lead = result_shape.len().saturating_sub(view.ndim());
-            let mut mapped = Vec::with_capacity(view.ndim());
-            for (axis, &dim) in view.shape().iter().enumerate() {
-                let coordinate = if dim == 1 {
-                    0
-                } else {
-                    coordinates[lead + axis]
-                };
-                mapped.push(coordinate);
-            }
-            view.read_at(&mapped).map_err(map_storage_error)
+            view.read_broadcast_at(coordinates, result_shape)
+                .map_err(map_storage_error)
         } else {
             Ok(self.scalar.clone().expect("scalar operand has value"))
         }
@@ -2952,12 +2943,17 @@ fn broadcast_shape(left: &[usize], right: &[usize]) -> PyResult<Vec<usize>> {
 }
 fn coordinates_for_shape(shape: &[usize], linear: usize) -> Vec<usize> {
     let mut coordinates = vec![0; shape.len()];
+    coordinates_for_shape_into(shape, linear, &mut coordinates);
+    coordinates
+}
+
+fn coordinates_for_shape_into(shape: &[usize], linear: usize, coordinates: &mut [usize]) {
+    debug_assert_eq!(shape.len(), coordinates.len());
     let mut remainder = linear;
     for axis in (0..shape.len()).rev() {
         coordinates[axis] = remainder % shape[axis];
         remainder /= shape[axis];
     }
-    coordinates
 }
 
 fn method_kw<'a>(
@@ -3190,6 +3186,27 @@ fn reduce_is_reorderable(name: &str) -> bool {
 }
 
 fn scalar_loop(name: &str, left: Scalar, right: Scalar, dtype: DType) -> PyResult<Scalar> {
+    if name == "add" {
+        match (&left, &right, dtype) {
+            (Scalar::Float32(a), Scalar::Float32(b), DType::Float32) => {
+                return Ok(Scalar::Float32(*a + *b));
+            }
+            (Scalar::Float64(a), Scalar::Float64(b), DType::Float64) => {
+                return Ok(Scalar::Float64(*a + *b));
+            }
+            _ => {}
+        }
+    } else if name == "multiply" {
+        match (&left, &right, dtype) {
+            (Scalar::Float32(a), Scalar::Float32(b), DType::Float32) => {
+                return Ok(Scalar::Float32(*a * *b));
+            }
+            (Scalar::Float64(a), Scalar::Float64(b), DType::Float64) => {
+                return Ok(Scalar::Float64(*a * *b));
+            }
+            _ => {}
+        }
+    }
     kernels::binary(name, left, right, dtype)
         .map_err(map_storage_error)?
         .into_iter()
@@ -3380,10 +3397,13 @@ pub(super) fn reduce(
     let reduction_count = element_count(&reduction_shape)?;
     let output_size = element_count(&output_shape)?;
     let mut values = Vec::with_capacity(output_size);
+    let mut output_coords = vec![0; output_shape.len()];
+    let mut input_coords = vec![0; source_shape.len()];
+    let mut reduction_coords = vec![0; reduction_shape.len()];
     let mut error_flags = ErrorFlags::default();
     for output_linear in 0..output_size {
-        let output_coords = coordinates_for_shape(&output_shape, output_linear);
-        let mut input_coords = vec![0; source_shape.len()];
+        coordinates_for_shape_into(&output_shape, output_linear, &mut output_coords);
+        input_coords.fill(0);
         let mut output_axis = 0;
         for input_axis in 0..source_shape.len() {
             if !reduce_axis_set.contains(&input_axis) {
@@ -3400,7 +3420,7 @@ pub(super) fn reduce(
         });
         let mut seen = accumulator.is_some();
         for step in 0..reduction_count {
-            let reduction_coords = coordinates_for_shape(&reduction_shape, step);
+            coordinates_for_shape_into(&reduction_shape, step, &mut reduction_coords);
             for (axis_position, &input_axis) in axes.iter().enumerate() {
                 input_coords[input_axis] = reduction_coords[axis_position];
             }

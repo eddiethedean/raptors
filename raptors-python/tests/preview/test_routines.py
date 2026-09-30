@@ -458,6 +458,35 @@ def test_reductions_match_numpy(name, reference, axis, keepdims):
         assert_array_matches(expected, candidate)
 
 
+@pytest.mark.parametrize("name,reference", [("sum", np.sum), ("prod", np.prod)])
+@pytest.mark.parametrize("dtype", [np.float32, np.float64])
+@pytest.mark.parametrize("axis", [None, 0, 1, -1])
+def test_float_reduction_scalar_kernels_match_numpy(name, reference, dtype, axis):
+    values = np.array([[1.5, -2.25, 0.5], [3.0, 0.25, -2.0]], dtype=dtype)
+    candidate = raptors.array(values.tolist(), dtype=getattr(raptors, np.dtype(dtype).name))
+
+    expected = reference(values, axis=axis)
+    actual = getattr(raptors, name)(candidate, axis=axis)
+    if np.ndim(expected) == 0:
+        assert actual.dtype.name == np.asarray(expected).dtype.name
+        np.testing.assert_allclose(float(actual), expected, rtol=2e-6, atol=1e-7)
+    else:
+        assert_array_matches(expected, actual)
+
+
+@pytest.mark.parametrize("name,reference", [("sum", np.sum), ("prod", np.prod)])
+def test_float_reduction_scalar_kernels_preserve_nan_and_invalid_policy(name, reference):
+    values = np.array([np.inf, -np.inf, np.nan, -0.0], dtype=np.float32)
+    candidate = raptors.array(values.tolist(), dtype=raptors.float32)
+
+    with np.errstate(all="ignore"):
+        expected = reference(values)
+    with raptors.errstate(all="ignore"):
+        actual = getattr(raptors, name)(candidate)
+    assert actual.dtype.name == np.asarray(expected).dtype.name
+    assert np.isnan(float(actual)) and np.isnan(expected)
+
+
 def test_sum_and_min_support_initial_where_and_out():
     values = np.array([[1, 2, 3], [4, 5, 6]], dtype=np.int16)
     mask = np.array([[True, False, True], [False, True, False]])
@@ -1906,6 +1935,20 @@ def test_numeric_equality_and_closeness_routines_match_numpy():
     assert raptors.array_equal(
         [1, 2], raptors.array([1, 2], dtype=raptors.int16)
     )
+
+
+def test_closeness_reads_strided_broadcast_operands_without_changing_results():
+    values = np.arange(12, dtype=np.float32).reshape(3, 4)
+    left = values.T[:, ::2]
+    right = np.array([0.0, 8.0], dtype=np.float32)
+    candidate_owner = raptors.array(values.tolist(), dtype=raptors.float32)
+    candidate_left = candidate_owner.T[:, ::2]
+    candidate_right = raptors.array(right.tolist(), dtype=raptors.float32)
+
+    expected = np.isclose(left, right)
+    actual = raptors.isclose(candidate_left, candidate_right)
+    assert_array_matches(expected, actual)
+    assert raptors.allclose(candidate_left, candidate_right) == np.allclose(left, right)
 
 
 @pytest.mark.parametrize("dtype_name", ["longdouble", "clongdouble"])

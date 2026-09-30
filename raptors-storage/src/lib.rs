@@ -2629,8 +2629,17 @@ impl View {
         let itemsize =
             isize::try_from(dtype.itemsize()).map_err(|_| StorageError::ShapeOverflow)?;
         let mut buffer = Buffer::zeroed(dtype, byte_order, len)?;
+        let mut coordinates = vec![0; shape.len()];
         for (linear, value) in values.iter().enumerate() {
-            let coordinates = coordinates_for_shape(&shape, linear)?;
+            let mut remainder = linear;
+            for axis in (0..shape.len()).rev() {
+                let dimension = shape[axis];
+                if dimension == 0 {
+                    return Err(StorageError::InvalidLayout);
+                }
+                coordinates[axis] = remainder % dimension;
+                remainder /= dimension;
+            }
             let byte_offset = coordinates.iter().zip(&strides).try_fold(
                 0isize,
                 |offset, (&coordinate, &stride)| {
@@ -3236,6 +3245,71 @@ impl View {
             .read()
             .map_err(|_| StorageError::LockPoisoned)?
             .read_as(offset, self.dtype, self.byte_order)
+    }
+    /// Reads one element using coordinates from a broadcast result without
+    /// materializing a coordinate vector for this view.
+    pub fn read_broadcast_at(
+        &self,
+        coordinates: &[usize],
+        result_shape: &[usize],
+    ) -> Result<Scalar, StorageError> {
+        if coordinates.len() != result_shape.len() {
+            return Err(StorageError::WrongIndexRank {
+                provided: coordinates.len(),
+                dimensions: result_shape.len(),
+            });
+        }
+        for (axis, (&coordinate, &dimension)) in coordinates.iter().zip(result_shape).enumerate() {
+            if coordinate >= dimension {
+                return Err(StorageError::IndexOutOfBounds {
+                    axis,
+                    index: isize::try_from(coordinate).unwrap_or(isize::MAX),
+                    length: dimension,
+                });
+            }
+        }
+        let leading_axes = result_shape.len().checked_sub(self.ndim()).ok_or_else(|| {
+            StorageError::CannotBroadcast {
+                from: self.shape.clone(),
+                to: result_shape.to_vec(),
+            }
+        })?;
+        let mut byte_offset = self.offset;
+        for (axis, (&dimension, &stride)) in self.shape.iter().zip(&self.strides).enumerate() {
+            let result_axis = leading_axes + axis;
+            let result_dimension = result_shape[result_axis];
+            if dimension != 1 && dimension != result_dimension {
+                return Err(StorageError::CannotBroadcast {
+                    from: self.shape.clone(),
+                    to: result_shape.to_vec(),
+                });
+            }
+            let coordinate = coordinates[result_axis];
+            if dimension != 1 {
+                let coordinate =
+                    isize::try_from(coordinate).map_err(|_| StorageError::ShapeOverflow)?;
+                byte_offset = byte_offset
+                    .checked_add(
+                        coordinate
+                            .checked_mul(stride)
+                            .ok_or(StorageError::ShapeOverflow)?,
+                    )
+                    .ok_or(StorageError::ShapeOverflow)?;
+            }
+        }
+        let size = self.dtype.itemsize() as isize;
+        if byte_offset < 0 || byte_offset % size != 0 {
+            return Err(StorageError::InvalidLayout);
+        }
+        let element =
+            usize::try_from(byte_offset / size).map_err(|_| StorageError::InvalidLayout)?;
+        if element >= self.allocation_len {
+            return Err(StorageError::InvalidLayout);
+        }
+        self.storage
+            .read()
+            .map_err(|_| StorageError::LockPoisoned)?
+            .read_as(element, self.dtype, self.byte_order)
     }
     pub fn write_at(&self, coordinates: &[usize], value: Scalar) -> Result<(), StorageError> {
         if !self.writeable {
@@ -5270,6 +5344,50 @@ mod tests {
             owner.snapshot_float32().unwrap(),
             [90.0, 80.0, 12.0, 18.0, 20.0, 24.0, 70.0, 60.0]
         );
+    }
+
+    #[test]
+    fn broadcast_coordinate_reads_cover_strides_singletons_and_scalars() {
+        let owner = View::from_values(
+            DType::Int64,
+            vec![2, 3],
+            &(0..6).map(Scalar::Int64).collect::<Vec<_>>(),
+        )
+        .unwrap();
+        let transposed = owner.transpose(None).unwrap();
+        assert_eq!(
+            transposed.read_broadcast_at(&[2, 1], &[3, 2]).unwrap(),
+            Scalar::Int64(5)
+        );
+
+        let singleton = View::from_values(
+            DType::Int64,
+            vec![1, 3],
+            &[Scalar::Int64(10), Scalar::Int64(11), Scalar::Int64(12)],
+        )
+        .unwrap();
+        assert_eq!(
+            singleton.read_broadcast_at(&[3, 2], &[4, 3]).unwrap(),
+            Scalar::Int64(12)
+        );
+
+        let scalar = View::from_values(DType::Int64, vec![], &[Scalar::Int64(42)]).unwrap();
+        assert_eq!(
+            scalar.read_broadcast_at(&[1, 2], &[2, 3]).unwrap(),
+            Scalar::Int64(42)
+        );
+        assert!(matches!(
+            singleton.read_broadcast_at(&[0, 0], &[4, 2]),
+            Err(StorageError::CannotBroadcast { .. })
+        ));
+        assert!(matches!(
+            owner.read_broadcast_at(&[0], &[3]),
+            Err(StorageError::CannotBroadcast { .. })
+        ));
+        assert!(matches!(
+            scalar.read_broadcast_at(&[2, 0], &[2, 3]),
+            Err(StorageError::IndexOutOfBounds { .. })
+        ));
     }
 
     #[test]

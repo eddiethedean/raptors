@@ -301,10 +301,19 @@ fn array_equal(a1: &Bound<'_, PyAny>, a2: &Bound<'_, PyAny>, equal_nan: bool) ->
     if left.inner.shape() != right.inner.shape() {
         return Ok(false);
     }
+    let shape = left.inner.shape();
     let count = left.inner.size().map_err(map_storage_error)?;
+    let mut coordinates = vec![0; shape.len()];
     for index in 0..count {
-        let a = left.inner.read_linear(index).map_err(map_storage_error)?;
-        let b = right.inner.read_linear(index).map_err(map_storage_error)?;
+        coordinates_for_shape_into(shape, index, &mut coordinates);
+        let a = left
+            .inner
+            .read_broadcast_at(&coordinates, shape)
+            .map_err(map_storage_error)?;
+        let b = right
+            .inner
+            .read_broadcast_at(&coordinates, shape)
+            .map_err(map_storage_error)?;
         if !equal_scalars(&a, &b, equal_nan)? {
             return Ok(false);
         }
@@ -320,21 +329,16 @@ fn array_equiv(a1: &Bound<'_, PyAny>, a2: &Bound<'_, PyAny>) -> PyResult<bool> {
         return Ok(false);
     };
     let count = element_count(&shape)?;
+    let mut coordinates = vec![0; shape.len()];
     for linear in 0..count {
-        let coordinates = coordinates_for_shape(&shape, linear);
+        coordinates_for_shape_into(&shape, linear, &mut coordinates);
         let a = left
             .inner
-            .read_at(&broadcast_coordinates_for_shape(
-                left.inner.shape(),
-                &coordinates,
-            )?)
+            .read_broadcast_at(&coordinates, &shape)
             .map_err(map_storage_error)?;
         let b = right
             .inner
-            .read_at(&broadcast_coordinates_for_shape(
-                right.inner.shape(),
-                &coordinates,
-            )?)
+            .read_broadcast_at(&coordinates, &shape)
             .map_err(map_storage_error)?;
         if !equal_scalars(&a, &b, false)? {
             return Ok(false);
@@ -373,21 +377,16 @@ fn allclose(
         ));
     };
     let count = element_count(&shape)?;
+    let mut coordinates = vec![0; shape.len()];
     for linear in 0..count {
-        let coordinates = coordinates_for_shape(&shape, linear);
+        coordinates_for_shape_into(&shape, linear, &mut coordinates);
         let a = left
             .inner
-            .read_at(&broadcast_coordinates_for_shape(
-                left.inner.shape(),
-                &coordinates,
-            )?)
+            .read_broadcast_at(&coordinates, &shape)
             .map_err(map_storage_error)?;
         let b = right
             .inner
-            .read_at(&broadcast_coordinates_for_shape(
-                right.inner.shape(),
-                &coordinates,
-            )?)
+            .read_broadcast_at(&coordinates, &shape)
             .map_err(map_storage_error)?;
         if !scalars_are_close(&a, &b, rtol, atol, equal_nan)? {
             return Ok(false);
@@ -414,21 +413,16 @@ fn close_array(
     values
         .try_reserve_exact(count)
         .map_err(|_| PyMemoryError::new_err("isclose result allocation failed"))?;
+    let mut coordinates = vec![0; shape.len()];
     for linear in 0..count {
-        let coordinates = coordinates_for_shape(&shape, linear);
+        coordinates_for_shape_into(&shape, linear, &mut coordinates);
         let left_value = left
             .inner
-            .read_at(&broadcast_coordinates_for_shape(
-                left.inner.shape(),
-                &coordinates,
-            )?)
+            .read_broadcast_at(&coordinates, &shape)
             .map_err(map_storage_error)?;
         let right_value = right
             .inner
-            .read_at(&broadcast_coordinates_for_shape(
-                right.inner.shape(),
-                &coordinates,
-            )?)
+            .read_broadcast_at(&coordinates, &shape)
             .map_err(map_storage_error)?;
         values.push(Scalar::Bool(scalars_are_close(
             &left_value,
@@ -438,12 +432,25 @@ fn close_array(
             equal_nan,
         )?));
     }
-    let inner = View::from_values_with_layout(
+    let layouts = [&left.inner, &right.inner]
+        .into_iter()
+        .map(|view| {
+            let mut operand_shape = vec![1; shape.len()];
+            let mut strides = vec![0; shape.len()];
+            let start = shape.len() - view.ndim();
+            operand_shape[start..].copy_from_slice(view.shape());
+            strides[start..].copy_from_slice(view.strides());
+            (operand_shape, strides)
+        })
+        .collect::<Vec<_>>();
+    let axis_order =
+        raptors_storage::keep_order_axes(&shape, &layouts).map_err(map_storage_error)?;
+    let inner = View::from_values_with_axis_order(
         DType::Bool,
         default_byte_order(DType::Bool),
         shape,
         &values,
-        false,
+        &axis_order,
     )
     .map_err(map_storage_error)?;
     Ok(Py::new(
@@ -610,23 +617,6 @@ fn broadcast_shape_pair(left: &[usize], right: &[usize]) -> Option<Vec<usize>> {
         shape[rank - offset - 1] = if a == 1 { b } else { a };
     }
     Some(shape)
-}
-
-fn broadcast_coordinates_for_shape(shape: &[usize], output: &[usize]) -> PyResult<Vec<usize>> {
-    if shape.len() > output.len() {
-        return Err(PyValueError::new_err("invalid broadcast coordinates"));
-    }
-    let mut coordinates = vec![0; shape.len()];
-    let offset = output.len() - shape.len();
-    for axis in 0..shape.len() {
-        let dimension = shape[axis];
-        coordinates[axis] = if dimension == 1 {
-            0
-        } else {
-            output[axis + offset]
-        };
-    }
-    Ok(coordinates)
 }
 
 #[pyfunction]
@@ -1514,15 +1504,20 @@ fn normalize_axis(axis: isize, ndim: usize) -> PyResult<usize> {
     Ok(normalized as usize)
 }
 
-fn coordinates_for_shape(shape: &[usize], mut linear: usize) -> Vec<usize> {
+fn coordinates_for_shape(shape: &[usize], linear: usize) -> Vec<usize> {
     let mut coordinates = vec![0; shape.len()];
+    coordinates_for_shape_into(shape, linear, &mut coordinates);
+    coordinates
+}
+
+fn coordinates_for_shape_into(shape: &[usize], mut linear: usize, coordinates: &mut [usize]) {
+    debug_assert_eq!(shape.len(), coordinates.len());
     for axis in (0..shape.len()).rev() {
         if shape[axis] != 0 {
             coordinates[axis] = linear % shape[axis];
             linear /= shape[axis];
         }
     }
-    coordinates
 }
 
 fn cumulative(
