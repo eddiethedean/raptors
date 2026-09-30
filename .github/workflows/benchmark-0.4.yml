@@ -1,0 +1,40 @@
+name: Phase 0.4 Linux x86-64 performance confirmation
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  reference-workloads:
+    name: Frozen workflows on Linux x86-64
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.14.3'
+
+      - uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
+        with:
+          version: '0.12.19'
+          enable-cache: true
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - name: Install the locked benchmark environment
+        run: uv sync --project raptors-python --extra dev --locked --no-install-project --python 3.14.3
+
+      - name: Build the release extension
+        run: uv run --project raptors-python --extra dev --locked maturin develop --manifest-path raptors-python/Cargo.toml --release
+
+      - name: Run all preregistered 0.4 workflows
+        run: uv run --project raptors-python --extra dev --locked --no-sync python scripts/bench_0_4.py --warmup 5 --samples 21 --output "$RUNNER_TEMP/raptors-0.4-linux-x86_64.json"
+
+      - uses: actions/upload-artifact@v6
+        with:
+          name: raptors-0.4-linux-x86_64-benchmark
+          path: ${{ runner.temp }}/raptors-0.4-linux-x86_64.json
+          if-no-files-found: error

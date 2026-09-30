@@ -1,0 +1,537 @@
+{
+  "candidate_commit": "50842d56b59893b663dc87e57e44f43484343ede",
+  "measurement": {
+    "correctness": "dtype, shape, and representative output values are checked against NumPy before timing",
+    "input_sizes": {
+      "large": 250000,
+      "medium": 4096,
+      "tiny": 16
+    },
+    "limitations": [
+      "single local host and runtime",
+      "sampled values verify large results; the differential suite checks full representative arrays",
+      "allocator and page-size effects influence memory deltas",
+      "this partial guardrail covers the inherited 0.3 ufunc/reduction workloads only; it excludes the new 0.4 operation families",
+      "the measurements are not a release performance claim"
+    ],
+    "native_memory": "process high-water RSS delta after imports and input preparation; coarse and platform dependent",
+    "python_memory": "tracemalloc peak bytes and peak net live blocks above baseline; excludes Rust/native allocations",
+    "timing": "median wall-clock nanoseconds over repeated equivalent Python API calls in a fresh subprocess",
+    "workloads": [
+      "tiny_add",
+      "medium_add",
+      "large_add",
+      "broadcast_add",
+      "fortran_add",
+      "strided_add",
+      "mixed_dtype_add",
+      "list_conversion_add",
+      "reused_out_add",
+      "large_reduce"
+    ]
+  },
+  "purpose": "partial 0.4 common-operation guardrail against the 0.3 ufunc baseline; not full 0.4 coverage or a speed claim",
+  "results": [
+    {
+      "backend": "numpy",
+      "configured_max_count": 250000,
+      "implementation": "CPython",
+      "machine": "arm64",
+      "median_latency_ns": 875,
+      "numpy": "2.5.3",
+      "output_elements": 16,
+      "output_shape": [
+        16
+      ],
+      "platform": "macOS-26.5.2-arm64-arm-64bit-Mach-O",
+      "process_peak_rss_delta_bytes": 98304,
+      "python": "3.14.3",
+      "python_live_allocations_peak_delta": 71,
+      "python_tracemalloc_peak_delta_bytes": 10348,
+      "raptors": "0.3.0",
+      "repeats": 21,
+      "thread_settings": {
+        "MKL_NUM_THREADS": null,
+        "OMP_NUM_THREADS": null,
+        "OPENBLAS_NUM_THREADS": null
+      },
+      "workload": "tiny_add"
+    },
+    {
+      "backend": "numpy",
+      "configured_max_count": 250000,
+      "implementation": "CPython",
+      "machine": "arm64",
+      "median_latency_ns": 2833,
+      "numpy": "2.5.3",
+      "output_elements": 4096,
+      "output_shape": [
+        4096
+      ],
+      "platform": "macOS-26.5.2-arm64-arm-64bit-Mach-O",
+      "process_peak_rss_delta_bytes": 65536,
+      "python": "3.14.3",
+      "python_live_allocations_peak_delta": 71,
+      "python_tracemalloc_peak_delta_bytes": 42988,
+      "raptors": "0.3.0",
+      "repeats": 21,
+      "thread_settings": {
+        "MKL_NUM_THREADS": null,
+        "OMP_NUM_THREADS": null,
+        "OPENBLAS_NUM_THREADS": null
+      },
+      "workload": "medium_add"
+    },
+    {
+      "backend": "numpy",
+      "configured_max_count": 250000,
+      "implementation": "CPython",
+      "machine": "arm64",
+      "median_latency_ns": 140666,
+      "numpy": "2.5.3",
+      "output_elements": 250000,
+      "output_shape": [
+        250000
+      ],
+      "platform": "macOS-26.5.2-arm64-arm-64bit-Mach-O",
+      "process_peak_rss_delta_bytes": 0,
+      "python": "3.14.3",
+      "python_live_allocations_peak_delta": 71,
+      "python_tracemalloc_peak_delta_bytes": 2010220,
+      "raptors": "0.3.0",
+      "repeats": 21,
+      "thread_settings": {
+        "MKL_NUM_THREADS": null,
+        "OMP_NUM_THREADS": null,
+        "OPENBLAS_NUM_THREADS": null
+      },
+      "workload": "large_add"
+    },
+    {
+      "backend": "numpy",
+      "configured_max_count": 250000,
+      "implementation": "CPython",
+      "machine": "arm64",
+      "median_latency_ns": 20250,
+      "numpy": "2.5.3",
+      "output_elements": 16384,
+      "output_shape": [
+        2048,
+        8
+      ],
+      "platform": "macOS-26.5.2-arm64-arm-64bit-Mach-O",
+      "process_peak_rss_delta_bytes": 81920,
+      "python": "3.14.3",
+      "python_live_allocations_peak_delta": 71,
+      "python_tracemalloc_peak_delta_bytes": 137788,
+      "raptors": "0.3.0",
+      "repeats": 21,
+      "thread_settings": {
+        "MKL_NUM_THREADS": null,
+        "OMP_NUM_THREADS": null,
+        "OPENBLAS_NUM_THREADS": null
+      },
+      "workload": "broadcast_add"
+    },
+    {
+      "backend": "numpy",
+      "configured_max_count": 250000,
+      "implementation": "CPython",
+      "machine": "arm64",
+      "median_latency_ns": 2875,
+      "numpy": "2.5.3",
+      "output_elements": 4096,
+      "output_shape": [
+        64,
+        64
+      ],
+      "platform": "macOS-26.5.2-arm64-arm-64bit-Mach-O",
+      "process_peak_rss_delta_bytes": 65536,
+      "python": "3.14.3",
+      "python_live_allocations_peak_delta": 71,
+      "python_tracemalloc_peak_delta_bytes": 42988,
+      "raptors": "0.3.0",
+      "repeats": 21,
+      "thread_settings": {
+        "MKL_NUM_THREADS": null,
+        "OMP_NUM_THREADS": null,
+        "OPENBLAS_NUM_THREADS": null
+      },
+      "workload": "fortran_add"
+    },
+    {
+      "backend": "numpy",
+      "configured_max_count": 250000,
+      "implementation": "CPython",
+      "machine": "arm64",
+      "median_latency_ns": 157500,
+      "numpy": "2.5.3",
+      "output_elements": 250000,
+      "output_shape": [
+        250000
+      ],
+      "platform": "macOS-26.5.2-arm64-arm-64bit-Mach-O",
+      "process_peak_rss_delta_bytes": 0,
+      "python": "3.14.3",
+      "python_live_allocations_peak_delta": 71,
+      "python_tracemalloc_peak_delta_bytes": 2010220,
+      "raptors": "0.3.0",
+      "repeats": 21,
+      "thread_settings": {
+        "MKL_NUM_THREADS": null,
+        "OMP_NUM_THREADS": null,
+        "OPENBLAS_NUM_THREADS": null
+      },
+      "workload": "strided_add"
+    },
+    {
+      "backend": "numpy",
+      "configured_max_count": 250000,
+      "implementation": "CPython",
+      "machine": "arm64",
+      "median_latency_ns": 5583,
+      "numpy": "2.5.3",
+      "output_elements": 4096,
+      "output_shape": [
+        4096
+      ],
+      "platform": "macOS-26.5.2-arm64-arm-64bit-Mach-O",
+      "process_peak_rss_delta_bytes": 65536,
+      "python": "3.14.3",
+      "python_live_allocations_peak_delta": 71,
+      "python_tracemalloc_peak_delta_bytes": 38476,
+      "raptors": "0.3.0",
+      "repeats": 21,
+      "thread_settings": {
+        "MKL_NUM_THREADS": null,
+        "OMP_NUM_THREADS": null,
+        "OPENBLAS_NUM_THREADS": null
+      },
+      "workload": "mixed_dtype_add"
+    },
+    {
+      "backend": "numpy",
+      "configured_max_count": 250000,
+      "implementation": "CPython",
+      "machine": "arm64",
+      "median_latency_ns": 101875,
+      "numpy": "2.5.3",
+      "output_elements": 4096,
+      "output_shape": [
+        4096
+      ],
+      "platform": "macOS-26.5.2-arm64-arm-64bit-Mach-O",
+      "process_peak_rss_delta_bytes": 65536,
+      "python": "3.14.3",
+      "python_live_allocations_peak_delta": 71,
+      "python_tracemalloc_peak_delta_bytes": 104108,
+      "raptors": "0.3.0",
+      "repeats": 21,
+      "thread_settings": {
+        "MKL_NUM_THREADS": null,
+        "OMP_NUM_THREADS": null,
+        "OPENBLAS_NUM_THREADS": null
+      },
+      "workload": "list_conversion_add"
+    },
+    {
+      "backend": "numpy",
+      "configured_max_count": 250000,
+      "implementation": "CPython",
+      "machine": "arm64",
+      "median_latency_ns": 47958,
+      "numpy": "2.5.3",
+      "output_elements": 250000,
+      "output_shape": [
+        250000
+      ],
+      "platform": "macOS-26.5.2-arm64-arm-64bit-Mach-O",
+      "process_peak_rss_delta_bytes": 0,
+      "python": "3.14.3",
+      "python_live_allocations_peak_delta": 66,
+      "python_tracemalloc_peak_delta_bytes": 9768,
+      "raptors": "0.3.0",
+      "repeats": 21,
+      "thread_settings": {
+        "MKL_NUM_THREADS": null,
+        "OMP_NUM_THREADS": null,
+        "OPENBLAS_NUM_THREADS": null
+      },
+      "workload": "reused_out_add"
+    },
+    {
+      "backend": "numpy",
+      "configured_max_count": 250000,
+      "implementation": "CPython",
+      "machine": "arm64",
+      "median_latency_ns": 18500,
+      "numpy": "2.5.3",
+      "output_elements": 1,
+      "output_shape": [],
+      "platform": "macOS-26.5.2-arm64-arm-64bit-Mach-O",
+      "process_peak_rss_delta_bytes": 65536,
+      "python": "3.14.3",
+      "python_live_allocations_peak_delta": 69,
+      "python_tracemalloc_peak_delta_bytes": 10116,
+      "raptors": "0.3.0",
+      "repeats": 21,
+      "thread_settings": {
+        "MKL_NUM_THREADS": null,
+        "OMP_NUM_THREADS": null,
+        "OPENBLAS_NUM_THREADS": null
+      },
+      "workload": "large_reduce"
+    },
+    {
+      "backend": "raptors",
+      "configured_max_count": 250000,
+      "implementation": "CPython",
+      "machine": "arm64",
+      "median_latency_ns": 5542,
+      "numpy": "2.5.3",
+      "output_elements": 16,
+      "output_shape": [
+        16
+      ],
+      "platform": "macOS-26.5.2-arm64-arm-64bit-Mach-O",
+      "process_peak_rss_delta_bytes": 180224,
+      "python": "3.14.3",
+      "python_live_allocations_peak_delta": 67,
+      "python_tracemalloc_peak_delta_bytes": 9884,
+      "raptors": "0.3.0",
+      "repeats": 21,
+      "thread_settings": {
+        "MKL_NUM_THREADS": null,
+        "OMP_NUM_THREADS": null,
+        "OPENBLAS_NUM_THREADS": null
+      },
+      "workload": "tiny_add"
+    },
+    {
+      "backend": "raptors",
+      "configured_max_count": 250000,
+      "implementation": "CPython",
+      "machine": "arm64",
+      "median_latency_ns": 647041,
+      "numpy": "2.5.3",
+      "output_elements": 4096,
+      "output_shape": [
+        4096
+      ],
+      "platform": "macOS-26.5.2-arm64-arm-64bit-Mach-O",
+      "process_peak_rss_delta_bytes": 180224,
+      "python": "3.14.3",
+      "python_live_allocations_peak_delta": 67,
+      "python_tracemalloc_peak_delta_bytes": 9884,
+      "raptors": "0.3.0",
+      "repeats": 21,
+      "thread_settings": {
+        "MKL_NUM_THREADS": null,
+        "OMP_NUM_THREADS": null,
+        "OPENBLAS_NUM_THREADS": null
+      },
+      "workload": "medium_add"
+    },
+    {
+      "backend": "raptors",
+      "configured_max_count": 250000,
+      "implementation": "CPython",
+      "machine": "arm64",
+      "median_latency_ns": 38630875,
+      "numpy": "2.5.3",
+      "output_elements": 250000,
+      "output_shape": [
+        250000
+      ],
+      "platform": "macOS-26.5.2-arm64-arm-64bit-Mach-O",
+      "process_peak_rss_delta_bytes": 2424832,
+      "python": "3.14.3",
+      "python_live_allocations_peak_delta": 67,
+      "python_tracemalloc_peak_delta_bytes": 9884,
+      "raptors": "0.3.0",
+      "repeats": 21,
+      "thread_settings": {
+        "MKL_NUM_THREADS": null,
+        "OMP_NUM_THREADS": null,
+        "OPENBLAS_NUM_THREADS": null
+      },
+      "workload": "large_add"
+    },
+    {
+      "backend": "raptors",
+      "configured_max_count": 250000,
+      "implementation": "CPython",
+      "machine": "arm64",
+      "median_latency_ns": 2188416,
+      "numpy": "2.5.3",
+      "output_elements": 16384,
+      "output_shape": [
+        2048,
+        8
+      ],
+      "platform": "macOS-26.5.2-arm64-arm-64bit-Mach-O",
+      "process_peak_rss_delta_bytes": 114688,
+      "python": "3.14.3",
+      "python_live_allocations_peak_delta": 67,
+      "python_tracemalloc_peak_delta_bytes": 9884,
+      "raptors": "0.3.0",
+      "repeats": 21,
+      "thread_settings": {
+        "MKL_NUM_THREADS": null,
+        "OMP_NUM_THREADS": null,
+        "OPENBLAS_NUM_THREADS": null
+      },
+      "workload": "broadcast_add"
+    },
+    {
+      "backend": "raptors",
+      "configured_max_count": 250000,
+      "implementation": "CPython",
+      "machine": "arm64",
+      "median_latency_ns": 658042,
+      "numpy": "2.5.3",
+      "output_elements": 4096,
+      "output_shape": [
+        64,
+        64
+      ],
+      "platform": "macOS-26.5.2-arm64-arm-64bit-Mach-O",
+      "process_peak_rss_delta_bytes": 180224,
+      "python": "3.14.3",
+      "python_live_allocations_peak_delta": 67,
+      "python_tracemalloc_peak_delta_bytes": 9884,
+      "raptors": "0.3.0",
+      "repeats": 21,
+      "thread_settings": {
+        "MKL_NUM_THREADS": null,
+        "OMP_NUM_THREADS": null,
+        "OPENBLAS_NUM_THREADS": null
+      },
+      "workload": "fortran_add"
+    },
+    {
+      "backend": "raptors",
+      "configured_max_count": 250000,
+      "implementation": "CPython",
+      "machine": "arm64",
+      "median_latency_ns": 36951250,
+      "numpy": "2.5.3",
+      "output_elements": 250000,
+      "output_shape": [
+        250000
+      ],
+      "platform": "macOS-26.5.2-arm64-arm-64bit-Mach-O",
+      "process_peak_rss_delta_bytes": 0,
+      "python": "3.14.3",
+      "python_live_allocations_peak_delta": 68,
+      "python_tracemalloc_peak_delta_bytes": 9884,
+      "raptors": "0.3.0",
+      "repeats": 21,
+      "thread_settings": {
+        "MKL_NUM_THREADS": null,
+        "OMP_NUM_THREADS": null,
+        "OPENBLAS_NUM_THREADS": null
+      },
+      "workload": "strided_add"
+    },
+    {
+      "backend": "raptors",
+      "configured_max_count": 250000,
+      "implementation": "CPython",
+      "machine": "arm64",
+      "median_latency_ns": 586792,
+      "numpy": "2.5.3",
+      "output_elements": 4096,
+      "output_shape": [
+        4096
+      ],
+      "platform": "macOS-26.5.2-arm64-arm-64bit-Mach-O",
+      "process_peak_rss_delta_bytes": 212992,
+      "python": "3.14.3",
+      "python_live_allocations_peak_delta": 67,
+      "python_tracemalloc_peak_delta_bytes": 9884,
+      "raptors": "0.3.0",
+      "repeats": 21,
+      "thread_settings": {
+        "MKL_NUM_THREADS": null,
+        "OMP_NUM_THREADS": null,
+        "OPENBLAS_NUM_THREADS": null
+      },
+      "workload": "mixed_dtype_add"
+    },
+    {
+      "backend": "raptors",
+      "configured_max_count": 250000,
+      "implementation": "CPython",
+      "machine": "arm64",
+      "median_latency_ns": 3157042,
+      "numpy": "2.5.3",
+      "output_elements": 4096,
+      "output_shape": [
+        4096
+      ],
+      "platform": "macOS-26.5.2-arm64-arm-64bit-Mach-O",
+      "process_peak_rss_delta_bytes": 475136,
+      "python": "3.14.3",
+      "python_live_allocations_peak_delta": 105,
+      "python_tracemalloc_peak_delta_bytes": 11913,
+      "raptors": "0.3.0",
+      "repeats": 21,
+      "thread_settings": {
+        "MKL_NUM_THREADS": null,
+        "OMP_NUM_THREADS": null,
+        "OPENBLAS_NUM_THREADS": null
+      },
+      "workload": "list_conversion_add"
+    },
+    {
+      "backend": "raptors",
+      "configured_max_count": 250000,
+      "implementation": "CPython",
+      "machine": "arm64",
+      "median_latency_ns": 43066833,
+      "numpy": "2.5.3",
+      "output_elements": 250000,
+      "output_shape": [
+        250000
+      ],
+      "platform": "macOS-26.5.2-arm64-arm-64bit-Mach-O",
+      "process_peak_rss_delta_bytes": 1589248,
+      "python": "3.14.3",
+      "python_live_allocations_peak_delta": 72,
+      "python_tracemalloc_peak_delta_bytes": 10204,
+      "raptors": "0.3.0",
+      "repeats": 21,
+      "thread_settings": {
+        "MKL_NUM_THREADS": null,
+        "OMP_NUM_THREADS": null,
+        "OPENBLAS_NUM_THREADS": null
+      },
+      "workload": "reused_out_add"
+    },
+    {
+      "backend": "raptors",
+      "configured_max_count": 250000,
+      "implementation": "CPython",
+      "machine": "arm64",
+      "median_latency_ns": 24126958,
+      "numpy": "2.5.3",
+      "output_elements": 1,
+      "output_shape": [],
+      "platform": "macOS-26.5.2-arm64-arm-64bit-Mach-O",
+      "process_peak_rss_delta_bytes": 0,
+      "python": "3.14.3",
+      "python_live_allocations_peak_delta": 70,
+      "python_tracemalloc_peak_delta_bytes": 10124,
+      "raptors": "0.3.0",
+      "repeats": 21,
+      "thread_settings": {
+        "MKL_NUM_THREADS": null,
+        "OMP_NUM_THREADS": null,
+        "OPENBLAS_NUM_THREADS": null
+      },
+      "workload": "large_reduce"
+    }
+  ],
+  "schema_version": 1
+}

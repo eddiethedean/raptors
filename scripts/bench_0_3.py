@@ -19,6 +19,7 @@ try:
 except ImportError:  # pragma: no cover - resource is unavailable on Windows
     resource = None
 
+ROOT = Path(__file__).resolve().parents[1]
 
 WORKLOADS = (
     "tiny_add",
@@ -258,6 +259,9 @@ def main():
             rows.append(json.loads(result.stdout))
     report = {
         "schema_version": 1,
+        "candidate_commit": subprocess.check_output(
+            ["git", "rev-parse", "HEAD"], cwd=ROOT, text=True
+        ).strip(),
         "purpose": "informational 0.3 ufunc baseline; not a speed claim",
         "measurement": {
             "input_sizes": {"tiny": min(args.count, 16), "medium": min(args.count, 4096), "large": args.count},

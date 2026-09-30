@@ -230,6 +230,9 @@ def run_suite(warmup, samples, output):
         )
     report = {
         "manifest": "docs/benchmarks/raptors-0.4-workloads.json",
+        "candidate_commit": subprocess.check_output(
+            ["git", "rev-parse", "HEAD"], cwd=ROOT, text=True
+        ).strip(),
         "status": "measurement_only_release_gate_pending",
         "warmup_calls": warmup,
         "timed_samples": samples,

@@ -73,13 +73,13 @@
   ],
   "known_limits": [
     "Inputs are numeric Raptors arrays and supported Python numeric values; third-party dispatch, like=, foreign buffers, and specialized dtype families are outside 0.4.",
-    "Only one of the three latest preregistered workflow medians meets the 0.80 NumPy ratio; normalization and assembly/reordering miss the threshold, so no overall 0.4 performance pass is claimed. The common-operation guardrail and cross-architecture confirmation also remain open.",
+    "On candidate 50842d56, column normalization (0.442x) and grouped counting (0.374x) meet the 0.80 NumPy median ratio. Assembly/reordering measures 0.864x (95% CI 0.823-0.940): its confidence interval is below parity, but its median misses the preregistered 0.80 target, so the three-workflow gate remains pending.",
     "The implementation is still based on scalar/native storage walkers in several routines; temporary-memory and allocation profiles must be measured before release."
   ],
   "evidence": {
     "release_gate": "pending",
     "performance_gate": "pending",
-    "performance_measurement_result": "failed_application_workflow_threshold_one_of_three_medians_meet_target",
+    "performance_measurement_result": "two_of_three_application_workflows_meet_median_target",
   "focused_differential": {
     "command": "uv run --project raptors-python --extra dev --no-sync python -m pytest raptors-python/tests/preview/test_ufunc_differential.py raptors-python/tests/preview/test_routines.py -q",
     "status": "passed_locally",
@@ -90,6 +90,7 @@
   "full_python_regression": {
     "command": "uv run --project raptors-python --extra dev --no-sync python -m pytest raptors-python/tests/preview -q",
     "status": "passed_locally",
+    "candidate_commit": "50842d56b59893b663dc87e57e44f43484343ede",
     "passed": 9745,
     "skipped": 8,
     "warnings": 1
@@ -126,6 +127,7 @@
     },
     "cargo_workspace_tests": {
       "status": "passed_serially_on_current_candidate",
+      "candidate_commit": "50842d56b59893b663dc87e57e44f43484343ede",
       "command": "cargo test --locked --offline -- --test-threads=1",
       "parallel_rerun_anomaly": "One default-parallel workspace rerun exited with SIGTRAP in raptors-core einsum_test; the isolated target and three immediate default-parallel reruns passed."
     },
@@ -147,7 +149,24 @@
       "array_method_mismatches": 0,
       "array_method_count": 26,
       "array_method_mismatch_names": [],
-      "note": "The audit improved from 62/127 routines and 20/26 methods, then from 38/127 routines and 8/26 methods. Explicit copyto where positioning, ndarray all/any keyword-only masks, ndarray std/var defaults, and multiple concrete routine defaults are now covered. The remaining 28 top-level differences are mostly NumPy's hidden <no value> sentinel versus concrete defaults, eye's dtype=float default, top-level sort's axis/descending representation, and floating ddof defaults; these still require review before release closure."
+      "note": "The remaining differences group into NumPy's hidden <no value> defaults versus concrete defaults, eye's dtype=float default, top-level sort/argsort axis and descending reflection, and integer versus floating ddof defaults. Representative eye and omitted-axis sort calls were checked for matching behavior, but full per-routine signature and explicit-default review is still open."
+    },
+    "contiguous_float32_snapshot_and_fortran_int32_sort": {
+      "status": "passed_locally",
+      "candidate_commit": "50842d56b59893b663dc87e57e44f43484343ede",
+      "cases": [
+        "typed_array_constructors_preserve_values_and_c_layout",
+        "int32_sort_reads_and_writes_c_and_fortran_views_correctly"
+      ],
+      "behavior": "Native C-contiguous float32 snapshots use a bounds-validated byte-slice path; Fortran-row int32 sort gathers and writes checked byte slices, retaining the generic byte-order and layout fallbacks. The frozen workflow report records the measured result."
+    },
+    "repeated_fortran_int32_concatenation": {
+      "status": "passed_locally",
+      "candidate_commit": "50842d56b59893b663dc87e57e44f43484343ede",
+      "cases": [
+        "int32_concatenation_copies_contiguous_and_transposed_views_in_c_order"
+      ],
+      "behavior": "Repeated, identical Fortran-contiguous int32 views concatenated on axis 0 are copied as checked contiguous byte blocks into independent output storage; tests cover two and three inputs, source non-aliasing, and layout."
     },
     "explicit_where_and_default_signatures": {
       "status": "passed_locally",
@@ -169,9 +188,9 @@
     },
     "hosted_ci": {
       "status": "passed",
-      "run_id": 36690272924,
-      "run_url": "https://github.com/eddiethedean/raptors/actions/runs/36690272924",
-      "commit": "78ebe90dea24fe50bff23608babf8e4ae470a471",
+      "run_id": 36697489258,
+      "run_url": "https://github.com/eddiethedean/raptors/actions/runs/36697489258",
+      "commit": "50842d56b59893b663dc87e57e44f43484343ede",
       "passed_jobs": [
         "Safe storage and binding Rust checks",
         "AddressSanitizer storage tests",
@@ -183,10 +202,10 @@
       ]
     },
     "cross_python_and_wheel_matrix": {
-      "status": "passed_on_build_only_release_workflow",
-      "run_id": 36690287841,
-      "run_url": "https://github.com/eddiethedean/raptors/actions/runs/36690287841",
-      "commit": "78ebe90dea24fe50bff23608babf8e4ae470a471",
+      "status": "in_progress_build_only_release_workflow",
+      "run_id": 36697644937,
+      "run_url": "https://github.com/eddiethedean/raptors/actions/runs/36697644937",
+      "commit": "50842d56b59893b663dc87e57e44f43484343ede",
       "stable_abi_wheel_targets": [
         "linux-x86_64-manylinux2014",
         "linux-x86_64-musllinux_1_2",
@@ -198,27 +217,45 @@
         "windows-arm64"
       ],
       "tested_cpython_versions": ["3.12", "3.13", "3.14"],
-      "publish_job": "skipped_workflow_dispatch_build_only_run"
+      "publish_job": "skipped_for_workflow_dispatch_build_only_run"
     },
-    "sanitizer_miri_and_alias_lifetime_gates": "current_candidate_hosted_miri_and_address_sanitizer_passed_all_18_storage_tests; all_8_wheel_targets_passed_clean_install_and_preview_tests; dedicated_extension_alias_lifetime_audit_pending",
+    "sanitizer_miri_and_alias_lifetime_gates": "candidate_50842d5 hosted CI Miri and AddressSanitizer passed all 18 storage tests; matching build-only eight-target wheel matrix is in progress; broader extension alias-lifetime audit remains pending",
+    "common_operation_guardrail": {
+      "status": "partial_10_legacy_ufunc_workloads_passed_full_0_4_coverage_open",
+      "candidate_commit": "50842d56b59893b663dc87e57e44f43484343ede",
+      "baseline": "docs/benchmarks/raptors-0.3-baseline.json",
+      "report": "docs/benchmarks/raptors-0.4-common-guardrail.json",
+      "workloads": 10,
+      "regressions_over_10_percent": [],
+      "largest_current_to_baseline_ratio": 0.9819854567,
+      "coverage_limit": "This checks inherited ufunc/reduction cells only; Phase 0.4 creation, shape, joining, selection, ordering, and histogram operations are not yet covered by the common-operation matrix."
+    },
+    "cross_architecture_performance": {
+      "status": "manual_workflow_added_run_pending",
+      "workflow": ".github/workflows/benchmark-0.4.yml",
+      "target": "GitHub Actions Linux x86-64, CPython 3.14.3, release extension",
+      "manifest": "docs/benchmarks/raptors-0.4-workloads.json",
+      "warmup_calls": 5,
+      "timed_samples": 21
+    },
     "preregistered_workflows": {
       "status": "captured_current_candidate_release_gate_pending",
       "report": "docs/benchmarks/raptors-0.4-current.json",
-      "candidate_commit": "78ebe90dea24fe50bff23608babf8e4ae470a471",
+      "candidate_commit": "50842d56b59893b663dc87e57e44f43484343ede",
       "host": "macOS 26.5.2 ARM64, CPython 3.14.3, release build",
       "warmup_calls": 5,
       "timed_samples": 21,
       "median_ratios": {
-        "column_normalization": 0.8221890095,
-        "grouped_count_and_histogram": 0.3641328301,
-        "assemble_transpose_and_order": 1.5629818008
+        "column_normalization": 0.4416859245,
+        "grouped_count_and_histogram": 0.374380597,
+        "assemble_transpose_and_order": 0.8639021797
       },
       "median_ratio_ci95": {
-        "column_normalization": [0.8167115903, 0.8274471545],
-        "grouped_count_and_histogram": [0.3425271695, 0.3761435309],
-        "assemble_transpose_and_order": [1.527673546, 1.595360411]
+        "column_normalization": [0.4288214949, 0.4454098256],
+        "grouped_count_and_histogram": [0.3632794575, 0.3792170291],
+        "assemble_transpose_and_order": [0.8226788991, 0.9396571429]
       },
-      "release_gate": "failed_one_of_three_workflows_meet_median_threshold; confirmation_host_and_common_operation_guardrail_pending"
+      "release_gate": "two_of_three_workflows_meet_median_threshold; assembly_median_misses_0.80; cross_architecture_confirmation_pending"
     }
   }
 }
