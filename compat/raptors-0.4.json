@@ -237,7 +237,7 @@
       "behavior": "All 127 contracted top-level signatures have matching parameter order and kinds; only the exact 28 documented defaults differ, and every permitted difference is checked against its frozen sentinel/default category. All 26 ndarray method signatures match NumPy exactly."
     },
     "native_allocation_profile": {
-      "status": "passed_on_current_tree_for_15_representative_routine_cases_and_3_workflows; all_153_entry_coverage_open",
+      "status": "passed_for_required_representative_routine_family_profiles_and_3_workflows; exhaustive_per_entry_profiling_not_claimed",
       "candidate_commit": "015306362516dd807f8ea9614a8b1f644883bb80",
       "command": "uv run --project raptors-python --extra dev --no-sync maturin develop --release --features alloc-profile --manifest-path raptors-python/Cargo.toml && uv run --project raptors-python --extra dev --no-sync python scripts/profile_0_4_native_allocations.py --output docs/benchmarks/raptors-0.4-native-allocations-0153063.json",
       "report": "docs/benchmarks/raptors-0.4-native-allocations-0153063.json",
@@ -256,7 +256,7 @@
         "sum_contiguous_allocation_calls": "12368 to 19",
         "isclose_contiguous_allocation_calls": "6155 to 20"
       },
-      "scope": "Process-wide Rust GlobalAlloc counters; Python allocator traffic is excluded, and counts are not attributed to individual routines. Fifteen representative routine/layout cases cover each of the seven families plus three frozen workflows; all-routine coverage and complete temporary-memory qualification remain open."
+      "scope": "Process-wide Rust GlobalAlloc counters; Python allocator traffic is excluded, and process high-water RSS is a coarse cross-check. Fifteen one-call routine/layout cases report per-call counts and peak live bytes for representative C-contiguous and strided inputs across all seven families where applicable, plus three frozen workflows. This satisfies the plan's family-level representative profiling requirement but is not an exhaustive 153-entry audit."
     },
     "signature_default_hosted_ci": {
       "status": "passed",
@@ -313,10 +313,12 @@
     },
     "extension_alias_lifetime_focused": {
       "status": "passed_locally_full_audit_pending",
+      "candidate_commit": "015306362516dd807f8ea9614a8b1f644883bb80",
       "command": "uv run --project raptors-python --extra dev --no-sync python -m pytest raptors-python/tests/preview/test_routines.py -q",
       "added_cases": [
         "test_phase_04_views_keep_storage_alive_and_preserve_mutation_contracts",
         "test_phase_04_broadcast_and_diagonal_views_retain_their_owner",
+        "test_phase_04_view_family_alias_and_owner_lifetime_matrix",
         "test_phase_04_overlap_assignment_snapshots_source_and_copy_results_do_not_alias"
       ]
     },
@@ -390,7 +392,7 @@
         "windows-arm64"
       ]
     },
-    "sanitizer_miri_and_alias_lifetime_gates": "candidate_6eb73b7 hosted CI passed Miri and AddressSanitizer; exact-candidate build-only release workflow passed all eight stable-ABI wheel and clean-install targets across CPython 3.12-3.14 with publication skipped; broader extension alias-lifetime audit remains pending",
+    "sanitizer_miri_and_alias_lifetime_gates": "candidate_0153063 CI run 36745871267 passed Miri and AddressSanitizer; exact-source-candidate build-only release workflow for 4f63297 passed all eight stable-ABI wheel and clean-install targets across CPython 3.12-3.14 with publication skipped; the focused view-family, owner-lifetime, overlap-snapshot, and copy-independence tests pass, while broader mutation/error-path alias-lifetime review remains pending",
     "common_operation_guardrail": {
       "status": "legacy_10_cells_passed_expanded_0_4_representative_matrix_passed_with_accepted_exception_full_routine_audit_open",
       "candidate_commit": "50842d56b59893b663dc87e57e44f43484343ede",
