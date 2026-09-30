@@ -96,13 +96,17 @@
       "skipped": 7,
       "warnings": 1
     },
-    "full_python_regression": {
-      "command": "uv run --project raptors-python --extra dev --no-sync python -m pytest raptors-python/tests/preview -q",
-      "status": "passed_locally",
-      "candidate_commit": "9b7d3af01dea83f7d068422258ed2d6fdf53e196",
-      "passed": 9750,
+  "full_python_regression": {
+    "command": "uv run --project raptors-python --extra dev --no-sync python -m pytest raptors-python/tests/preview -q",
+    "status": "passed_locally",
+    "candidate_commit": "28060bfc1405f683d01d4ebc52b69f4188734f47",
+    "passed": 9750,
     "skipped": 8,
-    "warnings": 1
+    "warnings": 1,
+    "extension_builds": [
+      "default release build",
+      "release build with alloc-profile feature"
+    ]
   },
   "atleast_identity_and_view_contract": {
     "status": "passed_locally",
@@ -176,6 +180,25 @@
       "command": "uv run --project raptors-python --no-sync pytest raptors-python/tests/preview/test_routines.py -q -k top_level_signature_shapes_and_documented_defaults",
       "case": "test_phase_04_top_level_signature_shapes_and_documented_defaults_match_contract",
       "behavior": "All 127 contracted top-level signatures have matching parameter order and kinds; only the exact 28 documented defaults differ, and every permitted difference is checked against its frozen sentinel/default category. All 26 ndarray method signatures match NumPy exactly."
+    },
+    "native_allocation_profile": {
+      "status": "passed_locally_for_preregistered_workflows; full_routine_family_coverage_open",
+      "candidate_commit": "28060bfc1405f683d01d4ebc52b69f4188734f47",
+      "command": "uv run --project raptors-python --no-sync python scripts/profile_0_4_native_allocations.py",
+      "report": "docs/benchmarks/raptors-0.4-native-allocations.json",
+      "host": "macOS 26.5.2 ARM64, CPython 3.14.3, release extension with alloc-profile feature",
+      "workflows": 3,
+      "profiled_calls_per_workflow": 1,
+      "feature_build_checks": [
+        "cargo check --locked --offline --features alloc-profile -p raptors-python",
+        "cargo clippy --locked --offline --features alloc-profile -p raptors-python --all-targets -- -D warnings"
+      ],
+      "peak_rust_live_bytes_above_prepared_inputs": {
+        "column_normalization": 25560,
+        "grouped_count_and_histogram": 34960,
+        "assemble_transpose_and_order": 33184
+      },
+      "scope": "Process-wide Rust GlobalAlloc counters; Python allocator traffic is excluded, and counts are not attributed to individual routines. This profiles the three frozen application workflows only; common-operation and per-routine-family coverage remains open."
     },
     "signature_default_hosted_ci": {
       "status": "passed",

@@ -1,0 +1,71 @@
+{
+  "candidate_commit": "28060bfc1405f683d01d4ebc52b69f4188734f47",
+  "manifest": "docs/benchmarks/raptors-0.4-workloads.json",
+  "measurement": {
+    "allocator_scope": "all Rust allocations in this process during the measured interval; not attributed to individual crates or routines",
+    "limitations": [
+      "only Rust global-allocator traffic is counted; Python allocator calls are excluded",
+      "peak live bytes are measured relative to prepared inputs; workload closures retain their source arrays throughout the profile",
+      "unrelated concurrent Rust allocation activity, if any, is included in the process-wide counters",
+      "process high-water RSS is included only as a coarse allocator-dependent cross-check",
+      "profiling atomics are enabled only in this separate run and are not included in latency measurements"
+    ],
+    "machine": "arm64",
+    "method": "feature-gated Rust GlobalAlloc counters around one correctness-checked eager workflow call after imports, inputs, and warmups; workflows are profiled serially",
+    "numpy": "2.5.3",
+    "platform": "macOS-26.5.2-arm64-arm-64bit-Mach-O",
+    "profiled_calls_per_workflow": 1,
+    "python": "3.14.3",
+    "raptors": "0.3.0",
+    "warmup_calls": 5
+  },
+  "purpose": "diagnostic process-wide Rust allocation and peak-live-byte profile; not a latency run",
+  "results": [
+    {
+      "native_rust_allocator": {
+        "allocation_calls": 85,
+        "deallocation_calls": 81,
+        "live_bytes_at_stop_above_prepared_inputs": 8288,
+        "peak_live_bytes_above_prepared_inputs": 25560,
+        "reallocation_calls": 0,
+        "requested_bytes": 51668,
+        "zeroed_allocation_calls": 10
+      },
+      "process_peak_rss_delta_bytes": 16384,
+      "result_retained_until_after_measurement": true,
+      "result_type": "Array",
+      "workflow": "column_normalization"
+    },
+    {
+      "native_rust_allocator": {
+        "allocation_calls": 27,
+        "deallocation_calls": 15,
+        "live_bytes_at_stop_above_prepared_inputs": 1016,
+        "peak_live_bytes_above_prepared_inputs": 34960,
+        "reallocation_calls": 12,
+        "requested_bytes": 76664,
+        "zeroed_allocation_calls": 5
+      },
+      "process_peak_rss_delta_bytes": 0,
+      "result_retained_until_after_measurement": true,
+      "result_type": "tuple",
+      "workflow": "grouped_count_and_histogram"
+    },
+    {
+      "native_rust_allocator": {
+        "allocation_calls": 37,
+        "deallocation_calls": 33,
+        "live_bytes_at_stop_above_prepared_inputs": 16480,
+        "peak_live_bytes_above_prepared_inputs": 33184,
+        "reallocation_calls": 0,
+        "requested_bytes": 33920,
+        "zeroed_allocation_calls": 3
+      },
+      "process_peak_rss_delta_bytes": 0,
+      "result_retained_until_after_measurement": true,
+      "result_type": "Array",
+      "workflow": "assemble_transpose_and_order"
+    }
+  ],
+  "schema_version": 1
+}
