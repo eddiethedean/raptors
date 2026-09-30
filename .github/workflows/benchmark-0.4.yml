@@ -31,10 +31,10 @@ jobs:
         run: uv run --project raptors-python --extra dev --locked maturin develop --manifest-path raptors-python/Cargo.toml --release
 
       - name: Run all preregistered 0.4 workflows
-        run: uv run --project raptors-python --extra dev --locked --no-sync python scripts/bench_0_4.py --warmup 5 --samples 21 --output "$RUNNER_TEMP/raptors-0.4-linux-x86_64.json"
+        run: uv run --project raptors-python --extra dev --locked --no-sync python scripts/bench_0_4.py --warmup 5 --samples 21 --output "$RUNNER_TEMP/raptors-0.4-linux-x86_64-v2.json"
 
       - uses: actions/upload-artifact@v6
         with:
-          name: raptors-0.4-linux-x86_64-benchmark
-          path: ${{ runner.temp }}/raptors-0.4-linux-x86_64.json
+          name: raptors-0.4-linux-x86_64-v2-benchmark
+          path: ${{ runner.temp }}/raptors-0.4-linux-x86_64-v2.json
           if-no-files-found: error

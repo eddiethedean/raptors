@@ -77,10 +77,14 @@
     "common_operation_regression_guardrail": "No cell may regress by more than 10% against the checked-in pre-optimization Raptors baseline without a reviewed, accepted explanation"
   },
   "baseline": {
-    "status": "pending_capture_under_measurement_revision",
+    "status": "captured_pre_optimization",
     "report": "docs/benchmarks/raptors-0.4-baseline-v2.json",
     "prior_report": "docs/benchmarks/raptors-0.4-baseline.json",
     "prior_report_note": "The v1 baseline remains preserved as historical evidence but includes tracemalloc overhead in the timed calls and is not directly comparable to v2 latency ratios.",
-    "meaning": "Capture the pre-optimization implementation under this measurement revision before using v2 as the release performance result."
+    "candidate_commit": "1ca882425b91a00f396695e44330fe1bee20d0bd",
+    "host": "macOS 26.5.2 ARM64, CPython 3.14.3, release build",
+    "warmup_calls": 5,
+    "timed_samples": 21,
+    "meaning": "Matched pre-optimization reference for v2 current-candidate measurements; release qualification still requires current and cross-architecture runs to satisfy all thresholds."
   }
 }

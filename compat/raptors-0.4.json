@@ -73,15 +73,15 @@
   ],
   "known_limits": [
     "Inputs are numeric Raptors arrays and supported Python numeric values; third-party dispatch, like=, foreign buffers, and specialized dtype families are outside 0.4.",
-    "The original v1 ARM64 and Linux x86-64 workflow ratios are retained as historical reports, but v1 timed calls with tracemalloc enabled and are superseded for latency qualification. The unchanged workloads were preregistered under a corrected v2 measurement method that separates timing from Python allocation tracing; matched v2 baseline/current reports are pending.",
+    "The original v1 ARM64 and Linux x86-64 workflow ratios are retained as historical reports, but v1 timed calls with tracemalloc enabled and are superseded for latency qualification. Corrected v2 measurements on ARM64 record 1.131x for normalization, 1.020x for grouped counting, and 1.100x for assembly/reordering. All three miss the 0.80 median target; v2 cross-architecture confirmation remains pending.",
     "The implementation is still based on scalar/native storage walkers in several routines; temporary-memory and allocation profiles must be measured before release."
   ],
   "evidence": {
     "release_gate": "pending",
     "performance_gate": "pending",
-    "performance_measurement_result": "v1_historical_two_of_three; v2_matched_measurement_pending",
+    "performance_measurement_result": "v1_historical_only; v2_all_three_workflows_miss_median_target",
     "performance_measurement_v2": {
-      "status": "preregistered_baseline_capture_pending",
+      "status": "completed_on_arm64_release_gate_failed_cross_architecture_pending",
       "manifest": "docs/benchmarks/raptors-0.4-workloads-v2.json",
       "benchmark_script": "scripts/bench_0_4.py",
       "prior_manifest": "docs/benchmarks/raptors-0.4-workloads.json",
@@ -89,7 +89,21 @@
       "unchanged_workload_contract": "Inputs, formulas, shapes, dtypes, layouts, eager operations, correctness checks, thread settings, five warmups, 21 timed samples, and release thresholds are unchanged.",
       "pre_optimization_candidate_commit": "1ca882425b91a00f396695e44330fe1bee20d0bd",
       "baseline_report": "docs/benchmarks/raptors-0.4-baseline-v2.json",
-      "current_report": "docs/benchmarks/raptors-0.4-current-v2.json"
+      "current_report": "docs/benchmarks/raptors-0.4-current-v2.json",
+      "host": "macOS 26.5.2 ARM64, CPython 3.14.3, release build",
+      "warmup_calls": 5,
+      "timed_samples": 21,
+      "median_ratios": {
+        "column_normalization": 1.1308998529,
+        "grouped_count_and_histogram": 1.0201672846,
+        "assemble_transpose_and_order": 1.1000436395
+      },
+      "median_ratio_ci95": {
+        "column_normalization": [1.106557377, 1.1404206553],
+        "grouped_count_and_histogram": [0.9962939866, 1.0949627006],
+        "assemble_transpose_and_order": [1.0573059844, 1.2258349923]
+      },
+      "release_gate": "all_three_workflows_miss_median_ratio_0.80; linux_x86_64_v2_confirmation_pending"
     },
     "cross_phase_generated_sequences": {
       "status": "passed_locally",
@@ -110,13 +124,13 @@
   "full_python_regression": {
     "command": "uv run --project raptors-python --extra dev --no-sync python -m pytest raptors-python/tests/preview -q",
     "status": "passed_locally",
-    "candidate_commit": "28060bfc1405f683d01d4ebc52b69f4188734f47",
+    "candidate_commit": "57eb5f6b39915548179a4b30fdeb931a7fdad508",
     "passed": 9750,
     "skipped": 8,
     "warnings": 1,
     "extension_builds": [
-      "default release build",
-      "release build with alloc-profile feature"
+      "default release build on candidate 57eb5f6b39915548179a4b30fdeb931a7fdad508",
+      "alloc-profile release build on candidate 28060bfc1405f683d01d4ebc52b69f4188734f47"
     ]
   },
   "atleast_identity_and_view_contract": {
