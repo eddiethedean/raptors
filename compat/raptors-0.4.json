@@ -67,7 +67,7 @@
   },
   "known_gaps": [
     "This is an implementation contract, not a release-candidate claim: full signature, warning/error-precedence, dtype, and aliasing closure is still in progress.",
-    "isclose/allclose use the native long-double bridge on targets where long double exceeds float64. The focused precision cases skip on this macOS ARM64 host because its NumPy long double has no extra mantissa bits; extended-native-host differential coverage remains required.",
+    "isclose/allclose use the native long-double bridge on targets where long double exceeds float64. Two focused precision cases skip on this macOS ARM64 host because its NumPy long double has no extra mantissa bits; hosted Linux x86-64 CPython 3.12-3.14 preview and wheel suites pass on a native extended-precision target.",
     "Ordering accepts NumPy's numeric kinds but does not promise identical internal permutations for partition/argpartition or algorithm-specific sort kinds where NumPy leaves ordering unspecified.",
     "Public methods and routines outside the frozen 0.4 inventory remain owned by 0.5-0.8 as documented in the roadmap."
   ],
@@ -200,6 +200,14 @@
         "CPython 3.13 preview tests",
         "CPython 3.14 preview tests"
       ]
+    },
+    "extended_precision_linux_x86_64": {
+      "status": "passed_on_hosted_preview_and_wheel_suites",
+      "candidate_commit": "0a5bfd565dcc90011ad14b1e11285dad570f281c",
+      "ci_run_id": 36699798139,
+      "wheel_run_id": 36700038463,
+      "tested_cpython_versions": ["3.12", "3.13", "3.14"],
+      "result": "Linux x86-64 exposes extra long-double mantissa bits; the full preview suite passed on every hosted CPython version, exercising the extended-precision differential cases skipped on macOS ARM64."
     },
     "cross_python_and_wheel_matrix": {
       "status": "passed_on_build_only_release_workflow",
