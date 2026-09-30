@@ -1,10 +1,10 @@
 //! Numeric selection and mutation helpers with checked preflight.
 use super::super::{array, default_byte_order, map_storage_error, parse_array_axis_order, PyArray};
 use super::shape::normalize_axis;
-use super::{numeric_can_cast, parse_casting_rule};
+use super::{numeric_can_cast, parse_casting_rule, WhereArg};
 use pyo3::exceptions::{PyIndexError, PyMemoryError, PyTypeError, PyValueError};
 use pyo3::prelude::*;
-use pyo3::types::{PyBool, PyComplex, PyDict, PyFloat, PyInt, PyModule, PySlice, PyTuple};
+use pyo3::types::{PyBool, PyComplex, PyFloat, PyInt, PyModule, PySlice, PyTuple};
 use pyo3::{Borrowed, FromPyObject};
 use raptors_storage::{DType, Scalar, View};
 
@@ -93,13 +93,16 @@ fn copy(a: &Bound<'_, PyAny>, order: &str, subok: bool) -> PyResult<PyArray> {
 }
 
 #[pyfunction]
-#[pyo3(signature = (dst, src, casting="same_kind", **kwargs))]
+#[pyo3(
+    signature = (dst, src, casting="same_kind", r#where=WhereArg::Omitted),
+    text_signature = "(dst, src, casting='same_kind', where=True)"
+)]
 fn copyto(
     py: Python<'_>,
     dst: &Bound<'_, PyAny>,
     src: &Bound<'_, PyAny>,
     casting: &str,
-    kwargs: Option<&Bound<'_, PyDict>>,
+    r#where: WhereArg,
 ) -> PyResult<()> {
     let destination = dst
         .extract::<PyRef<'_, PyArray>>()
@@ -111,26 +114,14 @@ fn copyto(
             "cannot cast source array to destination according to the rule",
         ));
     }
-    let mask_arg = if let Some(kwargs) = kwargs {
-        for (key, _) in kwargs.iter() {
-            if key.extract::<String>()? != "where" {
-                return Err(PyTypeError::new_err("unexpected keyword argument"));
-            }
+    let mask = match r#where {
+        WhereArg::Omitted => None,
+        WhereArg::Value(value) if value.bind(py).is_none() => {
+            let false_value = PyBool::new(py, false);
+            Some(array(false_value.as_any(), None, None, "K")?)
         }
-        kwargs.get_item("where")?
-    } else {
-        None
+        WhereArg::Value(value) => Some(array(value.bind(py), None, None, "K")?),
     };
-    let mask = mask_arg
-        .map(|value| {
-            if value.is_none() {
-                let false_value = PyBool::new(py, false);
-                array(false_value.as_any(), None, None, "K")
-            } else {
-                array(&value, None, None, "K")
-            }
-        })
-        .transpose()?;
     if mask
         .as_ref()
         .is_some_and(|mask| mask.inner.dtype() != DType::Bool)
@@ -243,7 +234,7 @@ fn take(
 }
 
 #[pyfunction]
-#[pyo3(signature = (arr, indices, axis=-1))]
+#[pyo3(signature = (arr, indices, axis=-1), text_signature = "(arr, indices, axis=-1)")]
 fn take_along_axis(
     arr: &Bound<'_, PyAny>,
     indices: &Bound<'_, PyAny>,
@@ -687,7 +678,10 @@ impl<'a, 'py> FromPyObject<'a, 'py> for SelectionDefault {
 }
 
 #[pyfunction]
-#[pyo3(signature = (condlist, choicelist, default=SelectionDefault::Omitted))]
+#[pyo3(
+    signature = (condlist, choicelist, default=SelectionDefault::Omitted),
+    text_signature = "(condlist, choicelist, default=0)"
+)]
 fn select(
     py: Python<'_>,
     condlist: &Bound<'_, PyAny>,

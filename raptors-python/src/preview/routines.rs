@@ -66,7 +66,10 @@ fn full(
 }
 
 #[pyfunction]
-#[pyo3(signature = (start_or_stop, /, stop=None, step=None, *, dtype=None, device=None, like=None))]
+#[pyo3(
+    signature = (start_or_stop, /, stop=None, step=None, *, dtype=None, device=None, like=None),
+    text_signature = "(start_or_stop, /, stop=None, step=1, *, dtype=None, device=None, like=None)"
+)]
 fn arange(
     start_or_stop: &Bound<'_, PyAny>,
     stop: Option<&Bound<'_, PyAny>>,
@@ -1044,34 +1047,60 @@ fn at_least_args(py: Python<'_>, values: &Bound<'_, PyTuple>, rank: usize) -> Py
     }
     let arrays = values
         .iter()
-        .map(|value| array(&value, None, None, "K").and_then(|source| at_least_rank(source, rank)))
+        .map(|value| {
+            if value
+                .extract::<PyRef<'_, PyArray>>()
+                .is_ok_and(|source| source.inner.ndim() >= rank)
+            {
+                return Ok(value.clone().unbind());
+            }
+            let source = array(&value, None, None, "K")?;
+            Py::new(py, at_least_rank(source, rank)?).map(|array| array.into_any())
+        })
         .collect::<PyResult<Vec<_>>>()?;
     if arrays.len() == 1 {
-        Ok(Py::new(py, arrays.into_iter().next().expect("one value"))?.into_any())
+        Ok(arrays.into_iter().next().expect("one value"))
     } else {
-        let arrays = arrays
-            .into_iter()
-            .map(|array| Py::new(py, array).map(|array| array.into_any()))
-            .collect::<PyResult<Vec<_>>>()?;
         Ok(PyTuple::new(py, arrays)?.into_any().unbind())
     }
 }
 
 fn at_least_rank(mut input: PyArray, rank: usize) -> PyResult<PyArray> {
-    let shape = input.inner.shape();
-    let output_shape = match (rank, shape.len()) {
-        (1, 0) => vec![1],
-        (2, 0) => vec![1, 1],
-        (2, 1) => vec![1, shape[0]],
-        (3, 0) => vec![1, 1, 1],
-        (3, 1) => vec![1, shape[0], 1],
-        (3, 2) => vec![shape[0], shape[1], 1],
-        _ => return Ok(input),
+    let ndim = input.inner.ndim();
+    if ndim >= rank {
+        return Ok(input);
+    }
+    if ndim == 0 {
+        input.inner = input
+            .inner
+            .reshape_order(vec![1; rank], Some(false), false)
+            .map_err(map_storage_error)?;
+        return Ok(input);
+    }
+    let added_axes: &[usize] = match (rank, ndim) {
+        (1, 0) => &[0],
+        (2, 0) => &[0, 1],
+        (2, 1) => &[0],
+        (3, 0) => &[0, 1, 2],
+        (3, 1) => &[0, 2],
+        (3, 2) => &[2],
+        _ => unreachable!("atleast rank is restricted to one, two, or three"),
     };
-    input.inner = input
-        .inner
-        .reshape_order(output_shape, Some(false), false)
-        .map_err(map_storage_error)?;
+    let mut source_axis = 0;
+    let mut indices = Vec::with_capacity(rank);
+    for output_axis in 0..rank {
+        if added_axes.contains(&output_axis) {
+            indices.push(IndexItem::NewAxis);
+        } else {
+            indices.push(IndexItem::Slice {
+                start: 0,
+                step: 1,
+                len: input.inner.shape()[source_axis],
+            });
+            source_axis += 1;
+        }
+    }
+    input.inner = input.inner.index(&indices).map_err(map_storage_error)?;
     Ok(input)
 }
 

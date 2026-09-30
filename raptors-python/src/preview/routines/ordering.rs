@@ -84,7 +84,10 @@ fn argsort(
 }
 
 #[pyfunction]
-#[pyo3(signature = (a, kth, axis=-1, kind="introselect", order=None))]
+#[pyo3(
+    signature = (a, kth, axis=-1, kind="introselect", order=None),
+    text_signature = "(a, kth, axis=-1, kind='introselect', order=None)"
+)]
 fn partition(
     a: &Bound<'_, PyAny>,
     kth: &Bound<'_, PyAny>,
@@ -110,7 +113,10 @@ fn partition(
 }
 
 #[pyfunction]
-#[pyo3(signature = (a, kth, axis=-1, kind="introselect", order=None))]
+#[pyo3(
+    signature = (a, kth, axis=-1, kind="introselect", order=None),
+    text_signature = "(a, kth, axis=-1, kind='introselect', order=None)"
+)]
 fn argpartition(
     a: &Bound<'_, PyAny>,
     kth: &Bound<'_, PyAny>,
@@ -710,7 +716,7 @@ fn named_unique(
 }
 
 #[pyfunction]
-#[pyo3(signature = (keys, axis=-1))]
+#[pyo3(signature = (keys, axis=-1), text_signature = "(keys, axis=-1)")]
 fn lexsort(py: Python<'_>, keys: &Bound<'_, PyAny>, axis: isize) -> PyResult<Py<PyAny>> {
     let keys = keys
         .try_iter()?
@@ -878,7 +884,10 @@ fn histogram_bins_bound<'py>(py: Python<'py>, bins: &HistogramBins) -> Option<Bo
 }
 
 #[pyfunction]
-#[pyo3(signature = (a, bins=HistogramBins::Default, range=None, density=None, weights=None))]
+#[pyo3(
+    signature = (a, bins=HistogramBins::Default, range=None, density=None, weights=None),
+    text_signature = "(a, bins=10, range=None, density=None, weights=None)"
+)]
 fn histogram(
     py: Python<'_>,
     a: &Bound<'_, PyAny>,
@@ -1144,7 +1153,10 @@ fn uniform_bin(value: &Scalar, edges: &[Scalar], width: f64) -> Option<usize> {
 }
 
 #[pyfunction]
-#[pyo3(signature = (x, y, bins=HistogramBins::Default, range=None, density=None, weights=None))]
+#[pyo3(
+    signature = (x, y, bins=HistogramBins::Default, range=None, density=None, weights=None),
+    text_signature = "(x, y, bins=10, range=None, density=None, weights=None)"
+)]
 fn histogram2d(
     py: Python<'_>,
     x: &Bound<'_, PyAny>,
@@ -1169,7 +1181,10 @@ fn histogram2d(
 }
 
 #[pyfunction]
-#[pyo3(signature = (sample, bins=HistogramBins::Default, range=None, density=None, weights=None))]
+#[pyo3(
+    signature = (sample, bins=HistogramBins::Default, range=None, density=None, weights=None),
+    text_signature = "(sample, bins=10, range=None, density=None, weights=None)"
+)]
 fn histogramdd(
     py: Python<'_>,
     sample: &Bound<'_, PyAny>,

@@ -61,6 +61,40 @@ def test_phase_04_selection_and_count_signatures_match_numpy():
         assert str(inspect.signature(getattr(raptors, name))) == signature
 
 
+def test_phase_04_copyto_and_ndarray_logical_reduction_signatures_match_numpy():
+    assert str(inspect.signature(raptors.copyto)) == (
+        "(dst, src, casting='same_kind', where=True)"
+    )
+    for name in ("all", "any"):
+        assert str(inspect.signature(getattr(raptors.Array, name))) == (
+            "(self, /, axis=None, out=None, keepdims=False, *, where=True)"
+        )
+
+
+def test_phase_04_default_signatures_match_numpy():
+    expected = {
+        "arange": "(start_or_stop, /, stop=None, step=1, *, dtype=None, device=None, like=None)",
+        "partition": "(a, kth, axis=-1, kind='introselect', order=None)",
+        "argpartition": "(a, kth, axis=-1, kind='introselect', order=None)",
+        "lexsort": "(keys, axis=-1)",
+        "take_along_axis": "(arr, indices, axis=-1)",
+        "select": "(condlist, choicelist, default=0)",
+        "histogram": "(a, bins=10, range=None, density=None, weights=None)",
+        "histogram2d": "(x, y, bins=10, range=None, density=None, weights=None)",
+        "histogramdd": "(sample, bins=10, range=None, density=None, weights=None)",
+    }
+    for name, signature in expected.items():
+        assert str(inspect.signature(getattr(raptors, name))) == signature
+    for name in ("sort", "argsort"):
+        assert str(inspect.signature(getattr(raptors.Array, name))) == (
+            "(self, /, axis=-1, kind=None, order=None, *, stable=None, descending=None)"
+        )
+    for name in ("partition", "argpartition"):
+        assert str(inspect.signature(getattr(raptors.Array, name))) == (
+            "(self, kth, /, axis=-1, kind='introselect', order=None)"
+        )
+
+
 def test_phase_04_ndarray_positional_only_signatures_match_numpy():
     expected = {
         "put": "(self, indices, values, /, mode='raise')",
@@ -82,6 +116,52 @@ def test_phase_04_arg_reduction_keepdims_is_keyword_only():
     }
     for name, signature in expected.items():
         assert str(inspect.signature(getattr(raptors, name))) == signature
+
+
+@pytest.mark.parametrize("rank", [1, 2, 3])
+def test_atleast_functions_preserve_identity_when_rank_is_sufficient(rank):
+    values = np.arange(6, dtype=np.int32).reshape(1, 2, 3)
+    source = raptors.array(values.tolist(), dtype=raptors.int32)
+    result = getattr(raptors, f"atleast_{rank}d")(source)
+
+    assert result is source
+    assert_array_matches(getattr(np, f"atleast_{rank}d")(values), result)
+
+
+@pytest.mark.parametrize(
+    "name,values,expected_shape,source_index,result_index",
+    [
+        ("atleast_1d", 7, (1,), (), (0,)),
+        ("atleast_2d", [1, 2, 3], (1, 3), (0,), (0, 0)),
+        ("atleast_3d", [[1, 2, 3], [4, 5, 6]], (2, 3, 1), (0, 0), (0, 0, 0)),
+    ],
+)
+def test_atleast_rank_increase_returns_a_sharing_view(
+    name, values, expected_shape, source_index, result_index
+):
+    source = raptors.array(values, dtype=raptors.int32)
+    expected = getattr(np, name)(np.asarray(values, dtype=np.int32))
+    result = getattr(raptors, name)(source)
+
+    assert result is not source
+    assert tuple(result.shape) == expected_shape
+    assert_array_matches(expected, result)
+    result[result_index] = 91
+    assert source[source_index] == 91
+
+
+def test_atleast_multiple_inputs_return_tuple_and_preserve_each_input_identity():
+    first = raptors.array([[1, 2], [3, 4]], dtype=raptors.int16)
+    second = raptors.array([5, 6], dtype=raptors.int16)
+
+    first_result, second_result = raptors.atleast_2d(first, second)
+
+    assert first_result is first
+    assert second_result is not second
+    assert_array_matches(np.atleast_2d(np.array([1, 2, 3, 4], dtype=np.int16).reshape(2, 2)), first_result)
+    assert_array_matches(np.atleast_2d(np.array([5, 6], dtype=np.int16)), second_result)
+    second_result[0, 0] = 73
+    assert second[0] == 73
 
 
 def test_histogram_density_none_matches_numpy_default():
@@ -114,12 +194,23 @@ def test_copyto_where_none_and_ndarray_reduction_masks_match_numpy():
     native_mask = raptors.array(mask.tolist(), dtype=raptors.bool_)
     assert source.all(where=native_mask) == values.all(where=mask)
     assert source.any(where=native_mask) == values.any(where=mask)
+    with pytest.raises(TypeError):
+        source.all(None, None, False, native_mask)
+    with pytest.raises(TypeError):
+        source.any(None, None, False, native_mask)
 
     expected = np.zeros(2, dtype=np.int64)
     np.copyto(expected, np.array([4, 5]), where=None)
     actual = raptors.zeros(2, dtype=raptors.int64)
-    raptors.copyto(actual, raptors.array([4, 5], dtype=raptors.int64), where=None)
+    source_values = raptors.array([4, 5], dtype=raptors.int64)
+    raptors.copyto(actual, source_values, where=None)
     assert_array_matches(expected, actual)
+
+    positional_mask_expected = np.zeros(2, dtype=np.int64)
+    np.copyto(positional_mask_expected, np.array([4, 5]), "same_kind", mask)
+    positional_mask_actual = raptors.zeros(2, dtype=raptors.int64)
+    raptors.copyto(positional_mask_actual, source_values, "same_kind", native_mask)
+    assert_array_matches(positional_mask_expected, positional_mask_actual)
 
 
 def test_reduction_where_call_forms_and_explicit_none_match_numpy():

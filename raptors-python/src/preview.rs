@@ -515,7 +515,10 @@ impl PyArray {
         kwargs.set_item("axis2", axis2)?;
         call_array_api(py, "diagonal", self, &kwargs)
     }
-    #[pyo3(signature = (axis=-1, kind=None, order=None, *, stable=None, descending=None))]
+    #[pyo3(
+        signature = (axis=-1, kind=None, order=None, *, stable=None, descending=None),
+        text_signature = "(self, /, axis=-1, kind=None, order=None, *, stable=None, descending=None)"
+    )]
     fn sort(
         &self,
         py: Python<'_>,
@@ -545,7 +548,10 @@ impl PyArray {
             .assign_view(&sorted.inner)
             .map_err(map_storage_error)
     }
-    #[pyo3(signature = (axis=-1, kind=None, order=None, *, stable=None, descending=None))]
+    #[pyo3(
+        signature = (axis=-1, kind=None, order=None, *, stable=None, descending=None),
+        text_signature = "(self, /, axis=-1, kind=None, order=None, *, stable=None, descending=None)"
+    )]
     fn argsort(
         &self,
         py: Python<'_>,
@@ -571,7 +577,10 @@ impl PyArray {
         }
         call_array_api(py, "argsort", self, &kwargs)
     }
-    #[pyo3(signature = (kth, /, axis=-1, kind="introselect", order=None))]
+    #[pyo3(
+        signature = (kth, /, axis=-1, kind="introselect", order=None),
+        text_signature = "(self, kth, /, axis=-1, kind='introselect', order=None)"
+    )]
     fn partition(
         &self,
         py: Python<'_>,
@@ -595,7 +604,10 @@ impl PyArray {
             .assign_view(&partitioned.inner)
             .map_err(map_storage_error)
     }
-    #[pyo3(signature = (kth, /, axis=-1, kind="introselect", order=None))]
+    #[pyo3(
+        signature = (kth, /, axis=-1, kind="introselect", order=None),
+        text_signature = "(self, kth, /, axis=-1, kind='introselect', order=None)"
+    )]
     fn argpartition(
         &self,
         py: Python<'_>,
@@ -846,16 +858,18 @@ impl PyArray {
         merge_array_method_kwargs(&kwargs, extras)?;
         call_array_api(py, "std", self, &kwargs)
     }
-    #[pyo3(signature = (axis=None, out=None, keepdims=false, **kwargs))]
+    #[pyo3(
+        signature = (axis=None, out=None, keepdims=false, *, r#where=routines::WhereArg::Omitted),
+        text_signature = "(self, /, axis=None, out=None, keepdims=False, *, where=True)"
+    )]
     fn any(
         &self,
         py: Python<'_>,
         axis: Option<&Bound<'_, PyAny>>,
         out: Option<&Bound<'_, PyAny>>,
         keepdims: bool,
-        kwargs: Option<&Bound<'_, PyDict>>,
+        r#where: routines::WhereArg,
     ) -> PyResult<Py<PyAny>> {
-        let extras = kwargs;
         let kwargs = PyDict::new(py);
         if let Some(axis) = axis {
             kwargs.set_item("axis", axis)?;
@@ -864,19 +878,23 @@ impl PyArray {
             kwargs.set_item("out", out)?;
         }
         kwargs.set_item("keepdims", keepdims)?;
-        merge_array_method_kwargs(&kwargs, extras)?;
+        if let routines::WhereArg::Value(where_value) = r#where {
+            kwargs.set_item("where", where_value.bind(py))?;
+        }
         call_array_api(py, "any", self, &kwargs)
     }
-    #[pyo3(signature = (axis=None, out=None, keepdims=false, **kwargs))]
+    #[pyo3(
+        signature = (axis=None, out=None, keepdims=false, *, r#where=routines::WhereArg::Omitted),
+        text_signature = "(self, /, axis=None, out=None, keepdims=False, *, where=True)"
+    )]
     fn all(
         &self,
         py: Python<'_>,
         axis: Option<&Bound<'_, PyAny>>,
         out: Option<&Bound<'_, PyAny>>,
         keepdims: bool,
-        kwargs: Option<&Bound<'_, PyDict>>,
+        r#where: routines::WhereArg,
     ) -> PyResult<Py<PyAny>> {
-        let extras = kwargs;
         let kwargs = PyDict::new(py);
         if let Some(axis) = axis {
             kwargs.set_item("axis", axis)?;
@@ -885,7 +903,9 @@ impl PyArray {
             kwargs.set_item("out", out)?;
         }
         kwargs.set_item("keepdims", keepdims)?;
-        merge_array_method_kwargs(&kwargs, extras)?;
+        if let routines::WhereArg::Value(where_value) = r#where {
+            kwargs.set_item("where", where_value.bind(py))?;
+        }
         call_array_api(py, "all", self, &kwargs)
     }
     #[pyo3(signature = (axis=None, out=None, *, keepdims=false))]
