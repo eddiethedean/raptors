@@ -338,7 +338,7 @@
       "publish_job": "skipped_for_workflow_dispatch_build_only_run"
     },
     "cross_python_and_wheel_matrix_6eb73b7": {
-      "status": "in_progress_build_only_release_workflow",
+      "status": "passed_on_build_only_release_workflow",
       "run_id": 36720026194,
       "run_url": "https://github.com/eddiethedean/raptors/actions/runs/36720026194",
       "candidate_commit": "6eb73b7ec0c42e9dea9a6f6b61f52061599961f9",
@@ -353,9 +353,20 @@
         "windows-x86_64",
         "windows-arm64"
       ],
-      "tested_cpython_versions": ["3.12", "3.13", "3.14"]
+      "tested_cpython_versions": ["3.12", "3.13", "3.14"],
+      "publish_job": "skipped_for_workflow_dispatch_build_only_run",
+      "passed_jobs": [
+        "linux-x86_64-manylinux2014",
+        "linux-x86_64-musllinux_1_2",
+        "linux-aarch64-manylinux_2_28",
+        "linux-aarch64-musllinux_1_2",
+        "macos-x86_64",
+        "macos-arm64",
+        "windows-x86_64",
+        "windows-arm64"
+      ]
     },
-    "sanitizer_miri_and_alias_lifetime_gates": "candidate_6eb73b7 hosted CI passed Miri and AddressSanitizer; an earlier build-only release workflow passed all eight stable-ABI wheel and clean-install targets with publication skipped; broader extension alias-lifetime audit remains pending",
+    "sanitizer_miri_and_alias_lifetime_gates": "candidate_6eb73b7 hosted CI passed Miri and AddressSanitizer; exact-candidate build-only release workflow passed all eight stable-ABI wheel and clean-install targets across CPython 3.12-3.14 with publication skipped; broader extension alias-lifetime audit remains pending",
     "common_operation_guardrail": {
       "status": "partial_10_legacy_ufunc_workloads_passed_full_0_4_coverage_open",
       "candidate_commit": "50842d56b59893b663dc87e57e44f43484343ede",
@@ -453,6 +464,22 @@
       "run_id": 36719254649,
       "run_url": "https://github.com/eddiethedean/raptors/actions/runs/36719254649",
       "candidate_commit": "6eb73b7ec0c42e9dea9a6f6b61f52061599961f9",
+      "passed_jobs": [
+        "Safe storage and binding Rust checks",
+        "Miri storage and view tests",
+        "AddressSanitizer storage tests",
+        "Verify pinned NumPy API inventory",
+        "Verify README release stats",
+        "CPython 3.12 preview tests",
+        "CPython 3.13 preview tests",
+        "CPython 3.14 preview tests"
+      ]
+    },
+    "hosted_ci_docs_candidate": {
+      "status": "passed",
+      "run_id": 36720568063,
+      "run_url": "https://github.com/eddiethedean/raptors/actions/runs/36720568063",
+      "candidate_commit": "d71669dd3a54ffbd124643fd87d15aa08b404f1e",
       "passed_jobs": [
         "Safe storage and binding Rust checks",
         "Miri storage and view tests",
