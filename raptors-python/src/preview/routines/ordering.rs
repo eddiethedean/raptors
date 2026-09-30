@@ -13,7 +13,10 @@ use raptors_storage::{DType, Scalar, View};
 use std::cmp::Ordering;
 
 #[pyfunction]
-#[pyo3(signature = (a, axis=-1, kind=None, order=None, *, stable=None, descending=None))]
+#[pyo3(
+    signature = (a, axis=-1, kind=None, order=None, *, stable=None, descending=None),
+    text_signature = "(a, axis=-1, kind=None, order=None, *, stable=None, descending=None)"
+)]
 fn sort(
     a: &Bound<'_, PyAny>,
     axis: Option<isize>,
@@ -68,7 +71,10 @@ fn sort_int32_fast(
 }
 
 #[pyfunction]
-#[pyo3(signature = (a, axis=-1, kind=None, order=None, *, stable=None, descending=None))]
+#[pyo3(
+    signature = (a, axis=-1, kind=None, order=None, *, stable=None, descending=None),
+    text_signature = "(a, axis=-1, kind=None, order=None, *, stable=None, descending=None)"
+)]
 fn argsort(
     a: &Bound<'_, PyAny>,
     axis: Option<isize>,

@@ -138,7 +138,10 @@ fn mean_impl(
 }
 
 #[pyfunction]
-#[pyo3(signature = (a, axis=None, dtype=None, out=None, ddof=0.0, keepdims=false, *, r#where=WhereArg::Omitted, mean=None, correction=None))]
+#[pyo3(
+    signature = (a, axis=None, dtype=None, out=None, ddof=0.0, keepdims=false, *, r#where=WhereArg::Omitted, mean=None, correction=None),
+    text_signature = "(a, axis=None, dtype=None, out=None, ddof=0, keepdims=False, *, where=..., mean=None, correction=None)"
+)]
 fn var(
     py: Python<'_>,
     a: &Bound<'_, PyAny>,
@@ -167,7 +170,10 @@ fn var(
 }
 
 #[pyfunction]
-#[pyo3(signature = (a, axis=None, dtype=None, out=None, ddof=0.0, keepdims=false, *, r#where=WhereArg::Omitted, mean=None, correction=None))]
+#[pyo3(
+    signature = (a, axis=None, dtype=None, out=None, ddof=0.0, keepdims=false, *, r#where=WhereArg::Omitted, mean=None, correction=None),
+    text_signature = "(a, axis=None, dtype=None, out=None, ddof=0, keepdims=False, *, where=..., mean=None, correction=None)"
+)]
 fn nanvar(
     py: Python<'_>,
     a: &Bound<'_, PyAny>,
@@ -381,7 +387,10 @@ fn variance_impl(
 }
 
 #[pyfunction]
-#[pyo3(signature = (a, axis=None, dtype=None, out=None, ddof=0.0, keepdims=false, *, r#where=WhereArg::Omitted, mean=None, correction=None))]
+#[pyo3(
+    signature = (a, axis=None, dtype=None, out=None, ddof=0.0, keepdims=false, *, r#where=WhereArg::Omitted, mean=None, correction=None),
+    text_signature = "(a, axis=None, dtype=None, out=None, ddof=0, keepdims=False, *, where=..., mean=None, correction=None)"
+)]
 fn std(
     py: Python<'_>,
     a: &Bound<'_, PyAny>,
@@ -503,7 +512,10 @@ fn std(
 }
 
 #[pyfunction]
-#[pyo3(signature = (a, axis=None, dtype=None, out=None, ddof=0.0, keepdims=false, *, r#where=WhereArg::Omitted, mean=None, correction=None))]
+#[pyo3(
+    signature = (a, axis=None, dtype=None, out=None, ddof=0.0, keepdims=false, *, r#where=WhereArg::Omitted, mean=None, correction=None),
+    text_signature = "(a, axis=None, dtype=None, out=None, ddof=0, keepdims=False, *, where=..., mean=None, correction=None)"
+)]
 fn nanstd(
     py: Python<'_>,
     a: &Bound<'_, PyAny>,

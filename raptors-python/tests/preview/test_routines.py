@@ -86,6 +86,12 @@ def test_phase_04_default_signatures_match_numpy():
     for name, signature in expected.items():
         assert str(inspect.signature(getattr(raptors, name))) == signature
     for name in ("sort", "argsort"):
+        assert (
+            inspect.signature(getattr(raptors, name)).parameters["axis"].default
+            == inspect.signature(getattr(np, name)).parameters["axis"].default
+            == -1
+        )
+    for name in ("sort", "argsort"):
         assert str(inspect.signature(getattr(raptors.Array, name))) == (
             "(self, /, axis=-1, kind=None, order=None, *, stable=None, descending=None)"
         )
@@ -97,6 +103,32 @@ def test_phase_04_default_signatures_match_numpy():
         assert str(inspect.signature(getattr(raptors.Array, name))) == (
             "(self, /, axis=None, dtype=None, out=None, ddof=0, **kwargs)"
         )
+
+
+@pytest.mark.parametrize(
+    "name,values",
+    [
+        ("std", [1.0, 2.0, 3.0]),
+        ("var", [1.0, 2.0, 3.0]),
+        ("nanstd", [1.0, 2.0, np.nan]),
+        ("nanvar", [1.0, 2.0, np.nan]),
+    ],
+)
+def test_phase_04_top_level_ddof_signature_and_default_match_numpy(name, values):
+    candidate_function = getattr(raptors, name)
+    reference_function = getattr(np, name)
+    candidate_default = inspect.signature(candidate_function).parameters["ddof"].default
+    reference_default = inspect.signature(reference_function).parameters["ddof"].default
+    assert candidate_default == reference_default == 0
+    assert type(candidate_default) is type(reference_default) is int
+
+    expected_input = np.array(values, dtype=np.float64)
+    actual_input = raptors.array(values, dtype=raptors.float64)
+    for kwargs in ({}, {"ddof": 1}):
+        expected = reference_function(expected_input, **kwargs)
+        actual = candidate_function(actual_input, **kwargs)
+        assert actual.dtype.name == expected.dtype.name
+        assert float(actual) == float(expected)
 
 
 def test_phase_04_ndarray_positional_only_signatures_match_numpy():
