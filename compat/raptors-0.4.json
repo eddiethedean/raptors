@@ -73,13 +73,24 @@
   ],
   "known_limits": [
     "Inputs are numeric Raptors arrays and supported Python numeric values; third-party dispatch, like=, foreign buffers, and specialized dtype families are outside 0.4.",
-    "On candidate 0a5bfd5, the designated ARM64 host measures column normalization at 0.388x, grouped counting at 0.386x, and assembly/reordering at 0.906x (95% CI 0.854-0.988). Linux x86-64 measures 0.429x, 0.731x, and 1.072x respectively (assembly 95% CI 1.038-1.088). The assembly median misses the 0.80 target on both hosts, so the three-workflow performance gate remains pending.",
+    "The original v1 ARM64 and Linux x86-64 workflow ratios are retained as historical reports, but v1 timed calls with tracemalloc enabled and are superseded for latency qualification. The unchanged workloads were preregistered under a corrected v2 measurement method that separates timing from Python allocation tracing; matched v2 baseline/current reports are pending.",
     "The implementation is still based on scalar/native storage walkers in several routines; temporary-memory and allocation profiles must be measured before release."
   ],
   "evidence": {
     "release_gate": "pending",
     "performance_gate": "pending",
-    "performance_measurement_result": "two_of_three_application_workflows_meet_median_target",
+    "performance_measurement_result": "v1_historical_two_of_three; v2_matched_measurement_pending",
+    "performance_measurement_v2": {
+      "status": "preregistered_baseline_capture_pending",
+      "manifest": "docs/benchmarks/raptors-0.4-workloads-v2.json",
+      "benchmark_script": "scripts/bench_0_4.py",
+      "prior_manifest": "docs/benchmarks/raptors-0.4-workloads.json",
+      "reason": "v1 enabled tracemalloc during latency samples, mixing allocation instrumentation overhead into time. v2 disables tracemalloc for all timed calls and records Python memory in one separate workflow call.",
+      "unchanged_workload_contract": "Inputs, formulas, shapes, dtypes, layouts, eager operations, correctness checks, thread settings, five warmups, 21 timed samples, and release thresholds are unchanged.",
+      "pre_optimization_candidate_commit": "1ca882425b91a00f396695e44330fe1bee20d0bd",
+      "baseline_report": "docs/benchmarks/raptors-0.4-baseline-v2.json",
+      "current_report": "docs/benchmarks/raptors-0.4-current-v2.json"
+    },
     "cross_phase_generated_sequences": {
       "status": "passed_locally",
       "candidate_commit": "f41754cc165142a470e28363aaa34a6344e642dd",

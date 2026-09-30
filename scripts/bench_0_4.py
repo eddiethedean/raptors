@@ -21,13 +21,14 @@ except ImportError:  # pragma: no cover - unavailable on Windows
     resource = None
 
 ROOT = Path(__file__).resolve().parents[1]
-MANIFEST = ROOT / "docs/benchmarks/raptors-0.4-workloads.json"
+MANIFEST = ROOT / "docs/benchmarks/raptors-0.4-workloads-v2.json"
 WORKFLOWS = (
     "column_normalization",
     "grouped_count_and_histogram",
     "assemble_transpose_and_order",
 )
 BACKENDS = ("numpy", "raptors")
+DEFAULT_OUTPUT = ROOT / "docs/benchmarks/raptors-0.4-current-v2.json"
 
 
 def peak_rss_bytes():
@@ -101,15 +102,20 @@ def prepare(backend, workflow):
             for row in range(256)
         ]
         source = build(backend, values, "float32")
-        execute = lambda: (source - module.mean(source, axis=0)) / module.std(source, axis=0)
+
+        def execute():
+            return (source - module.mean(source, axis=0)) / module.std(source, axis=0)
+
     elif workflow == "grouped_count_and_histogram":
         values = [(index * 37 + 11) % 1024 for index in range(4096)]
         source = build(backend, values, "int64")
         groups = module.remainder(source, 32)
-        execute = lambda: (
-            module.bincount(groups, minlength=32),
-            module.histogram(source, bins=32, range=(0, 1024)),
-        )
+
+        def execute():
+            return (
+                module.bincount(groups, minlength=32),
+                module.histogram(source, bins=32, range=(0, 1024)),
+            )
     elif workflow == "assemble_transpose_and_order":
         values = [[(row * 97 + column * 29) % 1009 for column in range(32)] for row in range(64)]
         source = build(backend, values, "int32")
@@ -143,16 +149,22 @@ def run_worker(backend, workflow, warmup, samples):
         del_result = execute()
         del del_result
     gc.collect()
-    rss_before = peak_rss_bytes()
-    tracemalloc.start()
-    _, traced_before = tracemalloc.get_traced_memory()
     timings = []
     for _ in range(samples):
         started = time.perf_counter_ns()
         result = execute()
         timings.append(time.perf_counter_ns() - started)
         del result
+
+    # Keep Python allocation tracing out of the latency samples: tracing adds
+    # backend-dependent overhead. Measure Python memory in a separate call.
+    gc.collect()
+    rss_before = peak_rss_bytes()
+    tracemalloc.start()
+    _, traced_before = tracemalloc.get_traced_memory()
+    result = execute()
     _, traced_peak = tracemalloc.get_traced_memory()
+    del result
     tracemalloc.stop()
     rss_after = peak_rss_bytes()
     return {
@@ -161,6 +173,8 @@ def run_worker(backend, workflow, warmup, samples):
         "samples_ns": timings,
         "median_ns": int(statistics.median(timings)),
         "python_tracemalloc_peak_delta_bytes": max(0, traced_peak - traced_before),
+        "python_memory_profile_calls": 1,
+        "timing_tracemalloc_enabled": False,
         "process_peak_rss_delta_bytes": (
             None if rss_before is None or rss_after is None else max(0, rss_after - rss_before)
         ),
@@ -187,7 +201,7 @@ def bootstrap_ratio_interval(numpy_samples, raptors_samples, iterations=4000):
     return [ratios[int(0.025 * (iterations - 1))], ratios[int(0.975 * (iterations - 1))]]
 
 
-def run_suite(warmup, samples, output):
+def run_suite(warmup, samples, output, candidate_commit=None):
     manifest = json.loads(MANIFEST.read_text())
     environment = os.environ.copy()
     environment.update(manifest["measurement"]["thread_environment"])
@@ -229,15 +243,19 @@ def run_suite(warmup, samples, output):
             }
         )
     report = {
-        "manifest": "docs/benchmarks/raptors-0.4-workloads.json",
-        "candidate_commit": subprocess.check_output(
+        "manifest": MANIFEST.relative_to(ROOT).as_posix(),
+        "candidate_commit": candidate_commit or subprocess.check_output(
+            ["git", "rev-parse", "HEAD"], cwd=ROOT, text=True
+        ).strip(),
+        "benchmark_harness_commit": subprocess.check_output(
             ["git", "rev-parse", "HEAD"], cwd=ROOT, text=True
         ).strip(),
         "status": "measurement_only_release_gate_pending",
         "warmup_calls": warmup,
         "timed_samples": samples,
+        "timing_memory_instrumentation_separated": True,
         "results": results,
-        "native_allocation_count": "unavailable; process peak RSS is a coarse native-memory proxy",
+        "native_allocation_count": "see feature-gated native profile; Python tracing is measured separately from timed calls",
     }
     Path(output).write_text(json.dumps(report, indent=2, sort_keys=True) + "\n")
     print(f"Wrote 0.4 workflow measurements to {output}")
@@ -247,7 +265,11 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--warmup", type=int, default=5)
     parser.add_argument("--samples", type=int, default=21)
-    parser.add_argument("--output", default="docs/benchmarks/raptors-0.4-baseline.json")
+    parser.add_argument("--output", default=str(DEFAULT_OUTPUT))
+    parser.add_argument(
+        "--candidate-commit",
+        help="Exact source commit of the installed Raptors extension (verify before overriding HEAD)",
+    )
     parser.add_argument("--worker", nargs=2, metavar=("BACKEND", "WORKFLOW"))
     args = parser.parse_args()
     if args.warmup < 0 or args.samples < 3:
@@ -258,7 +280,13 @@ def main():
             parser.error("invalid worker backend or workflow")
         print(json.dumps(run_worker(backend, workflow, args.warmup, args.samples)))
     else:
-        run_suite(args.warmup, args.samples, args.output)
+        if args.candidate_commit:
+            subprocess.run(
+                ["git", "cat-file", "-e", f"{args.candidate_commit}^{{commit}}"],
+                cwd=ROOT,
+                check=True,
+            )
+        run_suite(args.warmup, args.samples, args.output, args.candidate_commit)
 
 
 if __name__ == "__main__":
