@@ -22,6 +22,8 @@ The [0.3 execution plan](../docs/RELEASE_0_3.md) identifies the candidate top-le
 
 [`raptors-0.3.json`](raptors-0.3.json) is the current generated implementation-contract draft. It records the 101 public names, canonical aliases, numeric loop signatures, and known gaps. Regenerate it together with the Rust loop tables using [`generate_ufunc_metadata.py`](../scripts/generate_ufunc_metadata.py). Its presence does not imply differential coverage or release qualification.
 
+The [0.4 execution plan](../docs/RELEASE_0_4.md) treats the inventory's 834 provisional 0.4 entries as an unaudited candidate backlog. Before implementation, update the generator's release-family rules, regenerate this inventory, and freeze the accepted core numeric routine names and aliases in `raptors-0.4.json`. The roadmap assigns scientific routines to 0.5, I/O/serialization/interoperation to 0.6, specialized dtype behavior to 0.7, and generic protocols plus public-surface completion to 0.8. Absence from the eventual 0.4 contract is not permission to lose an entry from the full backlog, and a numeric implementation does not complete its later specialized-dtype or protocol variants.
+
 ## Regeneration
 
 Use the exact NumPy wheel in the lock file in the canonical generation environment: macOS ARM64, CPython 3.14.3. NumPy exposes a small number of inventory members differently across operating systems, so the checked-in inventory and its byte-for-byte release check use this platform and interpreter patch:

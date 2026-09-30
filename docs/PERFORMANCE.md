@@ -91,14 +91,14 @@ Keep scalar reference kernels and run optimized paths against them and NumPy. Pr
 
 ## Proposed 0.4 release gate
 
-Before tuning, finalize the workloads and thresholds proposed in the rebuild plan:
+The [0.4 execution plan](RELEASE_0_4.md) fixes how this proposal becomes an executable gate. Before tuning, check in the workload manifest, input generation, correctness checks, pre-optimization Raptors baseline, sample and warmup rules, thread settings, and summary calculation. The suite separates a common-operation regression guardrail from at least three multi-operation application workflows drawn from different semantic families.
 
-- At least three preregistered application workloads improve median end-to-end time by 20% or more, with evidence beyond measurement noise.
-- No regression over 10% on the declared common-operation suite remains unexplained and unaccepted.
+- At least three preregistered application workloads achieve a Raptors/NumPy median-time ratio at or below `0.80`, and the upper bound of the reported 95% confidence interval is below `1.00`.
+- No common-operation cell regresses by more than 10% against the checked-in Raptors pre-optimization baseline without a reviewed explanation and acceptance in the report.
 - Correctness is maintained, with memory and allocation results reported alongside timing.
-- The report includes regressions and delegated execution, not only favorable results.
+- The report includes every preregistered cell, failed threshold, regression, delegated execution path, and thread setting, not only favorable results.
 
-These thresholds are proposals, not achieved results or a promise that every operation will be faster.
+Run the frozen suite on the designated reference host and confirm the qualifying application wins on at least one materially different supported architecture. Changing a workload or exclusion rule after observing results requires a recorded preregistration and new baseline. These thresholds are not achieved results or a promise that every operation will be faster; if they are not met, 0.4 remains pending unless the roadmap is explicitly revised.
 
 ## Existing benchmark commands
 

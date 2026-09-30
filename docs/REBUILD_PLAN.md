@@ -141,7 +141,9 @@ Required demonstrations include:
 
 **Exit gate:** v0.2 passes declared numeric dtype, array layout, indexing, and mutation cases. By v0.3, every promised numeric ufunc case passes the differential suite with fallback disabled. Publish baseline latency, allocation count, and peak memory before optimizing.
 
-### Work stream E — Establish performance wins (v0.4)
+### Work stream E — Core routines and measured performance wins (v0.4)
+
+The [0.4 execution plan](RELEASE_0_4.md) is authoritative for this work stream. First audit the provisional inventory into a reviewed contract for numeric creation, rearrangement, joining/splitting, reductions/statistics, selection/mutation, sorting/searching, set operations, and histograms. Build those routines on the 0.2 layout and 0.3 execution machinery, with shared axis, output, overlap, and iteration plans. Keep scientific algorithms in 0.5, I/O/interoperation in 0.6, specialized dtypes in 0.7, and generic protocols and remaining modules in 0.8.
 
 Profile complete Python calls. Remove redundant copies, metadata allocations, and per-element Python interaction first. Then specialize contiguous loops, collapse dimensions in iteration plans, add validated SIMD paths, and introduce parallel thresholds backed by measurements. Keep a scalar reference implementation for every optimized kernel.
 
@@ -151,20 +153,18 @@ Proposed first performance gate: at least three preregistered application worklo
 
 Do not promise every NumPy operation will be faster. NumPy already has CPU-dispatched SIMD kernels. Keep eager semantics: implicit lazy execution or fusion must not alter when mutation, errors, or numerical rounding become observable.
 
-**Exit gate:** reproducible correctness-preserving wins and a public report showing both wins and regressions.
+**Exit gate:** the reviewed 0.4 routine contract and prior-release regression suite pass; safety, resource, clean-wheel, and platform gates pass; and preregistered application workloads show reproducible correctness-preserving wins under the fixed 0.4 performance contract, with a public report showing all wins and regressions.
 
 ### Work stream F — Expand to full public functionality (v0.5-v0.8)
 
-Add complete semantic groups in dependency order:
+Add complete semantic groups in dependency order. The [roadmap exclusion table](CONVERSION_ROADMAP.md#ownership-of-the-04-exclusions) is the handoff contract for entries removed from the provisional 0.4 bucket:
 
-1. Remaining indexing/assignment and ufunc behavior; reductions, concatenation, sorting/searching, statistics, and set operations.
-2. Linear algebra, FFT, and einsum, using evaluated backends where appropriate. Define numerical tolerances, backend thread behavior, and error mappings.
-3. Random generators, seed/state serialization, and stream compatibility for the pinned reference where specified. Statistical similarity alone is insufficient when exact reproducibility is promised.
-4. NPY/NPZ, text I/O, memory mapping, serialization, and buffer/DLPack interoperation, with explicit lifetime and bounds contracts.
-5. Datetime/timedelta, strings, structured/record dtypes, and object arrays. Object operations require Python reference management and callback/reentrancy handling.
-6. Masked arrays, polynomials, remaining public helpers/submodules, dispatch protocols, subclassing, typing, and public testing utilities.
+1. **0.5 — scientific numeric algorithms.** Add dot/inner/outer/vdot/tensordot and generalized matrix ufuncs; cross products, correlation/convolution, einsum; linear algebra, FFT, polynomials, interpolation, differencing/gradient, integration, window/special numeric transforms, and numeric random generators/state. Use evaluated backends where appropriate. Define numerical tolerances, workspace and backend thread behavior, and error mappings. Statistical similarity is insufficient when exact random reproducibility is promised.
+2. **0.6 — data and interoperation.** Add NPY/NPZ and text I/O, memory mapping, array byte/list/file serialization, buffer and DLPack interoperation, array interface/struct and `ctypes` behavior, `device`/`to_device`, foreign conversion protocols, and explicit NumPy adapters. Define lifetime, bounds, copy/writeability, device, and no-copy contracts. Object deserialization cannot precede the 0.7 object-lifetime and security policy.
+3. **0.7 — specialized data models.** Add datetime/timedelta and business-day behavior, strings, raw void and structured/record dtypes, object arrays, masked arrays, related rec/char/string helpers, and specialized-dtype variants of earlier algorithms. Object operations require Python reference management and callback/reentrancy handling; masked-array support stays here rather than falling into the 0.8 remainder.
+4. **0.8 — public-surface completion.** Add printing/representation and option contexts, generic iterator/helper classes, callback-driven helpers (`apply_along_axis`, `apply_over_axes`, `fromfunction`, `piecewise`, `vectorize`, `frompyfunc`), remaining scalar/dtype class behavior, matrix/matlib, dispatch and namespace protocols, subclassing, typing, testing/f2py, configuration/introspection, constants/aliases, and every remaining public helper, submodule, or re-export. Test Python callback exceptions and reentrancy. No entry may remain assigned here merely because the generator lacked a semantic rule: each needs an implementation owner and focused cases.
 
-The manifest determines the precise remaining backlog, including platform-specific types and behavior. These groups are not declarations of completion and may be reordered by measured user needs. Temporary delegation is tracked separately and cannot silently inflate native coverage or performance results.
+The manifests determine the precise remaining backlog, including platform-specific types and behavior. When an API spans phases, its earlier numeric form and later specialized-dtype or protocol behavior must be separate explicit contract rows. These groups are not declarations of completion and may be reordered only through a reviewed roadmap and generator change. Temporary delegation is tracked separately and cannot silently inflate native coverage or performance results.
 
 **Exit gate for each group:** applicable upstream tests, differential and generated cases, safety checks, Python examples, and benchmark evidence. The full compatibility label waits until the complete declared public surface passes; earlier releases state their exact supported subset.
 

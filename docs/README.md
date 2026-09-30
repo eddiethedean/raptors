@@ -11,6 +11,7 @@ The [rebuild plan](REBUILD_PLAN.md) is the authoritative statement of direction.
 | [Release 0.1 execution plan](RELEASE_0_1.md) | Published preview API, validation evidence, and release gate |
 | [Release 0.2 execution plan](RELEASE_0_2.md) | Numeric dtype and array foundation scope, work order, risks, and release gate |
 | [Release 0.3 candidate record](RELEASE_0_3.md) | Numeric ufunc support boundary, pinned loop contract, differential cases, and release evidence |
+| [Release 0.4 execution plan](RELEASE_0_4.md) | Core numeric routine families, inventory audit, work order, semantic/safety cases, and preregistered performance gate |
 | [NumPy dtype architecture](DTYPE_ARCHITECTURE.md) | Full built-in dtype family inventory, shared descriptor/storage design, and release dependencies |
 | [Architecture](ARCHITECTURE.md) | Implemented 0.2 storage path, retained legacy code, and proposed later layers |
 | [API guide](API_GUIDE.md) | Existing entry points and target compatibility behavior |

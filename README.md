@@ -83,4 +83,4 @@ The published 0.3.0 wheel set was built and tested by the [tagged release workfl
 
 ## Documentation
 
-Start with the [documentation index](docs/README.md), [rebuild plan](docs/REBUILD_PLAN.md), [0.3 release record](docs/RELEASE_0_3.md), [0.2 release record](docs/RELEASE_0_2.md), and [release roadmap](docs/CONVERSION_ROADMAP.md). The project is MIT licensed; see [LICENSE](LICENSE).
+Start with the [documentation index](docs/README.md), [rebuild plan](docs/REBUILD_PLAN.md), [0.4 execution plan](docs/RELEASE_0_4.md), [0.3 release record](docs/RELEASE_0_3.md), and [release roadmap](docs/CONVERSION_ROADMAP.md). The project is MIT licensed; see [LICENSE](LICENSE).
