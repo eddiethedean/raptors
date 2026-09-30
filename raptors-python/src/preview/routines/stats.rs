@@ -1,14 +1,17 @@
 //! Descriptive numeric reductions and coordinate-returning routines.
 use super::super::{
-    array, default_byte_order, map_storage_error, parse_dtype_spec, scalar_to_python, PyArray,
+    array, default_byte_order, map_storage_error, parse_dtype_spec, scalar_to_python,
+    value_to_untyped_scalar, PyArray,
 };
-use ::std::collections::HashSet;
 use pyo3::exceptions::{
-    PyIndexError, PyMemoryError, PyTypeError, PyValueError, PyZeroDivisionError,
+    PyIndexError, PyMemoryError, PyRuntimeWarning, PyTypeError, PyValueError, PyZeroDivisionError,
 };
 use pyo3::prelude::*;
 use pyo3::types::{PyBool, PyDict, PyList, PyTuple};
 use raptors_storage::{DType, IndexItem, Scalar, View};
+extern crate std as rust_std;
+use rust_std::collections::HashSet;
+use rust_std::ffi::CString;
 
 #[pyfunction]
 #[pyo3(signature = (a, axis=None, dtype=None, out=None, keepdims=false, **kwargs))]
@@ -52,6 +55,7 @@ fn mean_impl(
     let mask = parse_where(py, kwargs)?;
     let reduction = Reduction::new(&source, axis, keepdims, mask.as_ref())?;
     let result_dtype = mean_dtype(source.inner.dtype(), dtype)?;
+    let mut empty_slice_seen = false;
     if !skip_nan
         && mask.is_none()
         && out.filter(|value| !value.is_none()).is_none()
@@ -59,18 +63,21 @@ fn mean_impl(
         && !keepdims
         && result_dtype == DType::Float32
     {
-        if let Some(fast_values) = float32_axis0_statistics(&source, &reduction, 0.0, false, false)?
-        {
-            let inner = View::from_float32_values(reduction.output_shape.clone(), &fast_values)
-                .map_err(map_storage_error)?;
-            return Ok(Py::new(
-                py,
-                PyArray {
-                    inner,
-                    scalar_alias: None,
-                },
-            )?
-            .into_any());
+        if reduction.reduction_size > 0 {
+            if let Some(fast_values) =
+                float32_axis0_statistics(&source, &reduction, 0.0, false, false)?
+            {
+                let inner = View::from_float32_values(reduction.output_shape.clone(), &fast_values)
+                    .map_err(map_storage_error)?;
+                return Ok(Py::new(
+                    py,
+                    PyArray {
+                        inner,
+                        scalar_alias: None,
+                    },
+                )?
+                .into_any());
+            }
         }
     }
     let source_values = source.inner.snapshot().map_err(map_storage_error)?;
@@ -103,11 +110,23 @@ fn mean_impl(
             count += 1;
         }
         let mean = if count == 0 {
+            empty_slice_seen = true;
             (f64::NAN, f64::NAN)
         } else {
             complex_scale(sum, 1.0 / count as f64)
         };
         values.push(cast_stat(mean, result_dtype)?);
+    }
+    if empty_slice_seen {
+        warn_runtime(py, "Mean of empty slice")?;
+        if !skip_nan {
+            let message = if reduction.output_shape.is_empty() {
+                "invalid value encountered in scalar divide"
+            } else {
+                "invalid value encountered in divide"
+            };
+            warn_runtime(py, message)?;
+        }
     }
     finish_reduction(py, values, result_dtype, reduction.output_shape, out, None)
 }
@@ -167,81 +186,172 @@ fn variance_impl(
     }
     let ddof = correction.unwrap_or(ddof);
     let source = array(a, None, None, "K")?;
-    let mask = parse_where(py, kwargs)?;
+    let (mask, supplied_mean) = parse_variance_options(py, kwargs)?;
     let reduction = Reduction::new(&source, axis, keepdims, mask.as_ref())?;
+    if let Some(mean) = &supplied_mean {
+        validate_broadcast(mean.inner.shape(), source.inner.shape())?;
+    }
     let result_dtype = variance_dtype(source.inner.dtype(), dtype)?;
     if !skip_nan
         && mask.is_none()
+        && supplied_mean.is_none()
         && out.filter(|value| !value.is_none()).is_none()
         && dtype.filter(|value| !value.is_none()).is_none()
         && !keepdims
         && result_dtype == DType::Float32
         && ddof.is_finite()
     {
-        if let Some(fast_values) = float32_axis0_statistics(&source, &reduction, ddof, true, false)?
-        {
-            let inner = View::from_float32_values(reduction.output_shape.clone(), &fast_values)
-                .map_err(map_storage_error)?;
-            return Ok(Py::new(
-                py,
-                PyArray {
-                    inner,
-                    scalar_alias: None,
-                },
-            )?
-            .into_any());
+        if reduction.reduction_size > 0 && ddof < reduction.reduction_size as f64 {
+            if let Some(fast_values) =
+                float32_axis0_statistics(&source, &reduction, ddof, true, false)?
+            {
+                let inner = View::from_float32_values(reduction.output_shape.clone(), &fast_values)
+                    .map_err(map_storage_error)?;
+                return Ok(Py::new(
+                    py,
+                    PyArray {
+                        inner,
+                        scalar_alias: None,
+                    },
+                )?
+                .into_any());
+            }
         }
     }
     let source_values = source.inner.snapshot().map_err(map_storage_error)?;
+    let supplied_mean_values = supplied_mean
+        .as_ref()
+        .map(|mean| mean.inner.snapshot().map_err(map_storage_error))
+        .transpose()?;
     let mut values = Vec::new();
+    let mut degrees_of_freedom_seen = false;
+    let mut empty_slice_seen = false;
+    let mut invalid_divide_seen = false;
+    let mut zero_divide_seen = false;
     values
         .try_reserve_exact(reduction.output_size)
         .map_err(|_| PyMemoryError::new_err("variance result allocation failed"))?;
     for output_linear in 0..reduction.output_size {
-        let (base_coordinates, reduced_coordinates) = if mask.is_some() {
+        let (base_coordinates, reduced_coordinates) = if mask.is_some() || supplied_mean.is_some() {
             let (base, reduced) = reduction.coordinates(output_linear);
             (Some(base), Some(reduced))
         } else {
             (None, None)
         };
         let mut selected_values = Vec::new();
+        let mut supplied_mean_sum_squares = 0.0;
+        let mut selected_count = 0usize;
         for reduced_linear in 0..reduction.reduction_size {
-            if let (Some(base), Some(reduced)) = (&base_coordinates, &reduced_coordinates) {
-                let coordinates = reduction.input_coordinates(base, reduced, reduced_linear);
+            let input_coordinates =
+                if let (Some(base), Some(reduced)) = (&base_coordinates, &reduced_coordinates) {
+                    Some(reduction.input_coordinates(base, reduced, reduced_linear))
+                } else {
+                    None
+                };
+            if let Some(coordinates) = &input_coordinates {
                 if !selected(mask.as_ref(), &coordinates, source.inner.shape())? {
                     continue;
                 }
             }
-            let value =
-                source_values[reduction.input_linear(output_linear, reduced_linear)].clone();
+            let input_linear = reduction.input_linear(output_linear, reduced_linear);
+            let value = &source_values[input_linear];
             if skip_nan && value.is_nan() {
                 continue;
             }
-            selected_values.push(value.as_complex().map_err(map_storage_error)?);
+            let value = value.as_complex().map_err(map_storage_error)?;
+            selected_count += 1;
+            if let (Some(mean), Some(mean_values)) = (&supplied_mean, &supplied_mean_values) {
+                let coordinates = input_coordinates
+                    .unwrap_or_else(|| coordinates_for_shape(source.inner.shape(), input_linear));
+                let mean_coordinates =
+                    broadcast_coordinates(mean.inner.shape(), &coordinates, source.inner.shape())?;
+                let mean_linear = linear_for_coordinates(mean.inner.shape(), &mean_coordinates)?;
+                let mean_value = mean_values
+                    .get(mean_linear)
+                    .ok_or_else(|| PyValueError::new_err("mean is not broadcastable to input"))?
+                    .as_complex()
+                    .map_err(map_storage_error)?;
+                let difference = complex_sub(value, mean_value);
+                supplied_mean_sum_squares +=
+                    difference.0 * difference.0 + difference.1 * difference.1;
+            } else {
+                selected_values.push(value);
+            }
         }
-        let count = selected_values.len();
-        if count == 0 || count as f64 <= ddof {
-            values.push(cast_stat((f64::NAN, 0.0), result_dtype)?);
-            continue;
+        let sum_squares = if supplied_mean_values.is_some() {
+            supplied_mean_sum_squares
+        } else {
+            let mean = complex_scale(
+                selected_values
+                    .iter()
+                    .copied()
+                    .fold((0.0, 0.0), complex_add),
+                1.0 / selected_count as f64,
+            );
+            selected_values.into_iter().fold(0.0, |total, value| {
+                let difference = complex_sub(value, mean);
+                total + difference.0 * difference.0 + difference.1 * difference.1
+            })
+        };
+        let degrees_of_freedom = selected_count as f64 - ddof;
+        if selected_count as f64 <= ddof {
+            degrees_of_freedom_seen = true;
         }
-        let mean = complex_scale(
-            selected_values
-                .iter()
-                .copied()
-                .fold((0.0, 0.0), complex_add),
-            1.0 / count as f64,
-        );
-        let sum_sq = selected_values.into_iter().fold(0.0, |total, value| {
-            let difference = complex_sub(value, mean);
-            total + difference.0 * difference.0 + difference.1 * difference.1
-        });
-        let variance = sum_sq / (count as f64 - ddof);
+        if selected_count == 0 {
+            empty_slice_seen = true;
+        }
+        let divisor = if degrees_of_freedom <= 0.0 {
+            0.0
+        } else {
+            degrees_of_freedom
+        };
+        if !skip_nan && divisor == 0.0 {
+            if sum_squares == 0.0 {
+                invalid_divide_seen = true;
+            } else if !sum_squares.is_nan() {
+                zero_divide_seen = true;
+            }
+        }
+        let variance = if skip_nan && divisor == 0.0 {
+            f64::NAN
+        } else {
+            sum_squares / divisor
+        };
         let value = if result_dtype.kind() == "c" {
             (variance, 0.0)
         } else {
             (variance, 0.0)
         };
         values.push(cast_stat(value, result_dtype)?);
+    }
+    if degrees_of_freedom_seen {
+        warn_runtime(
+            py,
+            if skip_nan {
+                "Degrees of freedom <= 0 for slice."
+            } else {
+                "Degrees of freedom <= 0 for slice"
+            },
+        )?;
+    }
+    if empty_slice_seen && !skip_nan && supplied_mean.is_none() {
+        warn_runtime(py, "invalid value encountered in divide")?;
+    }
+    if invalid_divide_seen && !skip_nan {
+        let message = if reduction.output_shape.is_empty() {
+            "invalid value encountered in scalar divide"
+        } else {
+            "invalid value encountered in divide"
+        };
+        warn_runtime(py, message)?;
+    }
+    if zero_divide_seen && !skip_nan {
+        let message = if reduction.output_shape.is_empty() {
+            "divide by zero encountered in scalar divide"
+        } else {
+            "divide by zero encountered in divide"
+        };
+        warn_runtime(py, message)?;
     }
     finish_reduction(py, values, result_dtype, reduction.output_shape, out, None)
 }
@@ -279,6 +389,8 @@ fn std(
             input.inner.dtype() == DType::Float32
                 && input.inner.ndim() == 2
                 && input.inner.is_c_contiguous()
+                && input.inner.shape()[0] > 0
+                && effective_ddof < input.inner.shape()[0] as f64
         })
     {
         let source = array(a, None, None, "K")?;
@@ -456,27 +568,31 @@ fn ptp(
 }
 
 #[pyfunction]
-#[pyo3(signature = (a, axis=None, out=None, keepdims=false))]
+#[pyo3(signature = (a, axis=None, out=None, keepdims=false, initial=None, **kwargs))]
 fn nanmin(
     py: Python<'_>,
     a: &Bound<'_, PyAny>,
     axis: Option<&Bound<'_, PyAny>>,
     out: Option<&Bound<'_, PyAny>>,
     keepdims: bool,
+    initial: Option<&Bound<'_, PyAny>>,
+    kwargs: Option<&Bound<'_, PyDict>>,
 ) -> PyResult<Py<PyAny>> {
-    nan_extreme(py, a, axis, out, keepdims, false)
+    nan_extreme(py, a, axis, out, keepdims, initial, kwargs, false)
 }
 
 #[pyfunction]
-#[pyo3(signature = (a, axis=None, out=None, keepdims=false))]
+#[pyo3(signature = (a, axis=None, out=None, keepdims=false, initial=None, **kwargs))]
 fn nanmax(
     py: Python<'_>,
     a: &Bound<'_, PyAny>,
     axis: Option<&Bound<'_, PyAny>>,
     out: Option<&Bound<'_, PyAny>>,
     keepdims: bool,
+    initial: Option<&Bound<'_, PyAny>>,
+    kwargs: Option<&Bound<'_, PyDict>>,
 ) -> PyResult<Py<PyAny>> {
-    nan_extreme(py, a, axis, out, keepdims, true)
+    nan_extreme(py, a, axis, out, keepdims, initial, kwargs, true)
 }
 
 fn nan_extreme(
@@ -485,20 +601,35 @@ fn nan_extreme(
     axis: Option<&Bound<'_, PyAny>>,
     out: Option<&Bound<'_, PyAny>>,
     keepdims: bool,
+    initial: Option<&Bound<'_, PyAny>>,
+    kwargs: Option<&Bound<'_, PyDict>>,
     maximum: bool,
 ) -> PyResult<Py<PyAny>> {
     let source = array(a, None, None, "K")?;
-    let reduction = Reduction::new(&source, axis, keepdims, None)?;
+    let mask = parse_where(py, kwargs)?;
+    let reduction = Reduction::new(&source, axis, keepdims, mask.as_ref())?;
     let dtype = source.inner.dtype();
+    let initial = initial
+        .filter(|value| !value.is_none())
+        .map(value_to_untyped_scalar)
+        .transpose()?
+        .map(|value| value.cast(dtype).map_err(map_storage_error))
+        .transpose()?;
     let mut values = Vec::new();
     values
         .try_reserve_exact(reduction.output_size)
         .map_err(|_| PyMemoryError::new_err("nan reduction allocation failed"))?;
+    let mut all_nan_seen = false;
     for output_linear in 0..reduction.output_size {
         let (base, reduced) = reduction.coordinates(output_linear);
-        let mut best = None::<Scalar>;
+        let mut best = initial.clone();
+        let mut selected_count = 0usize;
         for reduced_linear in 0..reduction.reduction_size {
             let coordinates = reduction.input_coordinates(&base, &reduced, reduced_linear);
+            if !selected(mask.as_ref(), &coordinates, source.inner.shape())? {
+                continue;
+            }
+            selected_count += 1;
             let value = source
                 .inner
                 .read_at(&coordinates)
@@ -520,13 +651,27 @@ fn nan_extreme(
         }
         if let Some(value) = best {
             values.push(value);
-        } else if matches!(dtype.kind(), "f" | "c") {
+        } else if selected_count == 0 && mask.is_some() {
+            let operation = if maximum { "fmax" } else { "fmin" };
+            return Err(PyValueError::new_err(format!(
+                "reduction operation '{operation}' does not have an identity, so to use a where mask one has to specify 'initial'"
+            )));
+        } else if reduction.reduction_size == 0 {
+            let operation = if maximum { "fmax" } else { "fmin" };
+            return Err(PyValueError::new_err(format!(
+                "zero-size array to reduction operation {operation} which has no identity"
+            )));
+        } else if selected_count > 0 && matches!(dtype.kind(), "f" | "c") {
+            all_nan_seen = true;
             values.push(cast_stat((f64::NAN, f64::NAN), dtype)?);
         } else {
             return Err(PyValueError::new_err(
                 "zero-size array to reduction operation which has no identity",
             ));
         }
+    }
+    if all_nan_seen {
+        warn_runtime(py, "All-NaN slice encountered")?;
     }
     finish_reduction(py, values, dtype, reduction.output_shape, out, None)
 }
@@ -620,7 +765,6 @@ fn median(
     overwrite_input: bool,
     keepdims: bool,
 ) -> PyResult<Py<PyAny>> {
-    let _ = overwrite_input;
     let source = array(a, None, None, "K")?;
     quantile_impl(
         py,
@@ -634,6 +778,7 @@ fn median(
         None,
         Some(median_dtype(source.inner.dtype())),
         false,
+        overwrite_input,
         1.0,
     )
 }
@@ -648,7 +793,6 @@ fn nanmedian(
     overwrite_input: bool,
     keepdims: bool,
 ) -> PyResult<Py<PyAny>> {
-    let _ = overwrite_input;
     let source = array(a, None, None, "K")?;
     quantile_impl(
         py,
@@ -662,6 +806,7 @@ fn nanmedian(
         None,
         Some(median_dtype(source.inner.dtype())),
         true,
+        overwrite_input,
         1.0,
     )
 }
@@ -679,7 +824,6 @@ fn quantile(
     keepdims: bool,
     weights: Option<&Bound<'_, PyAny>>,
 ) -> PyResult<Py<PyAny>> {
-    let _ = overwrite_input;
     let source = array(a, None, None, "K")?;
     if source.inner.dtype().kind() == "c" {
         return Err(PyTypeError::new_err("a must be an array of real numbers"));
@@ -719,6 +863,7 @@ fn quantile(
         weight.as_ref(),
         None,
         false,
+        overwrite_input,
         1.0,
     )
 }
@@ -736,7 +881,6 @@ fn percentile(
     keepdims: bool,
     weights: Option<&Bound<'_, PyAny>>,
 ) -> PyResult<Py<PyAny>> {
-    let _ = overwrite_input;
     let source = array(a, None, None, "K")?;
     if source.inner.dtype().kind() == "c" {
         return Err(PyTypeError::new_err("a must be an array of real numbers"));
@@ -781,6 +925,7 @@ fn percentile(
         weight.as_ref(),
         None,
         false,
+        overwrite_input,
         100.0,
     )
 }
@@ -798,7 +943,6 @@ fn nanquantile(
     keepdims: bool,
     weights: Option<&Bound<'_, PyAny>>,
 ) -> PyResult<Py<PyAny>> {
-    let _ = overwrite_input;
     let source = array(a, None, None, "K")?;
     if source.inner.dtype().kind() == "c" {
         return Err(PyTypeError::new_err("a must be an array of real numbers"));
@@ -821,6 +965,7 @@ fn nanquantile(
         weight.as_ref(),
         None,
         true,
+        overwrite_input,
         1.0,
     )
 }
@@ -838,7 +983,6 @@ fn nanpercentile(
     keepdims: bool,
     weights: Option<&Bound<'_, PyAny>>,
 ) -> PyResult<Py<PyAny>> {
-    let _ = overwrite_input;
     let source = array(a, None, None, "K")?;
     if source.inner.dtype().kind() == "c" {
         return Err(PyTypeError::new_err("a must be an array of real numbers"));
@@ -861,6 +1005,7 @@ fn nanpercentile(
         weight.as_ref(),
         None,
         true,
+        overwrite_input,
         100.0,
     )
 }
@@ -906,6 +1051,7 @@ fn quantile_impl(
     weights: Option<&View>,
     dtype_override: Option<DType>,
     skip_nan: bool,
+    overwrite_input: bool,
     _scale: f64,
 ) -> PyResult<Py<PyAny>> {
     validate_quantile_method(method)?;
@@ -927,6 +1073,8 @@ fn quantile_impl(
     output
         .try_reserve_exact(count)
         .map_err(|_| PyMemoryError::new_err("quantile result allocation failed"))?;
+    let mut empty_slice_seen = false;
+    let mut all_nan_slice_seen = false;
     for &q in quantiles {
         for output_linear in 0..reduction.output_size {
             let (base, reduced) = reduction.coordinates(output_linear);
@@ -970,6 +1118,17 @@ fn quantile_impl(
             }
             slice.sort_by(|left, right| compare_scalars(&left.0, &right.0));
             if slice.is_empty() {
+                if !skip_nan && dtype_override.is_none() {
+                    return Err(PyIndexError::new_err(
+                        "index -1 is out of bounds for axis 0 with size 0",
+                    ));
+                } else if reduction.reduction_size == 0 {
+                    empty_slice_seen = true;
+                } else if skip_nan {
+                    all_nan_slice_seen = true;
+                } else {
+                    empty_slice_seen = true;
+                }
                 output.push(cast_stat((f64::NAN, f64::NAN), dtype)?);
                 continue;
             }
@@ -980,6 +1139,50 @@ fn quantile_impl(
             };
             output.push(cast_stat(value, dtype)?);
         }
+    }
+    if overwrite_input && source.inner.is_writeable() && !quantiles.is_empty() {
+        for output_linear in 0..reduction.output_size {
+            let (base, reduced) = reduction.coordinates(output_linear);
+            let mut destinations = Vec::new();
+            let mut ordered_values = Vec::new();
+            destinations
+                .try_reserve_exact(reduction.reduction_size)
+                .map_err(|_| PyMemoryError::new_err("quantile mutation allocation failed"))?;
+            ordered_values
+                .try_reserve_exact(reduction.reduction_size)
+                .map_err(|_| PyMemoryError::new_err("quantile mutation allocation failed"))?;
+            for reduction_linear in 0..reduction.reduction_size {
+                let coordinates = reduction.input_coordinates(&base, &reduced, reduction_linear);
+                ordered_values.push(
+                    source
+                        .inner
+                        .read_at(&coordinates)
+                        .map_err(map_storage_error)?,
+                );
+                destinations.push(coordinates);
+            }
+            ordered_values.sort_by(compare_scalars);
+            for (coordinates, value) in destinations.iter().zip(ordered_values) {
+                source
+                    .inner
+                    .write_at(coordinates, value)
+                    .map_err(map_storage_error)?;
+            }
+        }
+    }
+    if empty_slice_seen {
+        warn_runtime(py, "Mean of empty slice")?;
+        if !skip_nan && dtype_override.is_some() {
+            let message = if reduction.output_shape.is_empty() {
+                "invalid value encountered in scalar divide"
+            } else {
+                "invalid value encountered in divide"
+            };
+            warn_runtime(py, message)?;
+        }
+    }
+    if all_nan_slice_seen {
+        warn_runtime(py, "All-NaN slice encountered")?;
     }
     let reduced_axes = reduction.axes.iter().copied().collect::<HashSet<_>>();
     let mut compact_shape = quantile_shape.to_vec();
@@ -1766,6 +1969,42 @@ fn parse_where(py: Python<'_>, kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<O
     let Some(value) = kwargs.get_item("where")? else {
         return Ok(None);
     };
+    parse_where_value(py, &value)
+}
+
+fn warn_runtime(py: Python<'_>, message: &str) -> PyResult<()> {
+    let category = py.get_type::<PyRuntimeWarning>();
+    let message = CString::new(message).expect("runtime warning messages contain no NUL bytes");
+    PyErr::warn(py, &category, message.as_c_str(), 2)
+}
+
+fn parse_variance_options(
+    py: Python<'_>,
+    kwargs: Option<&Bound<'_, PyDict>>,
+) -> PyResult<(Option<PyArray>, Option<PyArray>)> {
+    let Some(kwargs) = kwargs else {
+        return Ok((None, None));
+    };
+    for (key, _) in kwargs.iter() {
+        if !matches!(key.extract::<String>()?.as_str(), "where" | "mean") {
+            return Err(PyTypeError::new_err("unexpected keyword argument"));
+        }
+    }
+    let where_value = kwargs.get_item("where")?;
+    let mask = where_value
+        .as_ref()
+        .map(|value| parse_where_value(py, value))
+        .transpose()?
+        .flatten();
+    let mean_value = kwargs.get_item("mean")?;
+    let mean = mean_value
+        .filter(|value| !value.is_none())
+        .map(|value| array(&value, None, None, "K"))
+        .transpose()?;
+    Ok((mask, mean))
+}
+
+fn parse_where_value(py: Python<'_>, value: &Bound<'_, PyAny>) -> PyResult<Option<PyArray>> {
     if value.is_instance_of::<PyBool>() && value.is_truthy()? {
         return Ok(None);
     }
@@ -1974,6 +2213,28 @@ fn broadcast_coordinates(
             }
         })
         .collect())
+}
+
+fn linear_for_coordinates(shape: &[usize], coordinates: &[usize]) -> PyResult<usize> {
+    if shape.len() != coordinates.len() {
+        return Err(PyValueError::new_err(
+            "coordinate rank does not match shape",
+        ));
+    }
+    shape
+        .iter()
+        .zip(coordinates)
+        .try_fold(0usize, |linear, (&dimension, &coordinate)| {
+            if coordinate >= dimension {
+                return Err(PyValueError::new_err(
+                    "coordinate is outside the array shape",
+                ));
+            }
+            linear
+                .checked_mul(dimension)
+                .and_then(|linear| linear.checked_add(coordinate))
+                .ok_or_else(|| PyValueError::new_err("array shape exceeds supported limits"))
+        })
 }
 
 fn shape_size(shape: &[usize]) -> PyResult<usize> {

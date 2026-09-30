@@ -73,24 +73,24 @@
   ],
   "known_limits": [
     "Inputs are numeric Raptors arrays and supported Python numeric values; third-party dispatch, like=, foreign buffers, and specialized dtype families are outside 0.4.",
-    "Two of the three preregistered workflow medians meet the 0.80 NumPy ratio, but assembly/reordering does not; therefore no overall 0.4 performance pass is claimed. The common-operation guardrail and cross-architecture confirmation also remain open.",
+    "Only one of the three latest preregistered workflow medians meets the 0.80 NumPy ratio; normalization and assembly/reordering miss the threshold, so no overall 0.4 performance pass is claimed. The common-operation guardrail and cross-architecture confirmation also remain open.",
     "The implementation is still based on scalar/native storage walkers in several routines; temporary-memory and allocation profiles must be measured before release."
   ],
   "evidence": {
     "release_gate": "pending",
     "performance_gate": "pending",
-    "performance_measurement_result": "failed_application_workflow_threshold_two_of_three_medians_meet_target",
+    "performance_measurement_result": "failed_application_workflow_threshold_one_of_three_medians_meet_target",
     "focused_differential": {
       "command": "uv run --project raptors-python --extra dev --no-sync python -m pytest raptors-python/tests/preview/test_ufunc_differential.py raptors-python/tests/preview/test_routines.py -q",
       "status": "passed_locally",
-      "passed": 8930,
+      "passed": 8941,
       "skipped": 7,
       "warnings": 1
     },
     "full_python_regression": {
       "command": "uv run --project raptors-python --extra dev --no-sync python -m pytest raptors-python/tests/preview -q",
       "status": "passed_locally",
-      "passed": 9704,
+      "passed": 9715,
       "skipped": 8,
       "warnings": 1
     },
@@ -112,22 +112,22 @@
     "cross_python_and_wheel_matrix": "not_run",
     "sanitizer_miri_and_alias_lifetime_gates": "not_run",
     "preregistered_workflows": {
-      "status": "captured_post_optimization_measurement_release_gate_pending",
-      "report": "docs/benchmarks/raptors-0.4-optimized.json",
+      "status": "captured_post_semantic_compatibility_update_release_gate_pending",
+      "report": "docs/benchmarks/raptors-0.4-current.json",
       "host": "macOS 26.5.2 ARM64, CPython 3.14.3, release build",
       "warmup_calls": 5,
       "timed_samples": 21,
       "median_ratios": {
-        "column_normalization": 0.7964842105,
-        "grouped_count_and_histogram": 0.3477067585,
-        "assemble_transpose_and_order": 2.9081035923
+        "column_normalization": 0.9121304348,
+        "grouped_count_and_histogram": 0.3478372948,
+        "assemble_transpose_and_order": 2.6831741739
       },
       "median_ratio_ci95": {
-        "column_normalization": [0.7786456693, 0.8634412467],
-        "grouped_count_and_histogram": [0.3258033334, 0.3681782348],
-        "assemble_transpose_and_order": [2.6388888889, 3.2118333333]
+        "column_normalization": [0.8867319415, 1.0],
+        "grouped_count_and_histogram": [0.3260065147, 0.3617184171],
+        "assemble_transpose_and_order": [2.3436328184, 3.0471304348]
       },
-      "release_gate": "failed_two_of_three_workflows_meet_median_threshold; confirmation_host_and_common_operation_guardrail_pending"
+      "release_gate": "failed_one_of_three_workflows_meet_median_threshold; confirmation_host_and_common_operation_guardrail_pending"
     }
   }
 }

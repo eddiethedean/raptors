@@ -1,4 +1,5 @@
 import json
+import warnings
 from pathlib import Path
 
 import numpy as np
@@ -6,6 +7,13 @@ import pytest
 import raptors
 
 from harness import assert_array_matches
+
+
+def capture_warnings(call):
+    with warnings.catch_warnings(record=True) as captured:
+        warnings.simplefilter("always")
+        result = call()
+    return result, [(type(item.message), str(item.message)) for item in captured]
 
 
 def test_frozen_0_4_contract_names_are_public():
@@ -468,6 +476,216 @@ def test_mean_and_variance_support_dtype_mask_out_and_correction():
     actual_var = raptors.var(candidate, axis=1, where=candidate_mask, correction=1)
     for axis in range(2):
         assert np.isclose(float(actual_var[axis]), expected_var[axis])
+
+
+def test_variance_and_standard_deviation_accept_broadcastable_mean():
+    values = np.array([[1.0, 2.0, 4.0], [3.0, 5.0, 8.0]], dtype=np.float64)
+    candidate = raptors.array(values.tolist(), dtype=raptors.float64)
+    mean = np.mean(values, axis=0)
+    candidate_mean = raptors.array(mean.tolist(), dtype=raptors.float64)
+
+    assert_array_matches(
+        np.var(values, axis=0, mean=mean),
+        raptors.var(candidate, axis=0, mean=candidate_mean),
+    )
+    assert_array_matches(
+        np.std(values, axis=0, mean=mean),
+        raptors.std(candidate, axis=0, mean=candidate_mean),
+    )
+
+    mask = np.array([[True, False, True], [False, True, True]])
+    masked_mean = np.mean(values, axis=0, where=mask, keepdims=True)
+    candidate_mask = raptors.array(mask.tolist(), dtype=raptors.bool_)
+    candidate_masked_mean = raptors.array(masked_mean.tolist(), dtype=raptors.float64)
+    assert_array_matches(
+        np.var(values, axis=0, where=mask, mean=masked_mean),
+        raptors.var(
+            candidate,
+            axis=0,
+            where=candidate_mask,
+            mean=candidate_masked_mean,
+        ),
+    )
+
+    nan_values = np.array([[1.0, np.nan], [3.0, 5.0], [5.0, 7.0]])
+    candidate_nan_values = raptors.array(nan_values.tolist(), dtype=raptors.float64)
+    nan_mean = np.nanmean(nan_values, axis=0)
+    candidate_nan_mean = raptors.array(nan_mean.tolist(), dtype=raptors.float64)
+    assert_array_matches(
+        np.nanvar(nan_values, axis=0, mean=nan_mean),
+        raptors.nanvar(candidate_nan_values, axis=0, mean=candidate_nan_mean),
+    )
+    assert_array_matches(
+        np.nanstd(nan_values, axis=0, mean=nan_mean),
+        raptors.nanstd(candidate_nan_values, axis=0, mean=candidate_nan_mean),
+    )
+
+    float32_values = np.array([[1.0, 2.0, 4.0], [3.0, 5.0, 8.0]], dtype=np.float32)
+    candidate_float32 = raptors.array(float32_values.tolist(), dtype=raptors.float32)
+    float32_mean = np.mean(float32_values, axis=0)
+    candidate_float32_mean = raptors.array(float32_mean.tolist(), dtype=raptors.float32)
+    assert_array_matches(
+        np.var(float32_values, axis=0, mean=float32_mean),
+        raptors.var(candidate_float32, axis=0, mean=candidate_float32_mean),
+    )
+    assert_array_matches(
+        np.std(float32_values, axis=0, mean=float32_mean),
+        raptors.std(candidate_float32, axis=0, mean=candidate_float32_mean),
+    )
+    with pytest.raises(ValueError):
+        raptors.var(candidate, axis=0, mean=raptors.array([1.0, 2.0]))
+
+
+def test_empty_and_degrees_of_freedom_reductions_match_numpy_warnings():
+    empty = raptors.empty((0,), dtype=raptors.float64)
+    expected_mean, expected_warnings = capture_warnings(
+        lambda: np.mean(np.empty((0,), dtype=np.float64))
+    )
+    actual_mean, actual_warnings = capture_warnings(lambda: raptors.mean(empty))
+    assert actual_warnings == expected_warnings
+    assert actual_warnings == [
+        (RuntimeWarning, "Mean of empty slice"),
+        (RuntimeWarning, "invalid value encountered in scalar divide"),
+    ]
+    assert np.isnan(float(expected_mean))
+    assert np.isnan(float(actual_mean))
+
+    empty_float32 = raptors.empty((0, 2), dtype=raptors.float32)
+    expected_float32_mean, expected_warnings = capture_warnings(
+        lambda: np.mean(np.empty((0, 2), dtype=np.float32), axis=0)
+    )
+    actual_float32_mean, actual_warnings = capture_warnings(
+        lambda: raptors.mean(empty_float32, axis=0)
+    )
+    assert actual_warnings == expected_warnings
+    assert_array_matches(expected_float32_mean, actual_float32_mean)
+
+    all_nan = raptors.array([np.nan, np.nan], dtype=raptors.float64)
+    expected_nanmean, expected_warnings = capture_warnings(
+        lambda: np.nanmean(np.array([np.nan, np.nan]))
+    )
+    actual_nanmean, actual_warnings = capture_warnings(lambda: raptors.nanmean(all_nan))
+    assert actual_warnings == expected_warnings
+    assert actual_warnings == [(RuntimeWarning, "Mean of empty slice")]
+    assert np.isnan(float(expected_nanmean))
+    assert np.isnan(float(actual_nanmean))
+
+    values = np.array([1.0, 2.0], dtype=np.float64)
+    candidate = raptors.array(values.tolist(), dtype=raptors.float64)
+    expected_var, expected_warnings = capture_warnings(lambda: np.var(values, ddof=2))
+    actual_var, actual_warnings = capture_warnings(lambda: raptors.var(candidate, ddof=2))
+    assert actual_warnings == expected_warnings
+    assert actual_warnings == [
+        (RuntimeWarning, "Degrees of freedom <= 0 for slice"),
+        (RuntimeWarning, "divide by zero encountered in scalar divide"),
+    ]
+    assert np.isinf(float(expected_var))
+    assert np.isinf(float(actual_var))
+
+    float32_values = np.array([[1.0, 2.0], [3.0, 7.0]], dtype=np.float32)
+    candidate_float32 = raptors.array(
+        float32_values.tolist(), dtype=raptors.float32
+    )
+    for name, reference in (("var", np.var), ("std", np.std)):
+        expected, expected_warnings = capture_warnings(
+            lambda: reference(float32_values, axis=0, ddof=2)
+        )
+        actual, actual_warnings = capture_warnings(
+            lambda: getattr(raptors, name)(candidate_float32, axis=0, ddof=2)
+        )
+        assert actual_warnings == expected_warnings
+        assert_array_matches(expected, actual)
+
+    nan_values = np.array([np.nan, np.nan], dtype=np.float64)
+    candidate_nan_values = raptors.array(nan_values.tolist(), dtype=raptors.float64)
+    expected_nanvar, expected_warnings = capture_warnings(lambda: np.nanvar(nan_values))
+    actual_nanvar, actual_warnings = capture_warnings(lambda: raptors.nanvar(candidate_nan_values))
+    assert actual_warnings == expected_warnings
+    assert actual_warnings == [(RuntimeWarning, "Degrees of freedom <= 0 for slice.")]
+    assert np.isnan(float(expected_nanvar))
+    assert np.isnan(float(actual_nanvar))
+
+
+def test_empty_and_all_nan_quantiles_match_numpy_warnings_and_errors():
+    empty_values = np.array([], dtype=np.float64)
+    candidate_empty = raptors.empty((0,), dtype=raptors.float64)
+    with pytest.raises(IndexError):
+        np.quantile(empty_values, 0.5)
+    with pytest.raises(IndexError):
+        raptors.quantile(candidate_empty, 0.5)
+
+    for name, reference, arguments in (
+        ("median", np.median, ()),
+        ("nanmedian", np.nanmedian, ()),
+        ("nanquantile", np.nanquantile, (0.5,)),
+    ):
+        expected, expected_warnings = capture_warnings(
+            lambda: reference(empty_values, *arguments)
+        )
+        actual, actual_warnings = capture_warnings(
+            lambda: getattr(raptors, name)(candidate_empty, *arguments)
+        )
+        assert actual_warnings == expected_warnings
+        assert actual_warnings
+        assert actual_warnings[0] == (RuntimeWarning, "Mean of empty slice")
+        assert np.isnan(float(expected))
+        assert np.isnan(float(actual))
+
+    empty_matrix = np.empty((2, 0), dtype=np.float64)
+    candidate_empty_matrix = raptors.empty((2, 0), dtype=raptors.float64)
+    expected, expected_warnings = capture_warnings(lambda: np.median(empty_matrix, axis=1))
+    actual, actual_warnings = capture_warnings(
+        lambda: raptors.median(candidate_empty_matrix, axis=1)
+    )
+    assert actual_warnings == expected_warnings
+    assert_array_matches(expected, actual)
+
+
+@pytest.mark.parametrize(
+    "name,reference,arguments",
+    [
+        ("median", np.median, ()),
+        ("nanmedian", np.nanmedian, ()),
+        ("quantile", np.quantile, (0.5,)),
+        ("nanquantile", np.nanquantile, (0.5,)),
+        ("percentile", np.percentile, (50.0,)),
+        ("nanpercentile", np.nanpercentile, (50.0,)),
+    ],
+)
+def test_quantile_family_honors_overwrite_input(name, reference, arguments):
+    values = np.array([8.0, 1.0, 6.0, 2.0, 7.0, 3.0], dtype=np.float64)
+    sorted_values = np.sort(values)
+    candidate = raptors.array(values.tolist(), dtype=raptors.float64)
+
+    expected = reference(values.copy(), *arguments, overwrite_input=True)
+    actual = getattr(raptors, name)(candidate, *arguments, overwrite_input=True)
+    if hasattr(actual, "shape"):
+        assert_array_matches(expected, actual)
+    else:
+        assert actual.dtype.name == np.asarray(expected).dtype.name
+        assert np.isclose(float(actual), float(expected))
+    assert_array_matches(sorted_values, candidate)
+
+    unchanged = raptors.array(values.tolist(), dtype=raptors.float64)
+    getattr(raptors, name)(unchanged, *arguments)
+    assert_array_matches(values, unchanged)
+
+    all_nan = np.array([np.nan, np.nan], dtype=np.float64)
+    candidate_all_nan = raptors.array(all_nan.tolist(), dtype=raptors.float64)
+    for name, reference, arguments in (
+        ("nanmedian", np.nanmedian, ()),
+        ("nanquantile", np.nanquantile, (0.5,)),
+    ):
+        expected, expected_warnings = capture_warnings(
+            lambda: reference(all_nan, *arguments)
+        )
+        actual, actual_warnings = capture_warnings(
+            lambda: getattr(raptors, name)(candidate_all_nan, *arguments)
+        )
+        assert actual_warnings == expected_warnings
+        assert actual_warnings == [(RuntimeWarning, "All-NaN slice encountered")]
+        assert np.isnan(float(expected))
+        assert np.isnan(float(actual))
 
 
 @pytest.mark.parametrize("name,reference", [("argmin", np.argmin), ("argmax", np.argmax)])
@@ -958,6 +1176,47 @@ def test_nan_reductions_match_numpy(name, reference, axis, keepdims):
         assert actual == expected
     else:
         assert_array_matches(expected, actual)
+
+
+@pytest.mark.parametrize("name,reference", [("nanmin", np.nanmin), ("nanmax", np.nanmax)])
+def test_nan_extrema_support_initial_where_and_all_nan_warning(name, reference):
+    values = np.array([[np.nan, 2.0], [3.0, 4.0]], dtype=np.float64)
+    mask = np.array([[True, False], [False, True]])
+    candidate = raptors.array(values.tolist(), dtype=raptors.float64)
+    candidate_mask = raptors.array(mask.tolist(), dtype=raptors.bool_)
+
+    expected = reference(values, axis=1, where=mask, initial=0.0)
+    actual = getattr(raptors, name)(
+        candidate,
+        axis=1,
+        where=candidate_mask,
+        initial=0.0,
+    )
+    assert_array_matches(expected, actual)
+
+    all_nan = np.array([np.nan, np.nan], dtype=np.float64)
+    candidate_all_nan = raptors.array(all_nan.tolist(), dtype=raptors.float64)
+    with pytest.warns(RuntimeWarning, match="All-NaN slice encountered"):
+        expected_nan = reference(all_nan)
+    with pytest.warns(RuntimeWarning, match="All-NaN slice encountered"):
+        actual_nan = getattr(raptors, name)(candidate_all_nan)
+    assert actual_nan.dtype.name == expected_nan.dtype.name
+    assert np.isnan(float(actual_nan))
+
+    with pytest.raises(ValueError):
+        getattr(raptors, name)(
+            candidate,
+            axis=1,
+            where=raptors.zeros((2, 2), dtype=raptors.bool_),
+        )
+
+    expected_initial = reference(np.array([1.0, 2.0]), initial=0.0)
+    actual_initial = getattr(raptors, name)(
+        raptors.array([1.0, 2.0], dtype=raptors.float64),
+        initial=0.0,
+    )
+    assert actual_initial.dtype.name == expected_initial.dtype.name
+    assert float(actual_initial) == float(expected_initial)
 
 
 def test_nan_quantile_family_skips_nan_and_preserves_quantile_shape():

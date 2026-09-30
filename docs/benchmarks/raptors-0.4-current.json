@@ -1,0 +1,273 @@
+{
+  "manifest": "docs/benchmarks/raptors-0.4-workloads.json",
+  "native_allocation_count": "unavailable; process peak RSS is a coarse native-memory proxy",
+  "results": [
+    {
+      "median_ratio": 0.9121304347826087,
+      "median_ratio_ci95": [
+        0.8867319414650723,
+        1.0
+      ],
+      "numpy": {
+        "backend": "numpy",
+        "machine": "arm64",
+        "median_ns": 46000,
+        "numpy": "2.5.3",
+        "platform": "macOS-26.5.2-arm64-arm-64bit-Mach-O",
+        "process_peak_rss_delta_bytes": 16384,
+        "python": "3.14.3",
+        "python_tracemalloc_peak_delta_bytes": 27672,
+        "raptors": "0.3.0",
+        "samples_ns": [
+          79375,
+          46000,
+          52125,
+          42333,
+          41834,
+          42042,
+          47792,
+          41791,
+          46000,
+          41875,
+          41250,
+          41000,
+          45750,
+          41208,
+          55250,
+          47083,
+          46458,
+          46333,
+          51500,
+          46542,
+          49625
+        ],
+        "thread_settings": {
+          "MKL_NUM_THREADS": "1",
+          "OMP_NUM_THREADS": "1",
+          "OPENBLAS_NUM_THREADS": "1"
+        },
+        "workflow": "column_normalization"
+      },
+      "raptors": {
+        "backend": "raptors",
+        "machine": "arm64",
+        "median_ns": 41958,
+        "numpy": "2.5.3",
+        "platform": "macOS-26.5.2-arm64-arm-64bit-Mach-O",
+        "process_peak_rss_delta_bytes": 16384,
+        "python": "3.14.3",
+        "python_tracemalloc_peak_delta_bytes": 1672,
+        "raptors": "0.3.0",
+        "samples_ns": [
+          53500,
+          45875,
+          42709,
+          44750,
+          42583,
+          45584,
+          42375,
+          41958,
+          41750,
+          41708,
+          41834,
+          41833,
+          42083,
+          41750,
+          41833,
+          42042,
+          41625,
+          41667,
+          41667,
+          42084,
+          41875
+        ],
+        "thread_settings": {
+          "MKL_NUM_THREADS": "1",
+          "OMP_NUM_THREADS": "1",
+          "OPENBLAS_NUM_THREADS": "1"
+        },
+        "workflow": "column_normalization"
+      },
+      "workflow": "column_normalization"
+    },
+    {
+      "median_ratio": 0.3478372947677339,
+      "median_ratio_ci95": [
+        0.3260065146579805,
+        0.3617184171282488
+      ],
+      "numpy": {
+        "backend": "numpy",
+        "machine": "arm64",
+        "median_ns": 151292,
+        "numpy": "2.5.3",
+        "platform": "macOS-26.5.2-arm64-arm-64bit-Mach-O",
+        "process_peak_rss_delta_bytes": 196608,
+        "python": "3.14.3",
+        "python_tracemalloc_peak_delta_bytes": 176144,
+        "raptors": "0.3.0",
+        "samples_ns": [
+          201833,
+          156334,
+          159000,
+          150875,
+          161333,
+          146334,
+          149166,
+          148208,
+          158042,
+          146250,
+          154917,
+          140041,
+          151084,
+          159417,
+          151334,
+          150208,
+          151292,
+          147042,
+          145750,
+          153500,
+          164833
+        ],
+        "thread_settings": {
+          "MKL_NUM_THREADS": "1",
+          "OMP_NUM_THREADS": "1",
+          "OPENBLAS_NUM_THREADS": "1"
+        },
+        "workflow": "grouped_count_and_histogram"
+      },
+      "raptors": {
+        "backend": "raptors",
+        "machine": "arm64",
+        "median_ns": 52625,
+        "numpy": "2.5.3",
+        "platform": "macOS-26.5.2-arm64-arm-64bit-Mach-O",
+        "process_peak_rss_delta_bytes": 49152,
+        "python": "3.14.3",
+        "python_tracemalloc_peak_delta_bytes": 1444,
+        "raptors": "0.3.0",
+        "samples_ns": [
+          64791,
+          58292,
+          49917,
+          47792,
+          47916,
+          47833,
+          50625,
+          50459,
+          50042,
+          57750,
+          52625,
+          55792,
+          56750,
+          55584,
+          53333,
+          52709,
+          52208,
+          49542,
+          49833,
+          54333,
+          54209
+        ],
+        "thread_settings": {
+          "MKL_NUM_THREADS": "1",
+          "OMP_NUM_THREADS": "1",
+          "OPENBLAS_NUM_THREADS": "1"
+        },
+        "workflow": "grouped_count_and_histogram"
+      },
+      "workflow": "grouped_count_and_histogram"
+    },
+    {
+      "median_ratio": 2.683174173920392,
+      "median_ratio_ci95": [
+        2.343632818359082,
+        3.0471304347826087
+      ],
+      "numpy": {
+        "backend": "numpy",
+        "machine": "arm64",
+        "median_ns": 11833,
+        "numpy": "2.5.3",
+        "platform": "macOS-26.5.2-arm64-arm-64bit-Mach-O",
+        "process_peak_rss_delta_bytes": 0,
+        "python": "3.14.3",
+        "python_tracemalloc_peak_delta_bytes": 39848,
+        "raptors": "0.3.0",
+        "samples_ns": [
+          22958,
+          16625,
+          12042,
+          11500,
+          11250,
+          13334,
+          15000,
+          13500,
+          12166,
+          11291,
+          11208,
+          14916,
+          14833,
+          11708,
+          11959,
+          11708,
+          10959,
+          11833,
+          11292,
+          11208,
+          11125
+        ],
+        "thread_settings": {
+          "MKL_NUM_THREADS": "1",
+          "OMP_NUM_THREADS": "1",
+          "OPENBLAS_NUM_THREADS": "1"
+        },
+        "workflow": "assemble_transpose_and_order"
+      },
+      "raptors": {
+        "backend": "raptors",
+        "machine": "arm64",
+        "median_ns": 31750,
+        "numpy": "2.5.3",
+        "platform": "macOS-26.5.2-arm64-arm-64bit-Mach-O",
+        "process_peak_rss_delta_bytes": 49152,
+        "python": "3.14.3",
+        "python_tracemalloc_peak_delta_bytes": 1432,
+        "raptors": "0.3.0",
+        "samples_ns": [
+          48209,
+          31750,
+          35208,
+          34625,
+          28583,
+          28375,
+          31250,
+          28334,
+          28625,
+          39917,
+          35042,
+          29833,
+          37833,
+          28250,
+          28417,
+          32833,
+          28708,
+          28292,
+          37542,
+          35375,
+          39583
+        ],
+        "thread_settings": {
+          "MKL_NUM_THREADS": "1",
+          "OMP_NUM_THREADS": "1",
+          "OPENBLAS_NUM_THREADS": "1"
+        },
+        "workflow": "assemble_transpose_and_order"
+      },
+      "workflow": "assemble_transpose_and_order"
+    }
+  ],
+  "status": "measurement_only_release_gate_pending",
+  "timed_samples": 21,
+  "warmup_calls": 5
+}
