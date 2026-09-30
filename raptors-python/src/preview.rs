@@ -1221,8 +1221,8 @@ impl PyArray {
         }
     }
     fn __setitem__(&self, key: &Bound<'_, PyAny>, value: &Bound<'_, PyAny>) -> PyResult<()> {
-        let (indices, returns_scalar) = parse_indices(&self.inner, key)?;
         warn_broadcast_array_overlap_write(value.py(), &self.inner)?;
+        let (indices, returns_scalar) = parse_indices(&self.inner, key)?;
         let advanced = indices.iter().any(|item| {
             matches!(
                 item,

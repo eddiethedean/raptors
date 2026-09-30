@@ -2350,16 +2350,17 @@ def test_broadcast_arrays_overlapping_write_warning_precedes_mutation():
     candidate = raptors.broadcast_arrays(candidate_source, candidate_other)[0]
 
     for target, source in ((reference, source_values), (candidate, candidate_source)):
-        with warnings.catch_warnings():
-            warnings.simplefilter("error", DeprecationWarning)
-            with pytest.raises(DeprecationWarning) as caught:
-                target[0, 0] = 7
-        assert str(caught.value) == (
-            "Numpy has detected that you (may be) writing to an array with\n"
-            "overlapping memory from np.broadcast_arrays. If this is intentional\n"
-            "set the WRITEABLE flag True or make a copy immediately before writing."
-        )
-        assert source[0, 0] == 0
+        for key in ((0, 0), (9, 0)):
+            with warnings.catch_warnings():
+                warnings.simplefilter("error", DeprecationWarning)
+                with pytest.raises(DeprecationWarning) as caught:
+                    target[key] = 7
+            assert str(caught.value) == (
+                "Numpy has detected that you (may be) writing to an array with\n"
+                "overlapping memory from np.broadcast_arrays. If this is intentional\n"
+                "set the WRITEABLE flag True or make a copy immediately before writing."
+            )
+            assert source[0, 0] == 0
 
 
 def test_phase_04_overlap_assignment_snapshots_source_and_copy_results_do_not_alias():
