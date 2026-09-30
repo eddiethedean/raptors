@@ -1874,8 +1874,9 @@ impl View {
     }
 
     /// Concatenates native-endian int32 views without decoding values into a
-    /// temporary typed buffer. The result is C-contiguous and inputs are read
-    /// in logical C iteration order, including transposed and sliced views.
+    /// temporary typed buffer. The result uses the requested memory order and
+    /// inputs are read in logical C iteration order, including transposed and
+    /// sliced views.
     pub fn concatenate_int32(
         inputs: &[&Self],
         axis: Option<usize>,
@@ -1927,6 +1928,119 @@ impl View {
             Self::zeros_with_layout(DType::Int32, ByteOrder::Native, output_shape, fortran_order)?;
         let itemsize = DType::Int32.itemsize();
         if output.size()? == 0 {
+            return Ok(output);
+        }
+        let repeated_fortran_axis0 = axis == Some(0)
+            && fortran_order
+            && first.is_f_contiguous()
+            && inputs.iter().all(|input| {
+                Arc::ptr_eq(&first.storage, &input.storage)
+                    && first.shape == input.shape
+                    && first.strides == input.strides
+                    && first.offset == input.offset
+            });
+        if repeated_fortran_axis0 {
+            let input_rows = first.shape[0];
+            let trailing_blocks = element_count(&first.shape[1..])?;
+            let output_rows = output.shape[0];
+            let input_block_bytes = input_rows
+                .checked_mul(itemsize)
+                .ok_or(StorageError::ShapeOverflow)?;
+            let output_block_bytes = output_rows
+                .checked_mul(itemsize)
+                .ok_or(StorageError::ShapeOverflow)?;
+            if input_block_bytes
+                .checked_mul(inputs.len())
+                .ok_or(StorageError::ShapeOverflow)?
+                != output_block_bytes
+            {
+                return Err(StorageError::ShapeMismatch);
+            }
+            let source_start_bytes = contiguous_element_start(first)?
+                .checked_mul(itemsize)
+                .ok_or(StorageError::ShapeOverflow)?;
+            let source_byte_count = first
+                .size()?
+                .checked_mul(itemsize)
+                .ok_or(StorageError::ShapeOverflow)?;
+            let source_end_bytes = source_start_bytes
+                .checked_add(source_byte_count)
+                .ok_or(StorageError::ShapeOverflow)?;
+            let source = first
+                .storage
+                .read()
+                .map_err(|_| StorageError::LockPoisoned)?;
+            let source_bytes = source
+                .bytes
+                .get(source_start_bytes..source_end_bytes)
+                .ok_or(StorageError::InvalidLayout)?;
+            let mut destination = output
+                .storage
+                .write()
+                .map_err(|_| StorageError::LockPoisoned)?;
+            for block in 0..trailing_blocks {
+                let source_start = block
+                    .checked_mul(input_block_bytes)
+                    .ok_or(StorageError::ShapeOverflow)?;
+                let source_end = source_start
+                    .checked_add(input_block_bytes)
+                    .ok_or(StorageError::ShapeOverflow)?;
+                let source_block = source_bytes
+                    .get(source_start..source_end)
+                    .ok_or(StorageError::InvalidLayout)?;
+                let destination_start = block
+                    .checked_mul(output_block_bytes)
+                    .ok_or(StorageError::ShapeOverflow)?;
+                let destination_end = destination_start
+                    .checked_add(output_block_bytes)
+                    .ok_or(StorageError::ShapeOverflow)?;
+                destination
+                    .bytes
+                    .get(destination_start..destination_end)
+                    .ok_or(StorageError::InvalidLayout)?;
+                let first_destination_end = destination_start
+                    .checked_add(input_block_bytes)
+                    .ok_or(StorageError::ShapeOverflow)?;
+                destination
+                    .bytes
+                    .get_mut(destination_start..first_destination_end)
+                    .ok_or(StorageError::InvalidLayout)?
+                    .copy_from_slice(source_block);
+                for repeat in 1..inputs.len() {
+                    let previous_start = destination_start
+                        .checked_add(
+                            (repeat - 1)
+                                .checked_mul(input_block_bytes)
+                                .ok_or(StorageError::ShapeOverflow)?,
+                        )
+                        .ok_or(StorageError::ShapeOverflow)?;
+                    let repeat_start = destination_start
+                        .checked_add(
+                            repeat
+                                .checked_mul(input_block_bytes)
+                                .ok_or(StorageError::ShapeOverflow)?,
+                        )
+                        .ok_or(StorageError::ShapeOverflow)?;
+                    let previous_end = previous_start
+                        .checked_add(input_block_bytes)
+                        .ok_or(StorageError::ShapeOverflow)?;
+                    let repeat_end = repeat_start
+                        .checked_add(input_block_bytes)
+                        .ok_or(StorageError::ShapeOverflow)?;
+                    destination
+                        .bytes
+                        .get(previous_start..previous_end)
+                        .ok_or(StorageError::InvalidLayout)?;
+                    destination
+                        .bytes
+                        .get(repeat_start..repeat_end)
+                        .ok_or(StorageError::InvalidLayout)?;
+                    destination
+                        .bytes
+                        .copy_within(previous_start..previous_end, repeat_start);
+                }
+            }
+            drop(destination);
             return Ok(output);
         }
         let mut destination = output
@@ -4871,6 +4985,25 @@ mod tests {
         assert_eq!(
             joined_rows.snapshot_int32().unwrap(),
             [1, 4, 2, 5, 3, 6, 1, 4, 2, 5, 3, 6]
+        );
+        joined_rows.write_at(&[0, 0], Scalar::Int32(99)).unwrap();
+        assert_eq!(
+            transposed.snapshot_int32().unwrap(),
+            [1, 4, 2, 5, 3, 6]
+        );
+
+        let tripled_rows = View::concatenate_int32(
+            &[&transposed, &transposed, &transposed],
+            Some(0),
+            vec![9, 2],
+            true,
+        )
+        .unwrap();
+        assert_eq!(
+            tripled_rows.snapshot_int32().unwrap(),
+            [
+                1, 4, 2, 5, 3, 6, 1, 4, 2, 5, 3, 6, 1, 4, 2, 5, 3, 6
+            ]
         );
 
         let joined_columns =
