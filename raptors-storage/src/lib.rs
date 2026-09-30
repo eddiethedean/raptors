@@ -1924,12 +1924,6 @@ impl View {
             return Err(StorageError::ShapeMismatch);
         }
 
-        let output =
-            Self::zeros_with_layout(DType::Int32, ByteOrder::Native, output_shape, fortran_order)?;
-        let itemsize = DType::Int32.itemsize();
-        if output.size()? == 0 {
-            return Ok(output);
-        }
         let repeated_fortran_axis0 = axis == Some(0)
             && fortran_order
             && first.is_f_contiguous()
@@ -1940,13 +1934,21 @@ impl View {
                     && first.offset == input.offset
             });
         if repeated_fortran_axis0 {
+            let output_count = element_count(&output_shape)?;
+            let itemsize = DType::Int32.itemsize();
+            let byte_count = output_count
+                .checked_mul(itemsize)
+                .ok_or(StorageError::ShapeOverflow)?;
+            if byte_count > isize::MAX as usize {
+                return Err(StorageError::ShapeOverflow);
+            }
+            let output_strides = f_strides(DType::Int32, &output_shape)?;
             let input_rows = first.shape[0];
             let trailing_blocks = element_count(&first.shape[1..])?;
-            let output_rows = output.shape[0];
             let input_block_bytes = input_rows
                 .checked_mul(itemsize)
                 .ok_or(StorageError::ShapeOverflow)?;
-            let output_block_bytes = output_rows
+            let output_block_bytes = output_shape[0]
                 .checked_mul(itemsize)
                 .ok_or(StorageError::ShapeOverflow)?;
             if input_block_bytes
@@ -1974,10 +1976,10 @@ impl View {
                 .bytes
                 .get(source_start_bytes..source_end_bytes)
                 .ok_or(StorageError::InvalidLayout)?;
-            let mut destination = output
-                .storage
-                .write()
-                .map_err(|_| StorageError::LockPoisoned)?;
+            let mut bytes = Vec::new();
+            bytes
+                .try_reserve_exact(byte_count)
+                .map_err(|_| StorageError::AllocationFailed)?;
             for block in 0..trailing_blocks {
                 let source_start = block
                     .checked_mul(input_block_bytes)
@@ -1988,59 +1990,33 @@ impl View {
                 let source_block = source_bytes
                     .get(source_start..source_end)
                     .ok_or(StorageError::InvalidLayout)?;
-                let destination_start = block
-                    .checked_mul(output_block_bytes)
-                    .ok_or(StorageError::ShapeOverflow)?;
-                let destination_end = destination_start
-                    .checked_add(output_block_bytes)
-                    .ok_or(StorageError::ShapeOverflow)?;
-                destination
-                    .bytes
-                    .get(destination_start..destination_end)
-                    .ok_or(StorageError::InvalidLayout)?;
-                let first_destination_end = destination_start
-                    .checked_add(input_block_bytes)
-                    .ok_or(StorageError::ShapeOverflow)?;
-                destination
-                    .bytes
-                    .get_mut(destination_start..first_destination_end)
-                    .ok_or(StorageError::InvalidLayout)?
-                    .copy_from_slice(source_block);
-                for repeat in 1..inputs.len() {
-                    let previous_start = destination_start
-                        .checked_add(
-                            (repeat - 1)
-                                .checked_mul(input_block_bytes)
-                                .ok_or(StorageError::ShapeOverflow)?,
-                        )
-                        .ok_or(StorageError::ShapeOverflow)?;
-                    let repeat_start = destination_start
-                        .checked_add(
-                            repeat
-                                .checked_mul(input_block_bytes)
-                                .ok_or(StorageError::ShapeOverflow)?,
-                        )
-                        .ok_or(StorageError::ShapeOverflow)?;
-                    let previous_end = previous_start
-                        .checked_add(input_block_bytes)
-                        .ok_or(StorageError::ShapeOverflow)?;
-                    let repeat_end = repeat_start
-                        .checked_add(input_block_bytes)
-                        .ok_or(StorageError::ShapeOverflow)?;
-                    destination
-                        .bytes
-                        .get(previous_start..previous_end)
-                        .ok_or(StorageError::InvalidLayout)?;
-                    destination
-                        .bytes
-                        .get(repeat_start..repeat_end)
-                        .ok_or(StorageError::InvalidLayout)?;
-                    destination
-                        .bytes
-                        .copy_within(previous_start..previous_end, repeat_start);
+                for _ in inputs {
+                    bytes.extend_from_slice(source_block);
                 }
             }
-            drop(destination);
+            if bytes.len() != byte_count {
+                return Err(StorageError::ShapeMismatch);
+            }
+            return Ok(Self {
+                storage: Arc::new(RwLock::new(Buffer {
+                    dtype: DType::Int32,
+                    byte_order: ByteOrder::Native,
+                    bytes,
+                })),
+                dtype: DType::Int32,
+                byte_order: ByteOrder::Native,
+                shape: output_shape,
+                strides: output_strides,
+                offset: 0,
+                allocation_len: output_count,
+                writeable: true,
+            });
+        }
+
+        let output =
+            Self::zeros_with_layout(DType::Int32, ByteOrder::Native, output_shape, fortran_order)?;
+        let itemsize = DType::Int32.itemsize();
+        if output.size()? == 0 {
             return Ok(output);
         }
         let mut destination = output
@@ -5000,6 +4976,23 @@ mod tests {
             tripled_rows.snapshot_int32().unwrap(),
             [1, 4, 2, 5, 3, 6, 1, 4, 2, 5, 3, 6, 1, 4, 2, 5, 3, 6]
         );
+
+        let cube_values = (0..24).collect::<Vec<i32>>();
+        let cube = View::from_int32_values_with_layout(vec![2, 3, 4], &cube_values, true).unwrap();
+        let tripled_cube =
+            View::concatenate_int32(&[&cube, &cube, &cube], Some(0), vec![6, 3, 4], true).unwrap();
+        assert!(tripled_cube.is_f_contiguous());
+        let expected_cube = cube_values
+            .iter()
+            .chain(&cube_values)
+            .chain(&cube_values)
+            .copied()
+            .collect::<Vec<_>>();
+        assert_eq!(tripled_cube.snapshot_int32().unwrap(), expected_cube);
+        tripled_cube
+            .write_at(&[0, 0, 0], Scalar::Int32(99))
+            .unwrap();
+        assert_eq!(cube.snapshot_int32().unwrap(), cube_values);
 
         let joined_columns =
             View::concatenate_int32(&[&base, &base], Some(1), vec![2, 6], false).unwrap();
