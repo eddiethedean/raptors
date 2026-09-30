@@ -73,13 +73,13 @@
   ],
   "known_limits": [
     "Inputs are numeric Raptors arrays and supported Python numeric values; third-party dispatch, like=, foreign buffers, and specialized dtype families are outside 0.4.",
-    "The original v1 ARM64 and Linux x86-64 workflow ratios are retained as historical reports, but v1 timed calls with tracemalloc enabled and are superseded for latency qualification. Candidate a96c061 has corrected v2 reports on ARM64 and Linux x86-64: normalization and grouped counting meet the median and confidence requirements on each host, but assembly/transpose/order misses substantially on both. The 3-workflow gate remains open on both hosts.",
+    "The original v1 ARM64 and Linux x86-64 workflow ratios are retained as historical reports, but v1 timed calls with tracemalloc enabled and are superseded for latency qualification. Exact candidate 4f63297 v2 reports qualify normalization and grouped counting on ARM64, and grouped counting only on Linux x86-64; assembly/transpose/order misses on both hosts and Linux normalization is marginally above threshold. The 3-workflow gate remains open on both hosts.",
     "Native allocation profiling now covers 15 representative routine/layout cases spanning all seven Phase 0.4 families plus the three frozen workflows. It is not a per-entry profile of all 153 inventory entries; the process-wide allocator counters exclude Python allocations and require the separate opt-in profiling build."
   ],
   "evidence": {
     "release_gate": "pending",
     "performance_gate": "pending",
-    "performance_measurement_result": "v1_historical_only; candidate_6eb73b7_meets_two_of_three_workflows_on_each_architecture; performance_gate_pending",
+    "performance_measurement_result": "v1_historical_only; candidate_4f63297_ARM64_meets_two_of_three_and_Linux_meets_one_of_three_workflows; performance_gate_pending",
     "performance_measurement_v2": {
       "status": "completed_on_arm64_and_linux_cross_architecture_gate_failed",
       "manifest": "docs/benchmarks/raptors-0.4-workloads-v2.json",
@@ -89,22 +89,36 @@
       "unchanged_workload_contract": "Inputs, formulas, shapes, dtypes, layouts, eager operations, correctness checks, thread settings, five warmups, 21 timed samples, and release thresholds are unchanged.",
       "pre_optimization_candidate_commit": "1ca882425b91a00f396695e44330fe1bee20d0bd",
       "baseline_report": "docs/benchmarks/raptors-0.4-baseline-v2.json",
-      "current_report": "docs/benchmarks/raptors-0.4-current-v2-6eb73b7.json",
-      "candidate_commit": "6eb73b7ec0c42e9dea9a6f6b61f52061599961f9",
+      "current_report": "docs/benchmarks/raptors-0.4-current-v2-4f63297.json",
+      "candidate_commit": "4f63297332da56eee1be6fb00ee3d071ce1d1f50",
       "host": "macOS 26.5.2 ARM64, CPython 3.14.3, release build",
       "warmup_calls": 5,
       "timed_samples": 21,
       "median_ratios": {
-        "column_normalization": 0.4334801001,
-        "grouped_count_and_histogram": 0.6299053338,
-        "assemble_transpose_and_order": 1.1794461538
+        "column_normalization": 0.6373254338,
+        "grouped_count_and_histogram": 0.3747412008,
+        "assemble_transpose_and_order": 1.2543968550
       },
       "median_ratio_ci95": {
-        "column_normalization": [0.3915343915, 0.4583043478],
-        "grouped_count_and_histogram": [0.5904199449, 0.7106943005],
-        "assemble_transpose_and_order": [1.1522904483, 1.2563692308]
+        "column_normalization": [0.6215945277, 0.6488549618],
+        "grouped_count_and_histogram": [0.3385433662, 0.4082944410],
+        "assemble_transpose_and_order": [1.1788292683, 1.4016977573]
       },
-      "release_gate": "candidate_6eb73b7_meets_normalization_and_grouped_counting_on_arm64; exact_commit_linux_run_36719261105_meets_normalization_and_assembly; only_two_of_three_workflows_qualify_per_host"
+      "linux_run_id": 36741039913,
+      "linux_run_url": "https://github.com/eddiethedean/raptors/actions/runs/36741039913",
+      "linux_report": "docs/benchmarks/raptors-0.4-linux-x86_64-v2-4f63297.json",
+      "linux_host": "Linux 6.17 x86_64 with glibc 2.39, CPython 3.14.3",
+      "linux_median_ratios": {
+        "column_normalization": 0.8146767125,
+        "grouped_count_and_histogram": 0.5799495019,
+        "assemble_transpose_and_order": 1.1757005053
+      },
+      "linux_median_ratio_ci95": {
+        "column_normalization": [0.7981149859, 0.8457540996],
+        "grouped_count_and_histogram": [0.5321868541, 0.6226196848],
+        "assemble_transpose_and_order": [1.1633748145, 1.1886055594]
+      },
+      "release_gate": "candidate_4f63297_ARM64_qualifies_normalization_and_grouped_counting;_Linux_qualifies_grouped_counting_only;_assembly_fails_on_both_and_Linux_normalization_is_above_threshold"
     },
     "cross_phase_generated_sequences": {
       "status": "passed_locally",
@@ -503,20 +517,28 @@
     },
     "latest_source_candidate": {
       "status": "passed_locally_and_on_hosted_ci_release_gates_pending",
-      "candidate_commit": "a96c0619f9abcce1b2996aab8dd1d92323e5e8a2",
+      "candidate_commit": "4f63297332da56eee1be6fb00ee3d071ce1d1f50",
       "implementation_changes": [
-        "Histogram density reproduces NumPy-compatible empty and zero-total normalization warnings while preserving the non-finite result values.",
-        "Weighted average and one-dimensional weighted histogram density use scaled complex division to avoid intermediate overflow for large finite values."
+        "Broadcast-overlap write warnings now cover direct mutation helpers, mutable sorting/partitioning, ufunc outputs, and numeric routine out destinations; differential tests include warning-as-error and no-mutation cases.",
+        "Fortran-row int32 sorting gathers and writes cache-friendly 16-row tiles while retaining exact repeated-half detection and a tail-safe generic fallback."
       ],
       "local_preview_suite": {
         "command": "uv run --project raptors-python --extra dev --no-sync python -m pytest raptors-python/tests/preview -q",
-        "passed": 9989,
+        "passed": 10020,
         "skipped": 8,
         "warnings": 1,
         "warning_note": "One expected NumPy FutureWarning from the preview comparison suite."
       },
-      "rust_storage_tests": "26 passed",
-      "static_checks": ["strict Clippy", "Ruff", "pinned API inventory", "generated README statistics"]
+      "rust_storage_tests": "27 passed",
+      "rust_binding_tests": "1 passed",
+      "broadcast_overlap_warning_tests": "29 passed across warning parity and warning-as-error/no-mutation cases",
+      "static_checks": ["strict Clippy", "Ruff", "targeted rustfmt", "pinned API inventory", "generated README statistics", "git diff --check"],
+      "hosted_ci_run_id": 36741017721,
+      "hosted_ci_run_url": "https://github.com/eddiethedean/raptors/actions/runs/36741017721",
+      "hosted_ci_status": "passed",
+      "release_wheel_confirmation": "pending build-only validation",
+      "release_wheel_run_id": 36742189541,
+      "release_wheel_run_url": "https://github.com/eddiethedean/raptors/actions/runs/36742189541"
     },
     "hosted_ci_a96c061": {
       "status": "passed",
