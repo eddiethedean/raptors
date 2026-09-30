@@ -2243,46 +2243,51 @@ impl View {
         let rows = self.shape[0];
         let columns = self.shape[1];
         let source_start = contiguous_element_start(self)?;
+        let itemsize = DType::Int32.itemsize();
+        let column_stride_bytes = rows
+            .checked_mul(itemsize)
+            .ok_or(StorageError::ShapeOverflow)?;
+        let total_bytes = rows
+            .checked_mul(columns)
+            .and_then(|count| count.checked_mul(itemsize))
+            .ok_or(StorageError::ShapeOverflow)?;
+        let source_start_bytes = source_start
+            .checked_mul(itemsize)
+            .ok_or(StorageError::ShapeOverflow)?;
+        let source_end_bytes = source_start_bytes
+            .checked_add(total_bytes)
+            .ok_or(StorageError::ShapeOverflow)?;
         let half_rows = rows / 2;
         let mut repeated_row_halves = rows.is_multiple_of(2);
         let source = self
             .storage
             .read()
             .map_err(|_| StorageError::LockPoisoned)?;
+        let source_bytes = source
+            .bytes
+            .get(source_start_bytes..source_end_bytes)
+            .ok_or(StorageError::InvalidLayout)?;
         if repeated_row_halves {
-            let itemsize = DType::Int32.itemsize();
             let half_bytes = half_rows
                 .checked_mul(itemsize)
                 .ok_or(StorageError::ShapeOverflow)?;
             for column in 0..columns {
-                let first_element = source_start
-                    .checked_add(
-                        column
-                            .checked_mul(rows)
-                            .ok_or(StorageError::ShapeOverflow)?,
-                    )
+                let column_start = column
+                    .checked_mul(column_stride_bytes)
                     .ok_or(StorageError::ShapeOverflow)?;
-                let second_element = first_element
-                    .checked_add(half_rows)
+                let second_start = column_start
+                    .checked_add(half_bytes)
                     .ok_or(StorageError::ShapeOverflow)?;
-                let first_start = first_element
-                    .checked_mul(itemsize)
-                    .ok_or(StorageError::ShapeOverflow)?;
-                let second_start = second_element
-                    .checked_mul(itemsize)
-                    .ok_or(StorageError::ShapeOverflow)?;
-                let first_end = first_start
+                let first_end = column_start
                     .checked_add(half_bytes)
                     .ok_or(StorageError::ShapeOverflow)?;
                 let second_end = second_start
                     .checked_add(half_bytes)
                     .ok_or(StorageError::ShapeOverflow)?;
-                let first = source
-                    .bytes
-                    .get(first_start..first_end)
+                let first = source_bytes
+                    .get(column_start..first_end)
                     .ok_or(StorageError::InvalidLayout)?;
-                let second = source
-                    .bytes
+                let second = source_bytes
                     .get(second_start..second_end)
                     .ok_or(StorageError::InvalidLayout)?;
                 if first != second {
@@ -2291,58 +2296,72 @@ impl View {
                 }
             }
         }
-        let sorted_rows = if repeated_row_halves { half_rows } else { rows };
         let mut lane = Vec::new();
         lane.try_reserve_exact(columns)
             .map_err(|_| StorageError::AllocationFailed)?;
+        let sorted_rows = if repeated_row_halves { half_rows } else { rows };
         let mut destination = output
             .storage
             .write()
             .map_err(|_| StorageError::LockPoisoned)?;
         for row in 0..sorted_rows {
+            let row_start = row
+                .checked_mul(itemsize)
+                .ok_or(StorageError::ShapeOverflow)?;
+            let source_lane = source_bytes
+                .get(row_start..)
+                .ok_or(StorageError::InvalidLayout)?;
             lane.clear();
-            for column in 0..columns {
-                let element = source_start
-                    .checked_add(row)
-                    .and_then(|value| value.checked_add(column.checked_mul(rows)?))
-                    .ok_or(StorageError::ShapeOverflow)?;
-                lane.push(read_native_int32(&source, element)?);
+            for column_bytes in source_lane.chunks(column_stride_bytes).take(columns) {
+                let value_bytes = column_bytes
+                    .get(..itemsize)
+                    .ok_or(StorageError::InvalidLayout)?;
+                lane.push(i32::from_ne_bytes([
+                    value_bytes[0],
+                    value_bytes[1],
+                    value_bytes[2],
+                    value_bytes[3],
+                ]));
+            }
+            if lane.len() != columns {
+                return Err(StorageError::InvalidLayout);
             }
             sort_int32_lane(&mut lane, descending);
-            for (column, &value) in lane.iter().enumerate() {
-                let output_element = column
-                    .checked_mul(rows)
-                    .and_then(|value_offset| value_offset.checked_add(row))
-                    .ok_or(StorageError::ShapeOverflow)?;
-                write_native_int32(&mut destination, output_element, value)?;
+            let destination_lane = destination
+                .bytes
+                .get_mut(row_start..total_bytes)
+                .ok_or(StorageError::InvalidLayout)?;
+            for (column_bytes, value) in destination_lane
+                .chunks_mut(column_stride_bytes)
+                .take(columns)
+                .zip(lane.iter().copied())
+            {
+                column_bytes
+                    .get_mut(..itemsize)
+                    .ok_or(StorageError::InvalidLayout)?
+                    .copy_from_slice(&value.to_ne_bytes());
             }
         }
         if repeated_row_halves {
             let byte_count = half_rows
-                .checked_mul(DType::Int32.itemsize())
+                .checked_mul(itemsize)
                 .ok_or(StorageError::ShapeOverflow)?;
             for column in 0..columns {
-                let start_element = column
+                let start = column
                     .checked_mul(rows)
+                    .and_then(|value| value.checked_mul(itemsize))
                     .ok_or(StorageError::ShapeOverflow)?;
-                let source_start = start_element
-                    .checked_mul(DType::Int32.itemsize())
-                    .ok_or(StorageError::ShapeOverflow)?;
-                let source_end = source_start
+                let middle = start
                     .checked_add(byte_count)
                     .ok_or(StorageError::ShapeOverflow)?;
-                let destination_start = source_end;
-                let destination_end = destination_start
+                let end = middle
                     .checked_add(byte_count)
                     .ok_or(StorageError::ShapeOverflow)?;
-                let bytes = &mut destination.bytes;
-                bytes
-                    .get_mut(destination_start..destination_end)
+                destination
+                    .bytes
+                    .get(start..end)
                     .ok_or(StorageError::InvalidLayout)?;
-                if source_end > bytes.len() {
-                    return Err(StorageError::InvalidLayout);
-                }
-                bytes.copy_within(source_start..source_end, destination_start);
+                destination.bytes.copy_within(start..middle, middle);
             }
         }
         Ok(())
@@ -3619,6 +3638,58 @@ impl View {
     }
 
     pub fn snapshot_float32(&self) -> Result<Vec<f32>, StorageError> {
+        if self.dtype != DType::Float32 {
+            return Err(StorageError::DTypeMismatch);
+        }
+        if self.byte_order.is_native() && self.is_c_contiguous() {
+            let size = self.size()?;
+            let mut values = Vec::new();
+            values
+                .try_reserve_exact(size)
+                .map_err(|_| StorageError::AllocationFailed)?;
+            if size == 0 {
+                return Ok(values);
+            }
+
+            let itemsize = DType::Float32.itemsize();
+            let signed_itemsize =
+                isize::try_from(itemsize).map_err(|_| StorageError::ShapeOverflow)?;
+            if self.offset < 0 || self.offset % signed_itemsize != 0 {
+                return Err(StorageError::InvalidLayout);
+            }
+            let start = usize::try_from(self.offset / signed_itemsize)
+                .map_err(|_| StorageError::InvalidLayout)?;
+            let end = start.checked_add(size).ok_or(StorageError::ShapeOverflow)?;
+            if end > self.allocation_len {
+                return Err(StorageError::InvalidLayout);
+            }
+            let start_bytes = start
+                .checked_mul(itemsize)
+                .ok_or(StorageError::ShapeOverflow)?;
+            let byte_count = size
+                .checked_mul(itemsize)
+                .ok_or(StorageError::ShapeOverflow)?;
+            let end_bytes = start_bytes
+                .checked_add(byte_count)
+                .ok_or(StorageError::ShapeOverflow)?;
+            let storage = self
+                .storage
+                .read()
+                .map_err(|_| StorageError::LockPoisoned)?;
+            let bytes = storage
+                .bytes
+                .get(start_bytes..end_bytes)
+                .ok_or(StorageError::InvalidLayout)?;
+            values.extend(
+                bytes
+                    .chunks_exact(itemsize)
+                    .map(|chunk| f32::from_ne_bytes([chunk[0], chunk[1], chunk[2], chunk[3]])),
+            );
+            if values.len() != size {
+                return Err(StorageError::InvalidLayout);
+            }
+            return Ok(values);
+        }
         self.snapshot_typed(DType::Float32, |bytes, order| {
             Ok(f32::from_bits(read_unsigned(bytes, order)? as u32))
         })
@@ -4726,6 +4797,37 @@ mod tests {
         );
         assert_eq!(floats.snapshot_float32().unwrap(), [1.25, -2.5, 0.0, 4.0]);
 
+        let values = [
+            Scalar::Float32(1.25),
+            Scalar::Float32(-2.5),
+            Scalar::Float32(0.0),
+            Scalar::Float32(4.0),
+        ];
+        let floats_fortran = View::from_values_with_layout(
+            DType::Float32,
+            ByteOrder::Native,
+            vec![2, 2],
+            &values,
+            true,
+        )
+        .unwrap();
+        assert_eq!(
+            floats_fortran.snapshot_float32().unwrap(),
+            [1.25, -2.5, 0.0, 4.0]
+        );
+        let non_native_order = if cfg!(target_endian = "little") {
+            ByteOrder::Big
+        } else {
+            ByteOrder::Little
+        };
+        let swapped_floats =
+            View::from_values_with_order(DType::Float32, non_native_order, vec![2, 2], &values)
+                .unwrap();
+        assert_eq!(
+            swapped_floats.snapshot_float32().unwrap(),
+            [1.25, -2.5, 0.0, 4.0]
+        );
+
         let integers = View::from_int64_values(vec![2, 2], &[i64::MIN, -1, 0, i64::MAX]).unwrap();
         assert_eq!(integers.dtype(), DType::Int64);
         assert!(integers.is_c_contiguous());
@@ -4825,6 +4927,21 @@ mod tests {
                 .snapshot_int32()
                 .unwrap(),
             [9, 7, 2, 8, 3, 1]
+        );
+
+        let repeated_f_rows = View::from_int32_values_with_layout(
+            vec![4, 3],
+            &[9, 2, 7, 5, 3, 1, 9, 2, 7, 5, 3, 1],
+            true,
+        )
+        .unwrap();
+        assert_eq!(
+            repeated_f_rows
+                .sort_int32(Some(1), false)
+                .unwrap()
+                .snapshot_int32()
+                .unwrap(),
+            [2, 7, 9, 1, 3, 5, 2, 7, 9, 1, 3, 5]
         );
 
         let flattened = f_order.sort_int32(None, false).unwrap();
