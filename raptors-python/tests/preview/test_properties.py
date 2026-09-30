@@ -107,3 +107,20 @@ def test_generated_composed_numeric_operation_sequence(values, step, replacement
         expected_view[0] = int64_values[-1]
         actual_view[0] = int64_values[-1]
     assert_array_matches(expected_view, actual_view)
+
+    # Exercise a 0.3 ufunc on the surviving strided view, then feed that
+    # result through 0.4 ordering and reduction routines after its owner dies.
+    expected_mapped = np.add(expected_view, 0)
+    actual_mapped = raptors.add(actual_view, 0)
+    assert_array_matches(expected_mapped, actual_mapped)
+
+    expected_assembled = np.concatenate((expected_mapped, expected_mapped[::-1]))
+    actual_assembled = raptors.concatenate((actual_mapped, actual_mapped[::-1]))
+    assert_array_matches(expected_assembled, actual_assembled)
+
+    expected_ordered = np.sort(expected_assembled, axis=-1)
+    actual_ordered = raptors.sort(actual_assembled, axis=-1)
+    assert_array_matches(expected_ordered, actual_ordered)
+    assert int(np.sum(expected_ordered, dtype=np.int64)) == int(
+        raptors.sum(actual_ordered, dtype=raptors.int64)
+    )
