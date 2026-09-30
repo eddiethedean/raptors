@@ -170,6 +170,22 @@
       ],
       "behavior": "Top-level sort/argsort inspect axis=-1, and std/var/nanstd/nanvar inspect the integer ddof=0 default; omitted and explicit ddof=1 calls match NumPy. The 28 top-level entries remain signature mismatches due to the documented defaults."
     },
+    "signature_default_hosted_ci": {
+      "status": "passed",
+      "run_id": 36703846613,
+      "run_url": "https://github.com/eddiethedean/raptors/actions/runs/36703846613",
+      "commit": "358da8fc7078c7c5cf58ee9330249d266ac46a62",
+      "passed_jobs": [
+        "Safe storage and binding Rust checks",
+        "AddressSanitizer storage tests",
+        "Miri storage and view tests",
+        "Verify pinned NumPy API inventory",
+        "Verify README release stats",
+        "CPython 3.12 preview tests",
+        "CPython 3.13 preview tests",
+        "CPython 3.14 preview tests"
+      ]
+    },
     "contiguous_float32_snapshot_and_fortran_int32_sort": {
       "status": "passed_locally",
       "candidate_commit": "50842d56b59893b663dc87e57e44f43484343ede",
