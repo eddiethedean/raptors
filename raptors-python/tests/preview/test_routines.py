@@ -2172,6 +2172,196 @@ def test_phase_04_broadcast_and_diagonal_views_retain_their_owner():
         broadcast[0, 0] = 100
 
 
+def test_phase_04_view_family_alias_and_owner_lifetime_matrix():
+    values_3d = np.arange(24, dtype=np.int32).reshape(2, 3, 4)
+    values_2d = np.arange(12, dtype=np.int32).reshape(3, 4)
+    values_1d = np.arange(3, dtype=np.int32)
+    singleton_values = np.arange(24, dtype=np.int32).reshape(1, 2, 3, 4)
+    broadcast_values = np.arange(12, dtype=np.int32).reshape(1, 3, 4)
+    broadcast_axes_values = np.arange(8, dtype=np.int32).reshape(2, 1, 4)
+    broadcast_axes_other = np.arange(3, dtype=np.int32).reshape(1, 3, 1)
+    cases = [
+        (
+            "reshape",
+            values_3d,
+            lambda value: raptors.reshape(value, (4, 6)),
+            lambda value: np.reshape(value, (4, 6)),
+            False,
+        ),
+        ("ravel", values_3d, raptors.ravel, np.ravel, False),
+        ("transpose", values_3d, raptors.transpose, np.transpose, False),
+        (
+            "swapaxes",
+            values_3d,
+            lambda value: raptors.swapaxes(value, 0, 2),
+            lambda value: np.swapaxes(value, 0, 2),
+            False,
+        ),
+        (
+            "ndarray.swapaxes",
+            values_3d,
+            lambda value: value.swapaxes(0, 2),
+            lambda value: value.swapaxes(0, 2),
+            False,
+        ),
+        (
+            "moveaxis",
+            values_3d,
+            lambda value: raptors.moveaxis(value, 0, 2),
+            lambda value: np.moveaxis(value, 0, 2),
+            False,
+        ),
+        (
+            "permute_dims",
+            values_3d,
+            lambda value: raptors.permute_dims(value, (2, 1, 0)),
+            lambda value: np.permute_dims(value, (2, 1, 0)),
+            False,
+        ),
+        (
+            "expand_dims",
+            values_3d,
+            lambda value: raptors.expand_dims(value, axis=1),
+            lambda value: np.expand_dims(value, axis=1),
+            False,
+        ),
+        (
+            "rollaxis",
+            values_3d,
+            lambda value: raptors.rollaxis(value, 2, start=0),
+            lambda value: np.rollaxis(value, 2, start=0),
+            False,
+        ),
+        (
+            "flip",
+            values_3d,
+            lambda value: raptors.flip(value, axis=(0, 2)),
+            lambda value: np.flip(value, axis=(0, 2)),
+            False,
+        ),
+        ("fliplr", values_3d, raptors.fliplr, np.fliplr, False),
+        ("flipud", values_3d, raptors.flipud, np.flipud, False),
+        ("atleast_1d", values_1d, raptors.atleast_1d, np.atleast_1d, False),
+        ("atleast_2d", values_1d, raptors.atleast_2d, np.atleast_2d, False),
+        ("atleast_3d", values_2d, raptors.atleast_3d, np.atleast_3d, False),
+        (
+            "ndarray.ravel",
+            values_3d,
+            lambda value: value.ravel(),
+            lambda value: value.ravel(),
+            False,
+        ),
+        (
+            "squeeze",
+            singleton_values,
+            raptors.squeeze,
+            np.squeeze,
+            False,
+        ),
+        (
+            "ndarray.squeeze",
+            singleton_values,
+            lambda value: value.squeeze(),
+            lambda value: value.squeeze(),
+            False,
+        ),
+        (
+            "diagonal",
+            values_2d,
+            raptors.diagonal,
+            np.diagonal,
+            True,
+        ),
+        ("diag", values_2d, raptors.diag, np.diag, True),
+        (
+            "ndarray.diagonal",
+            values_2d,
+            lambda value: value.diagonal(),
+            lambda value: value.diagonal(),
+            True,
+        ),
+        (
+            "broadcast_to",
+            broadcast_values,
+            lambda value: raptors.broadcast_to(value, (2, 3, 4)),
+            lambda value: np.broadcast_to(value, (2, 3, 4)),
+            True,
+        ),
+        (
+            "broadcast_arrays",
+            broadcast_axes_values,
+            lambda value: raptors.broadcast_arrays(
+                value,
+                raptors.array(broadcast_axes_other.tolist(), dtype=raptors.int32),
+            )[0],
+            lambda value: np.broadcast_arrays(value, broadcast_axes_other)[0],
+            False,
+        ),
+    ]
+
+    def assert_matches(name, expected, actual):
+        with warnings.catch_warnings():
+            warnings.filterwarnings(
+                "ignore",
+                category=FutureWarning,
+                message=r"future versions will not create a writeable array from broadcast_array\.",
+            )
+            try:
+                assert_array_matches(expected, actual)
+            except AssertionError as error:
+                raise AssertionError(f"{name}: {error}") from error
+
+    for name, values, make_actual, make_expected, readonly in cases:
+        expected_source = values.copy()
+        source = raptors.array(values.tolist(), dtype=raptors.int32)
+        actual = make_actual(source)
+        expected = make_expected(expected_source)
+        assert_matches(name, expected, actual)
+
+        first_index = (0,) * actual.ndim
+        if readonly:
+            with pytest.raises(ValueError, match="read-only"):
+                actual[first_index] = 99
+        else:
+            with warnings.catch_warnings(record=True) as expected_warnings:
+                warnings.simplefilter("always")
+                expected[first_index] = 99
+            with warnings.catch_warnings(record=True) as actual_warnings:
+                warnings.simplefilter("always")
+                actual[first_index] = 99
+            assert [
+                (type(item.message), str(item.message)) for item in actual_warnings
+            ] == [
+                (type(item.message), str(item.message)) for item in expected_warnings
+            ], name
+            assert_matches(name, expected_source, source)
+
+        del source
+        gc.collect()
+        assert_matches(name, expected, actual)
+
+
+def test_broadcast_arrays_overlapping_write_warning_precedes_mutation():
+    source_values = np.array([[0]], dtype=np.int32)
+    other_values = np.zeros((2, 2), dtype=np.int32)
+    reference = np.broadcast_arrays(source_values, other_values)[0]
+    candidate_source = raptors.array(source_values.tolist(), dtype=raptors.int32)
+    candidate_other = raptors.zeros((2, 2), dtype=raptors.int32)
+    candidate = raptors.broadcast_arrays(candidate_source, candidate_other)[0]
+
+    for target, source in ((reference, source_values), (candidate, candidate_source)):
+        with warnings.catch_warnings():
+            warnings.simplefilter("error", DeprecationWarning)
+            with pytest.raises(DeprecationWarning) as caught:
+                target[0, 0] = 7
+        assert str(caught.value) == (
+            "Numpy has detected that you (may be) writing to an array with\n"
+            "overlapping memory from np.broadcast_arrays. If this is intentional\n"
+            "set the WRITEABLE flag True or make a copy immediately before writing."
+        )
+        assert source[0, 0] == 0
+
+
 def test_phase_04_overlap_assignment_snapshots_source_and_copy_results_do_not_alias():
     expected = np.array([1, 2, 3, 4], dtype=np.int32)
     candidate = raptors.array(expected.tolist(), dtype=raptors.int32)

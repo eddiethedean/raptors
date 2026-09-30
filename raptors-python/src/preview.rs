@@ -6,8 +6,8 @@ mod routines;
 mod ufunc;
 use pyo3::basic::CompareOp;
 use pyo3::exceptions::{
-    PyIndexError, PyKeyError, PyMemoryError, PyOverflowError, PyRuntimeError, PyRuntimeWarning,
-    PyTypeError, PyValueError,
+    PyDeprecationWarning, PyIndexError, PyKeyError, PyMemoryError, PyOverflowError, PyRuntimeError,
+    PyRuntimeWarning, PyTypeError, PyValueError,
 };
 use pyo3::prelude::*;
 use pyo3::types::{
@@ -290,6 +290,27 @@ fn dtypes_equivalent(left: DType, right: DType) -> bool {
 struct PyArray {
     inner: View,
     scalar_alias: Option<ScalarAlias>,
+}
+
+fn warn_broadcast_array_overlap_write(py: Python<'_>, view: &View) -> PyResult<()> {
+    // Writable zero-stride layouts are how broadcast_arrays exposes overlapping results.
+    let overlaps = view.is_writeable()
+        && view
+            .shape()
+            .iter()
+            .zip(view.strides())
+            .any(|(&length, &stride)| length > 1 && stride == 0);
+    if overlaps {
+        let category = py.get_type::<PyDeprecationWarning>();
+        let message = CString::new(
+            "Numpy has detected that you (may be) writing to an array with\n\
+overlapping memory from np.broadcast_arrays. If this is intentional\n\
+set the WRITEABLE flag True or make a copy immediately before writing.",
+        )
+        .expect("broadcast overlap warning contains no NUL bytes");
+        PyErr::warn(py, &category, message.as_c_str(), 2)?;
+    }
+    Ok(())
 }
 
 #[pyclass(name = "ArrayFlags", frozen, module = "raptors")]
@@ -1201,6 +1222,7 @@ impl PyArray {
     }
     fn __setitem__(&self, key: &Bound<'_, PyAny>, value: &Bound<'_, PyAny>) -> PyResult<()> {
         let (indices, returns_scalar) = parse_indices(&self.inner, key)?;
+        warn_broadcast_array_overlap_write(value.py(), &self.inner)?;
         let advanced = indices.iter().any(|item| {
             matches!(
                 item,
