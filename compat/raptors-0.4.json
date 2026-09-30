@@ -73,7 +73,7 @@
   ],
   "known_limits": [
     "Inputs are numeric Raptors arrays and supported Python numeric values; third-party dispatch, like=, foreign buffers, and specialized dtype families are outside 0.4.",
-    "The original v1 ARM64 and Linux x86-64 workflow ratios are retained as historical reports, but v1 timed calls with tracemalloc enabled and are superseded for latency qualification. Candidate 6eb73b7 has corrected v2 reports on ARM64 and Linux x86-64: two of three workflows meet the median and confidence requirements on each host. Normalization meets the target on both, grouped counting only on ARM64, and assembly/reordering only on Linux; the 3-workflow gate remains open on both hosts.",
+    "The original v1 ARM64 and Linux x86-64 workflow ratios are retained as historical reports, but v1 timed calls with tracemalloc enabled and are superseded for latency qualification. Candidate a96c061 has corrected v2 reports on ARM64 and Linux x86-64: normalization and grouped counting meet the median and confidence requirements on each host, but assembly/transpose/order misses substantially on both. The 3-workflow gate remains open on both hosts.",
     "Native allocation profiling now covers 15 representative routine/layout cases spanning all seven Phase 0.4 families plus the three frozen workflows. It is not a per-entry profile of all 153 inventory entries; the process-wide allocator counters exclude Python allocations and require the separate opt-in profiling build."
   ],
   "evidence": {
@@ -499,6 +499,100 @@
         "CPython 3.12 preview tests",
         "CPython 3.13 preview tests",
         "CPython 3.14 preview tests"
+      ]
+    },
+    "latest_source_candidate": {
+      "status": "passed_locally_and_on_hosted_ci_release_gates_pending",
+      "candidate_commit": "a96c0619f9abcce1b2996aab8dd1d92323e5e8a2",
+      "implementation_changes": [
+        "Histogram density reproduces NumPy-compatible empty and zero-total normalization warnings while preserving the non-finite result values.",
+        "Weighted average and one-dimensional weighted histogram density use scaled complex division to avoid intermediate overflow for large finite values."
+      ],
+      "local_preview_suite": {
+        "command": "uv run --project raptors-python --extra dev --no-sync python -m pytest raptors-python/tests/preview -q",
+        "passed": 9989,
+        "skipped": 8,
+        "warnings": 1,
+        "warning_note": "One expected NumPy FutureWarning from the preview comparison suite."
+      },
+      "rust_storage_tests": "26 passed",
+      "static_checks": ["strict Clippy", "Ruff", "pinned API inventory", "generated README statistics"]
+    },
+    "hosted_ci_a96c061": {
+      "status": "passed",
+      "run_id": 36732747570,
+      "run_url": "https://github.com/eddiethedean/raptors/actions/runs/36732747570",
+      "candidate_commit": "a96c0619f9abcce1b2996aab8dd1d92323e5e8a2",
+      "passed_jobs": [
+        "Safe storage and binding Rust checks",
+        "AddressSanitizer storage tests",
+        "Miri storage and view tests",
+        "Verify pinned NumPy API inventory",
+        "Verify README release stats",
+        "CPython 3.12 preview tests",
+        "CPython 3.13 preview tests",
+        "CPython 3.14 preview tests"
+      ]
+    },
+    "cross_architecture_performance_v2_a96c061": {
+      "status": "completed_two_of_three_workflows_qualify_per_host_gate_failed",
+      "workflow": ".github/workflows/benchmark-0.4.yml",
+      "candidate_commit": "a96c0619f9abcce1b2996aab8dd1d92323e5e8a2",
+      "manifest": "docs/benchmarks/raptors-0.4-workloads-v2.json",
+      "arm64_report": "docs/benchmarks/raptors-0.4-current-v2-a96c061.json",
+      "arm64_host": "macOS 26.5.2 ARM64, CPython 3.14.3, release build",
+      "arm64_median_ratios": {
+        "column_normalization": 0.6330084034,
+        "grouped_count_and_histogram": 0.3852685479,
+        "assemble_transpose_and_order": 1.2206197183
+      },
+      "arm64_median_ratio_ci95": {
+        "column_normalization": [0.6130656552, 0.6434683781],
+        "grouped_count_and_histogram": [0.332, 0.4229717236],
+        "assemble_transpose_and_order": [1.0628565278, 1.4646060606]
+      },
+      "linux_run_id": 36732884813,
+      "linux_run_url": "https://github.com/eddiethedean/raptors/actions/runs/36732884813",
+      "linux_report": "docs/benchmarks/raptors-0.4-linux-x86_64-v2-a96c061.json",
+      "linux_host": "Linux 6.17 x86_64 with glibc 2.39, CPython 3.14.3",
+      "linux_median_ratios": {
+        "column_normalization": 0.5318167845,
+        "grouped_count_and_histogram": 0.6645497137,
+        "assemble_transpose_and_order": 1.5302139666
+      },
+      "linux_median_ratio_ci95": {
+        "column_normalization": [0.5242374084, 0.5420169509],
+        "grouped_count_and_histogram": [0.6221299365, 0.6781645503],
+        "assemble_transpose_and_order": [1.5092246614, 1.576299083]
+      },
+      "release_gate": "only_normalization_and_grouped_counting_qualify_on_both_architectures;_assembly_transpose_order_misses_on_both"
+    },
+    "cross_python_and_wheel_matrix_a96c061": {
+      "status": "passed_on_build_only_release_workflow",
+      "run_id": 36733112805,
+      "run_url": "https://github.com/eddiethedean/raptors/actions/runs/36733112805",
+      "candidate_commit": "a96c0619f9abcce1b2996aab8dd1d92323e5e8a2",
+      "stable_abi_wheel_targets": [
+        "linux-x86_64-manylinux2014",
+        "linux-x86_64-musllinux_1_2",
+        "linux-aarch64-manylinux_2_28",
+        "linux-aarch64-musllinux_1_2",
+        "macos-x86_64",
+        "macos-arm64",
+        "windows-x86_64",
+        "windows-arm64"
+      ],
+      "tested_cpython_versions": ["3.12", "3.13", "3.14"],
+      "publish_job": "skipped_for_workflow_dispatch_build_only_run",
+      "passed_jobs": [
+        "linux-x86_64-manylinux2014",
+        "linux-x86_64-musllinux_1_2",
+        "linux-aarch64-manylinux_2_28",
+        "linux-aarch64-musllinux_1_2",
+        "macos-x86_64",
+        "macos-arm64",
+        "windows-x86_64",
+        "windows-arm64"
       ]
     }
   }
