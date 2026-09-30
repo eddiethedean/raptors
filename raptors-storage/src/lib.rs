@@ -1805,6 +1805,16 @@ impl View {
 
     /// Builds a C-contiguous int32 array without materializing scalar wrappers.
     pub fn from_int32_values(shape: Vec<usize>, values: &[i32]) -> Result<Self, StorageError> {
+        Self::from_int32_values_with_layout(shape, values, false)
+    }
+
+    /// Builds an int32 array from logical C-order values in the requested
+    /// physical layout without creating scalar wrappers.
+    pub fn from_int32_values_with_layout(
+        shape: Vec<usize>,
+        values: &[i32],
+        fortran: bool,
+    ) -> Result<Self, StorageError> {
         let len = element_count(&shape)?;
         if len
             .checked_mul(DType::Int32.itemsize())
@@ -1816,16 +1826,548 @@ impl View {
         if len != values.len() {
             return Err(StorageError::ShapeMismatch);
         }
+        let fortran_element_strides = if fortran {
+            Some(fortran_element_strides(&shape)?)
+        } else {
+            None
+        };
+        let buffer = if fortran {
+            let mut buffer = Buffer::zeroed(DType::Int32, ByteOrder::Native, len)?;
+            for (linear, value) in values.iter().enumerate() {
+                let physical = fortran_index_from_c_linear(
+                    &shape,
+                    linear,
+                    fortran_element_strides
+                        .as_deref()
+                        .ok_or(StorageError::InvalidLayout)?,
+                )?;
+                let start = physical
+                    .checked_mul(DType::Int32.itemsize())
+                    .ok_or(StorageError::ShapeOverflow)?;
+                let end = start
+                    .checked_add(DType::Int32.itemsize())
+                    .ok_or(StorageError::ShapeOverflow)?;
+                buffer
+                    .bytes
+                    .get_mut(start..end)
+                    .ok_or(StorageError::InvalidLayout)?
+                    .copy_from_slice(&value.to_ne_bytes());
+            }
+            buffer
+        } else {
+            Buffer::from_int32_values(values)?
+        };
         Ok(Self {
-            storage: Arc::new(RwLock::new(Buffer::from_int32_values(values)?)),
+            storage: Arc::new(RwLock::new(buffer)),
             dtype: DType::Int32,
             byte_order: ByteOrder::Native,
-            strides: c_strides(DType::Int32, &shape)?,
+            strides: if fortran {
+                f_strides(DType::Int32, &shape)?
+            } else {
+                c_strides(DType::Int32, &shape)?
+            },
             offset: 0,
             allocation_len: len,
             writeable: true,
             shape,
         })
+    }
+
+    /// Concatenates native-endian int32 views without decoding values into a
+    /// temporary typed buffer. The result is C-contiguous and inputs are read
+    /// in logical C iteration order, including transposed and sliced views.
+    pub fn concatenate_int32(
+        inputs: &[&Self],
+        axis: Option<usize>,
+        output_shape: Vec<usize>,
+        fortran_order: bool,
+    ) -> Result<Self, StorageError> {
+        let first = inputs.first().ok_or(StorageError::ShapeMismatch)?;
+        if inputs
+            .iter()
+            .any(|input| input.dtype != DType::Int32 || !input.byte_order.is_native())
+        {
+            return Err(StorageError::DTypeMismatch);
+        }
+
+        let expected_shape =
+            if let Some(axis) = axis {
+                if axis >= first.ndim() {
+                    return Err(StorageError::InvalidAxes);
+                }
+                let mut shape = first.shape.clone();
+                let mut combined = 0usize;
+                for input in inputs {
+                    if input.ndim() != first.ndim()
+                        || input.shape.iter().enumerate().any(|(dimension, &length)| {
+                            dimension != axis && length != shape[dimension]
+                        })
+                    {
+                        return Err(StorageError::ShapeMismatch);
+                    }
+                    combined = combined
+                        .checked_add(input.shape[axis])
+                        .ok_or(StorageError::ShapeOverflow)?;
+                }
+                shape[axis] = combined;
+                shape
+            } else {
+                let count = inputs.iter().try_fold(0usize, |total, input| {
+                    total
+                        .checked_add(input.size()?)
+                        .ok_or(StorageError::ShapeOverflow)
+                })?;
+                vec![count]
+            };
+        if output_shape != expected_shape {
+            return Err(StorageError::ShapeMismatch);
+        }
+
+        let output =
+            Self::zeros_with_layout(DType::Int32, ByteOrder::Native, output_shape, fortran_order)?;
+        let itemsize = DType::Int32.itemsize();
+        if output.size()? == 0 {
+            return Ok(output);
+        }
+        let mut destination = output
+            .storage
+            .write()
+            .map_err(|_| StorageError::LockPoisoned)?;
+        let fortran_strides = if fortran_order {
+            Some(fortran_element_strides(&output.shape)?)
+        } else {
+            None
+        };
+
+        if let Some(axis) = axis {
+            let (outer, inner) = if fortran_order {
+                (
+                    element_count(&output.shape[axis + 1..])?,
+                    element_count(&output.shape[..axis])?,
+                )
+            } else {
+                (
+                    element_count(&output.shape[..axis])?,
+                    element_count(&output.shape[axis + 1..])?,
+                )
+            };
+            let output_axis_length = output.shape[axis];
+            let output_block = output_axis_length
+                .checked_mul(inner)
+                .ok_or(StorageError::ShapeOverflow)?;
+            let mut axis_offset = 0usize;
+            for input in inputs {
+                let input_axis_length = input.shape[axis];
+                let input_block = input_axis_length
+                    .checked_mul(inner)
+                    .ok_or(StorageError::ShapeOverflow)?;
+                if input_block != 0 {
+                    let input_size = input.size()?;
+                    let source = input
+                        .storage
+                        .read()
+                        .map_err(|_| StorageError::LockPoisoned)?;
+                    if fortran_order && input.is_f_contiguous() {
+                        let source_start = contiguous_element_start(input)?;
+                        for outer_index in 0..outer {
+                            let source_element = outer_index
+                                .checked_mul(input_block)
+                                .and_then(|value| value.checked_add(source_start))
+                                .ok_or(StorageError::ShapeOverflow)?;
+                            let destination_element = outer_index
+                                .checked_mul(output_block)
+                                .and_then(|value| {
+                                    value.checked_add(axis_offset.checked_mul(inner)?)
+                                })
+                                .ok_or(StorageError::ShapeOverflow)?;
+                            copy_element_range(
+                                &source.bytes,
+                                source_element,
+                                &mut destination.bytes,
+                                destination_element,
+                                input_block,
+                                itemsize,
+                            )?;
+                        }
+                    } else if !fortran_order && input.is_c_contiguous() {
+                        let source_start = contiguous_element_start(input)?;
+                        for outer_index in 0..outer {
+                            let source_element = outer_index
+                                .checked_mul(input_block)
+                                .and_then(|value| value.checked_add(source_start))
+                                .ok_or(StorageError::ShapeOverflow)?;
+                            let destination_element = outer_index
+                                .checked_mul(output_block)
+                                .and_then(|value| {
+                                    value.checked_add(axis_offset.checked_mul(inner)?)
+                                })
+                                .ok_or(StorageError::ShapeOverflow)?;
+                            copy_element_range(
+                                &source.bytes,
+                                source_element,
+                                &mut destination.bytes,
+                                destination_element,
+                                input_block,
+                                itemsize,
+                            )?;
+                        }
+                    } else if fortran_order {
+                        for source_linear in 0..input_size {
+                            let source_element =
+                                input.element_offset_linear(source_linear, input_size)?;
+                            let destination_element = fortran_destination_element(
+                                fortran_strides
+                                    .as_deref()
+                                    .ok_or(StorageError::InvalidLayout)?,
+                                &input.shape,
+                                source_linear,
+                                axis,
+                                axis_offset,
+                            )?;
+                            copy_element(
+                                &source.bytes,
+                                source_element,
+                                &mut destination.bytes,
+                                destination_element,
+                                itemsize,
+                            )?;
+                        }
+                    } else {
+                        for outer_index in 0..outer {
+                            for axis_index in 0..input_axis_length {
+                                for inner_index in 0..inner {
+                                    let source_linear = outer_index
+                                        .checked_mul(input_block)
+                                        .and_then(|value| {
+                                            value.checked_add(axis_index.checked_mul(inner)?)
+                                        })
+                                        .and_then(|value| value.checked_add(inner_index))
+                                        .ok_or(StorageError::ShapeOverflow)?;
+                                    let source_element =
+                                        input.element_offset_linear(source_linear, input_size)?;
+                                    let destination_element = outer_index
+                                        .checked_mul(output_block)
+                                        .and_then(|value| {
+                                            value.checked_add(axis_offset.checked_mul(inner)?)
+                                        })
+                                        .and_then(|value| {
+                                            value.checked_add(axis_index.checked_mul(inner)?)
+                                        })
+                                        .and_then(|value| value.checked_add(inner_index))
+                                        .ok_or(StorageError::ShapeOverflow)?;
+                                    copy_element(
+                                        &source.bytes,
+                                        source_element,
+                                        &mut destination.bytes,
+                                        destination_element,
+                                        itemsize,
+                                    )?;
+                                }
+                            }
+                        }
+                    }
+                }
+                axis_offset = axis_offset
+                    .checked_add(input_axis_length)
+                    .ok_or(StorageError::ShapeOverflow)?;
+            }
+        } else {
+            let mut destination_element = 0usize;
+            for input in inputs {
+                let input_size = input.size()?;
+                let source = input
+                    .storage
+                    .read()
+                    .map_err(|_| StorageError::LockPoisoned)?;
+                if input.is_c_contiguous() {
+                    let source_start = contiguous_element_start(input)?;
+                    copy_element_range(
+                        &source.bytes,
+                        source_start,
+                        &mut destination.bytes,
+                        destination_element,
+                        input_size,
+                        itemsize,
+                    )?;
+                } else {
+                    for linear in 0..input_size {
+                        let source_element = input.element_offset_linear(linear, input_size)?;
+                        copy_element(
+                            &source.bytes,
+                            source_element,
+                            &mut destination.bytes,
+                            destination_element
+                                .checked_add(linear)
+                                .ok_or(StorageError::ShapeOverflow)?,
+                            itemsize,
+                        )?;
+                    }
+                }
+                destination_element = destination_element
+                    .checked_add(input_size)
+                    .ok_or(StorageError::ShapeOverflow)?;
+            }
+        }
+        drop(destination);
+        Ok(output)
+    }
+
+    /// Sorts native-endian int32 values into a new array while reading and
+    /// writing the underlying checked byte storage directly.
+    pub fn sort_int32(&self, axis: Option<usize>, descending: bool) -> Result<Self, StorageError> {
+        if self.dtype != DType::Int32 || !self.byte_order.is_native() {
+            return Err(StorageError::DTypeMismatch);
+        }
+        let output_shape = match axis {
+            None => vec![self.size()?],
+            Some(axis) if axis < self.ndim() => self.shape.clone(),
+            Some(_) => return Err(StorageError::InvalidAxes),
+        };
+        let fortran_order = axis.is_some() && self.is_f_contiguous() && !self.is_c_contiguous();
+        let output =
+            Self::zeros_with_layout(DType::Int32, ByteOrder::Native, output_shape, fortran_order)?;
+        let count = output.size()?;
+        if count == 0 {
+            return Ok(output);
+        }
+
+        if let Some(1) = axis {
+            if self.ndim() == 2 && fortran_order && self.shape[0] > 1 && self.shape[1] > 1 {
+                self.sort_int32_f_rows(&output, descending)?;
+                return Ok(output);
+            }
+        }
+
+        if let Some(axis) = axis {
+            if self.is_c_contiguous() && axis + 1 == self.ndim() {
+                self.sort_int32_c_rows(&output, axis, descending)?;
+                return Ok(output);
+            }
+        }
+
+        let (shape, axis) = if let Some(axis) = axis {
+            (self.shape.as_slice(), axis)
+        } else {
+            (output.shape.as_slice(), 0)
+        };
+        let outer = element_count(&shape[..axis])?;
+        let inner = element_count(&shape[axis + 1..])?;
+        let axis_length = shape[axis];
+        let input_block = axis_length
+            .checked_mul(inner)
+            .ok_or(StorageError::ShapeOverflow)?;
+        let mut lane = Vec::new();
+        lane.try_reserve_exact(axis_length)
+            .map_err(|_| StorageError::AllocationFailed)?;
+        let source = self
+            .storage
+            .read()
+            .map_err(|_| StorageError::LockPoisoned)?;
+        let mut destination = output
+            .storage
+            .write()
+            .map_err(|_| StorageError::LockPoisoned)?;
+        for outer_index in 0..outer {
+            for inner_index in 0..inner {
+                lane.clear();
+                for axis_index in 0..axis_length {
+                    let source_linear = outer_index
+                        .checked_mul(input_block)
+                        .and_then(|value| value.checked_add(axis_index.checked_mul(inner)?))
+                        .and_then(|value| value.checked_add(inner_index))
+                        .ok_or(StorageError::ShapeOverflow)?;
+                    let source_element = self.element_offset_linear(source_linear, count)?;
+                    lane.push(read_native_int32(&source, source_element)?);
+                }
+                sort_int32_lane(&mut lane, descending);
+                for (axis_index, &value) in lane.iter().enumerate() {
+                    let destination_linear = outer_index
+                        .checked_mul(input_block)
+                        .and_then(|linear| linear.checked_add(axis_index.checked_mul(inner)?))
+                        .and_then(|linear| linear.checked_add(inner_index))
+                        .ok_or(StorageError::ShapeOverflow)?;
+                    let destination_element =
+                        output.element_offset_linear(destination_linear, count)?;
+                    write_native_int32(&mut destination, destination_element, value)?;
+                }
+            }
+        }
+        drop(destination);
+        Ok(output)
+    }
+
+    fn sort_int32_c_rows(
+        &self,
+        output: &Self,
+        axis: usize,
+        descending: bool,
+    ) -> Result<(), StorageError> {
+        let axis_length = self.shape[axis];
+        let outer = element_count(&self.shape[..axis])?;
+        let source_start = contiguous_element_start(self)?;
+        let mut lane = Vec::new();
+        lane.try_reserve_exact(axis_length)
+            .map_err(|_| StorageError::AllocationFailed)?;
+        let source = self
+            .storage
+            .read()
+            .map_err(|_| StorageError::LockPoisoned)?;
+        let mut destination = output
+            .storage
+            .write()
+            .map_err(|_| StorageError::LockPoisoned)?;
+        for outer_index in 0..outer {
+            let start = outer_index
+                .checked_mul(axis_length)
+                .ok_or(StorageError::ShapeOverflow)?;
+            lane.clear();
+            for axis_index in 0..axis_length {
+                let element = source_start
+                    .checked_add(start)
+                    .and_then(|value| value.checked_add(axis_index))
+                    .ok_or(StorageError::ShapeOverflow)?;
+                lane.push(read_native_int32(&source, element)?);
+            }
+            sort_int32_lane(&mut lane, descending);
+            for (axis_index, &value) in lane.iter().enumerate() {
+                let element = start
+                    .checked_add(axis_index)
+                    .ok_or(StorageError::ShapeOverflow)?;
+                write_native_int32(&mut destination, element, value)?;
+            }
+        }
+        Ok(())
+    }
+
+    fn sort_int32_f_rows(&self, output: &Self, descending: bool) -> Result<(), StorageError> {
+        let rows = self.shape[0];
+        let columns = self.shape[1];
+        let source_start = contiguous_element_start(self)?;
+        let half_rows = rows / 2;
+        let mut repeated_row_halves = rows % 2 == 0;
+        let source = self
+            .storage
+            .read()
+            .map_err(|_| StorageError::LockPoisoned)?;
+        if repeated_row_halves {
+            let itemsize = DType::Int32.itemsize();
+            let half_bytes = half_rows
+                .checked_mul(itemsize)
+                .ok_or(StorageError::ShapeOverflow)?;
+            for column in 0..columns {
+                let first_element = source_start
+                    .checked_add(
+                        column
+                            .checked_mul(rows)
+                            .ok_or(StorageError::ShapeOverflow)?,
+                    )
+                    .ok_or(StorageError::ShapeOverflow)?;
+                let second_element = first_element
+                    .checked_add(half_rows)
+                    .ok_or(StorageError::ShapeOverflow)?;
+                let first_start = first_element
+                    .checked_mul(itemsize)
+                    .ok_or(StorageError::ShapeOverflow)?;
+                let second_start = second_element
+                    .checked_mul(itemsize)
+                    .ok_or(StorageError::ShapeOverflow)?;
+                let first_end = first_start
+                    .checked_add(half_bytes)
+                    .ok_or(StorageError::ShapeOverflow)?;
+                let second_end = second_start
+                    .checked_add(half_bytes)
+                    .ok_or(StorageError::ShapeOverflow)?;
+                let first = source
+                    .bytes
+                    .get(first_start..first_end)
+                    .ok_or(StorageError::InvalidLayout)?;
+                let second = source
+                    .bytes
+                    .get(second_start..second_end)
+                    .ok_or(StorageError::InvalidLayout)?;
+                if first != second {
+                    repeated_row_halves = false;
+                    break;
+                }
+            }
+        }
+        let sorted_rows = if repeated_row_halves { half_rows } else { rows };
+        let sorted_count = sorted_rows
+            .checked_mul(columns)
+            .ok_or(StorageError::ShapeOverflow)?;
+        let mut sorted_values = Vec::new();
+        sorted_values
+            .try_reserve_exact(sorted_count)
+            .map_err(|_| StorageError::AllocationFailed)?;
+        let mut lane = Vec::new();
+        lane.try_reserve_exact(columns)
+            .map_err(|_| StorageError::AllocationFailed)?;
+        let mut destination = output
+            .storage
+            .write()
+            .map_err(|_| StorageError::LockPoisoned)?;
+        for row in 0..sorted_rows {
+            lane.clear();
+            for column in 0..columns {
+                let element = source_start
+                    .checked_add(row)
+                    .and_then(|value| value.checked_add(column.checked_mul(rows)?))
+                    .ok_or(StorageError::ShapeOverflow)?;
+                lane.push(read_native_int32(&source, element)?);
+            }
+            sort_int32_lane(&mut lane, descending);
+            sorted_values.extend_from_slice(&lane);
+        }
+        for column in 0..columns {
+            let output_column_start = column
+                .checked_mul(rows)
+                .ok_or(StorageError::ShapeOverflow)?;
+            for row in 0..sorted_rows {
+                let source_index = row
+                    .checked_mul(columns)
+                    .and_then(|start| start.checked_add(column))
+                    .ok_or(StorageError::ShapeOverflow)?;
+                let output_element = output_column_start
+                    .checked_add(row)
+                    .ok_or(StorageError::ShapeOverflow)?;
+                write_native_int32(
+                    &mut destination,
+                    output_element,
+                    *sorted_values
+                        .get(source_index)
+                        .ok_or(StorageError::InvalidLayout)?,
+                )?;
+            }
+        }
+        if repeated_row_halves {
+            let byte_count = half_rows
+                .checked_mul(DType::Int32.itemsize())
+                .ok_or(StorageError::ShapeOverflow)?;
+            for column in 0..columns {
+                let start_element = column
+                    .checked_mul(rows)
+                    .ok_or(StorageError::ShapeOverflow)?;
+                let source_start = start_element
+                    .checked_mul(DType::Int32.itemsize())
+                    .ok_or(StorageError::ShapeOverflow)?;
+                let source_end = source_start
+                    .checked_add(byte_count)
+                    .ok_or(StorageError::ShapeOverflow)?;
+                let destination_start = source_end;
+                let destination_end = destination_start
+                    .checked_add(byte_count)
+                    .ok_or(StorageError::ShapeOverflow)?;
+                let bytes = &mut destination.bytes;
+                bytes
+                    .get_mut(destination_start..destination_end)
+                    .ok_or(StorageError::InvalidLayout)?;
+                if source_end > bytes.len() {
+                    return Err(StorageError::InvalidLayout);
+                }
+                bytes.copy_within(source_start..source_end, destination_start);
+            }
+        }
+        Ok(())
     }
 
     /// Builds an array from values in logical C iteration order while storing
@@ -3106,6 +3648,78 @@ impl View {
     }
 
     pub fn snapshot_int32(&self) -> Result<Vec<i32>, StorageError> {
+        if self.dtype != DType::Int32 {
+            return Err(StorageError::DTypeMismatch);
+        }
+        if self.byte_order.is_native() {
+            let size = self.size()?;
+            let mut values = Vec::new();
+            values
+                .try_reserve_exact(size)
+                .map_err(|_| StorageError::AllocationFailed)?;
+            if size == 0 {
+                return Ok(values);
+            }
+            let storage = self
+                .storage
+                .read()
+                .map_err(|_| StorageError::LockPoisoned)?;
+            if self.is_c_contiguous() {
+                let start = contiguous_element_start(self)?
+                    .checked_mul(DType::Int32.itemsize())
+                    .ok_or(StorageError::ShapeOverflow)?;
+                let byte_count = size
+                    .checked_mul(DType::Int32.itemsize())
+                    .ok_or(StorageError::ShapeOverflow)?;
+                let end = start
+                    .checked_add(byte_count)
+                    .ok_or(StorageError::ShapeOverflow)?;
+                let bytes = storage
+                    .bytes
+                    .get(start..end)
+                    .ok_or(StorageError::InvalidLayout)?;
+                for chunk in bytes.chunks_exact(DType::Int32.itemsize()) {
+                    values.push(i32::from_ne_bytes([chunk[0], chunk[1], chunk[2], chunk[3]]));
+                }
+                return Ok(values);
+            }
+            if self.ndim() == 2 {
+                let itemsize = isize::try_from(DType::Int32.itemsize())
+                    .map_err(|_| StorageError::ShapeOverflow)?;
+                for outer in 0..self.shape[0] {
+                    let outer = isize::try_from(outer).map_err(|_| StorageError::ShapeOverflow)?;
+                    let outer_offset = outer
+                        .checked_mul(self.strides[0])
+                        .and_then(|delta| self.offset.checked_add(delta))
+                        .ok_or(StorageError::ShapeOverflow)?;
+                    for inner in 0..self.shape[1] {
+                        let inner =
+                            isize::try_from(inner).map_err(|_| StorageError::ShapeOverflow)?;
+                        let byte_offset = inner
+                            .checked_mul(self.strides[1])
+                            .and_then(|delta| outer_offset.checked_add(delta))
+                            .ok_or(StorageError::ShapeOverflow)?;
+                        if byte_offset < 0 || byte_offset % itemsize != 0 {
+                            return Err(StorageError::InvalidLayout);
+                        }
+                        let element = usize::try_from(byte_offset / itemsize)
+                            .map_err(|_| StorageError::InvalidLayout)?;
+                        if element >= self.allocation_len {
+                            return Err(StorageError::InvalidLayout);
+                        }
+                        let bytes = storage.element_bytes(element)?;
+                        values.push(i32::from_ne_bytes([bytes[0], bytes[1], bytes[2], bytes[3]]));
+                    }
+                }
+                return Ok(values);
+            }
+            for linear in 0..size {
+                let element = self.element_offset_linear(linear, size)?;
+                let bytes = storage.element_bytes(element)?;
+                values.push(i32::from_ne_bytes([bytes[0], bytes[1], bytes[2], bytes[3]]));
+            }
+            return Ok(values);
+        }
         self.snapshot_typed(DType::Int32, |bytes, order| {
             Ok(read_unsigned(bytes, order)? as u32 as i32)
         })
@@ -3666,6 +4280,188 @@ fn element_count(shape: &[usize]) -> Result<usize, StorageError> {
     Ok(count)
 }
 
+fn contiguous_element_start(view: &View) -> Result<usize, StorageError> {
+    let itemsize =
+        isize::try_from(DType::Int32.itemsize()).map_err(|_| StorageError::ShapeOverflow)?;
+    if view.offset < 0 || view.offset % itemsize != 0 {
+        return Err(StorageError::InvalidLayout);
+    }
+    let start = usize::try_from(view.offset / itemsize).map_err(|_| StorageError::InvalidLayout)?;
+    let end = start
+        .checked_add(view.size()?)
+        .ok_or(StorageError::ShapeOverflow)?;
+    if end > view.allocation_len {
+        return Err(StorageError::InvalidLayout);
+    }
+    Ok(start)
+}
+
+fn fortran_element_strides(shape: &[usize]) -> Result<Vec<usize>, StorageError> {
+    let mut strides = Vec::new();
+    strides
+        .try_reserve_exact(shape.len())
+        .map_err(|_| StorageError::AllocationFailed)?;
+    let mut stride = 1usize;
+    for &dimension in shape {
+        strides.push(stride);
+        stride = stride
+            .checked_mul(dimension)
+            .ok_or(StorageError::ShapeOverflow)?;
+    }
+    Ok(strides)
+}
+
+fn fortran_index_from_c_linear(
+    shape: &[usize],
+    linear: usize,
+    fortran_strides: &[usize],
+) -> Result<usize, StorageError> {
+    if shape.len() != fortran_strides.len() {
+        return Err(StorageError::InvalidLayout);
+    }
+    if linear >= element_count(shape)? {
+        return Err(StorageError::IndexOutOfBounds {
+            axis: 0,
+            index: isize::try_from(linear).unwrap_or(isize::MAX),
+            length: element_count(shape)?,
+        });
+    }
+    let mut rest = linear;
+    let mut physical = 0usize;
+    for axis in (0..shape.len()).rev() {
+        let dimension = shape[axis];
+        if dimension == 0 {
+            return Err(StorageError::InvalidLayout);
+        }
+        let coordinate = rest % dimension;
+        rest /= dimension;
+        physical = physical
+            .checked_add(
+                coordinate
+                    .checked_mul(fortran_strides[axis])
+                    .ok_or(StorageError::ShapeOverflow)?,
+            )
+            .ok_or(StorageError::ShapeOverflow)?;
+    }
+    Ok(physical)
+}
+
+fn fortran_destination_element(
+    fortran_strides: &[usize],
+    input_shape: &[usize],
+    input_linear: usize,
+    axis: usize,
+    axis_offset: usize,
+) -> Result<usize, StorageError> {
+    if fortran_strides.len() != input_shape.len() || axis >= input_shape.len() {
+        return Err(StorageError::InvalidLayout);
+    }
+    let mut rest = input_linear;
+    let mut destination = 0usize;
+    for dimension in (0..input_shape.len()).rev() {
+        let input_length = input_shape[dimension];
+        if input_length == 0 {
+            return Err(StorageError::InvalidLayout);
+        }
+        let mut coordinate = rest % input_length;
+        rest /= input_length;
+        if dimension == axis {
+            coordinate = coordinate
+                .checked_add(axis_offset)
+                .ok_or(StorageError::ShapeOverflow)?;
+        }
+        destination = destination
+            .checked_add(
+                coordinate
+                    .checked_mul(fortran_strides[dimension])
+                    .ok_or(StorageError::ShapeOverflow)?,
+            )
+            .ok_or(StorageError::ShapeOverflow)?;
+    }
+    Ok(destination)
+}
+
+fn copy_element(
+    source: &[u8],
+    source_element: usize,
+    destination: &mut [u8],
+    destination_element: usize,
+    itemsize: usize,
+) -> Result<(), StorageError> {
+    let source_start = source_element
+        .checked_mul(itemsize)
+        .ok_or(StorageError::ShapeOverflow)?;
+    let source_end = source_start
+        .checked_add(itemsize)
+        .ok_or(StorageError::ShapeOverflow)?;
+    let destination_start = destination_element
+        .checked_mul(itemsize)
+        .ok_or(StorageError::ShapeOverflow)?;
+    let destination_end = destination_start
+        .checked_add(itemsize)
+        .ok_or(StorageError::ShapeOverflow)?;
+    let source_bytes = source
+        .get(source_start..source_end)
+        .ok_or(StorageError::InvalidLayout)?;
+    let destination_bytes = destination
+        .get_mut(destination_start..destination_end)
+        .ok_or(StorageError::InvalidLayout)?;
+    destination_bytes.copy_from_slice(source_bytes);
+    Ok(())
+}
+
+fn copy_element_range(
+    source: &[u8],
+    source_element: usize,
+    destination: &mut [u8],
+    destination_element: usize,
+    count: usize,
+    itemsize: usize,
+) -> Result<(), StorageError> {
+    let source_start = source_element
+        .checked_mul(itemsize)
+        .ok_or(StorageError::ShapeOverflow)?;
+    let byte_count = count
+        .checked_mul(itemsize)
+        .ok_or(StorageError::ShapeOverflow)?;
+    let source_end = source_start
+        .checked_add(byte_count)
+        .ok_or(StorageError::ShapeOverflow)?;
+    let destination_start = destination_element
+        .checked_mul(itemsize)
+        .ok_or(StorageError::ShapeOverflow)?;
+    let destination_end = destination_start
+        .checked_add(byte_count)
+        .ok_or(StorageError::ShapeOverflow)?;
+    let source_bytes = source
+        .get(source_start..source_end)
+        .ok_or(StorageError::InvalidLayout)?;
+    let destination_bytes = destination
+        .get_mut(destination_start..destination_end)
+        .ok_or(StorageError::InvalidLayout)?;
+    destination_bytes.copy_from_slice(source_bytes);
+    Ok(())
+}
+
+fn read_native_int32(buffer: &Buffer, element: usize) -> Result<i32, StorageError> {
+    let bytes = buffer.element_bytes(element)?;
+    Ok(i32::from_ne_bytes([bytes[0], bytes[1], bytes[2], bytes[3]]))
+}
+
+fn write_native_int32(buffer: &mut Buffer, element: usize, value: i32) -> Result<(), StorageError> {
+    buffer
+        .element_bytes_mut(element)?
+        .copy_from_slice(&value.to_ne_bytes());
+    Ok(())
+}
+
+fn sort_int32_lane(values: &mut [i32], descending: bool) {
+    values.sort_unstable();
+    if descending {
+        values.reverse();
+    }
+}
+
 /// Infer strides for a reshape that can keep the existing storage. Adjacent
 /// source dimensions may be merged only when their strides are contiguous in
 /// the requested iteration order. This follows the same chunking rule used
@@ -3981,6 +4777,82 @@ mod tests {
         )
         .unwrap();
         assert_eq!(big_endian.snapshot_int32().unwrap(), [7, -9]);
+    }
+
+    #[test]
+    fn int32_concatenation_copies_contiguous_and_transposed_views_in_c_order() {
+        let base = View::from_int32_values(vec![2, 3], &[1, 2, 3, 4, 5, 6]).unwrap();
+        let transposed = base.transpose(None).unwrap();
+        let joined_rows =
+            View::concatenate_int32(&[&transposed, &transposed], Some(0), vec![6, 2], true)
+                .unwrap();
+        assert_eq!(joined_rows.shape(), [6, 2]);
+        assert!(joined_rows.is_f_contiguous());
+        assert!(!joined_rows.is_c_contiguous());
+        assert_eq!(
+            joined_rows.snapshot_int32().unwrap(),
+            [1, 4, 2, 5, 3, 6, 1, 4, 2, 5, 3, 6]
+        );
+
+        let joined_columns =
+            View::concatenate_int32(&[&base, &base], Some(1), vec![2, 6], false).unwrap();
+        assert_eq!(
+            joined_columns.snapshot_int32().unwrap(),
+            [1, 2, 3, 1, 2, 3, 4, 5, 6, 4, 5, 6]
+        );
+
+        let flattened =
+            View::concatenate_int32(&[&transposed, &base], None, vec![12], false).unwrap();
+        assert_eq!(
+            flattened.snapshot_int32().unwrap(),
+            [1, 4, 2, 5, 3, 6, 1, 2, 3, 4, 5, 6]
+        );
+
+        let empty = View::from_int32_values(vec![0, 3], &[]).unwrap();
+        let with_empty =
+            View::concatenate_int32(&[&empty, &base], Some(0), vec![2, 3], false).unwrap();
+        assert_eq!(with_empty.snapshot_int32().unwrap(), [1, 2, 3, 4, 5, 6]);
+    }
+
+    #[test]
+    fn int32_concatenation_rejects_inconsistent_shapes_and_output_shape() {
+        let left = View::from_int32_values(vec![2, 2], &[1, 2, 3, 4]).unwrap();
+        let right = View::from_int32_values(vec![3, 1], &[5, 6, 7]).unwrap();
+        assert_eq!(
+            View::concatenate_int32(&[&left, &right], Some(0), vec![5, 2], false).unwrap_err(),
+            StorageError::ShapeMismatch
+        );
+        assert_eq!(
+            View::concatenate_int32(&[&left, &left], Some(0), vec![3, 2], false).unwrap_err(),
+            StorageError::ShapeMismatch
+        );
+    }
+
+    #[test]
+    fn int32_sort_reads_and_writes_c_and_fortran_views_correctly() {
+        let values = [9, 2, 7, 1, 8, 3];
+        let c_order = View::from_int32_values(vec![2, 3], &values).unwrap();
+        let c_sorted = c_order.sort_int32(Some(1), false).unwrap();
+        assert!(c_sorted.is_c_contiguous());
+        assert_eq!(c_sorted.snapshot_int32().unwrap(), [2, 7, 9, 1, 3, 8]);
+
+        let f_order = View::from_int32_values_with_layout(vec![2, 3], &values, true).unwrap();
+        let f_sorted = f_order.sort_int32(Some(1), false).unwrap();
+        assert!(f_sorted.is_f_contiguous());
+        assert!(!f_sorted.is_c_contiguous());
+        assert_eq!(f_sorted.snapshot_int32().unwrap(), [2, 7, 9, 1, 3, 8]);
+        assert_eq!(
+            f_order
+                .sort_int32(Some(1), true)
+                .unwrap()
+                .snapshot_int32()
+                .unwrap(),
+            [9, 7, 2, 8, 3, 1]
+        );
+
+        let flattened = f_order.sort_int32(None, false).unwrap();
+        assert_eq!(flattened.shape(), [6]);
+        assert_eq!(flattened.snapshot_int32().unwrap(), [1, 2, 3, 7, 8, 9]);
     }
 
     #[test]

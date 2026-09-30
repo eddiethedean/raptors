@@ -83,14 +83,14 @@
     "focused_differential": {
       "command": "uv run --project raptors-python --extra dev --no-sync python -m pytest raptors-python/tests/preview/test_ufunc_differential.py raptors-python/tests/preview/test_routines.py -q",
       "status": "passed_locally",
-      "passed": 8941,
+      "passed": 8950,
       "skipped": 7,
       "warnings": 1
     },
     "full_python_regression": {
       "command": "uv run --project raptors-python --extra dev --no-sync python -m pytest raptors-python/tests/preview -q",
       "status": "passed_locally",
-      "passed": 9715,
+      "passed": 9724,
       "skipped": 8,
       "warnings": 1
     },
@@ -98,34 +98,40 @@
       "status": "passed_locally",
       "command": "cargo check --locked --offline -p raptors-python -p raptors-storage"
     },
-    "cargo_tests": {
-      "status": "passed_locally",
-      "command": "cargo test --locked --offline -p raptors-python -p raptors-storage",
-      "passed": 16,
-      "failed": 0
-    },
-    "cargo_workspace_tests": {
+  "cargo_tests": {
+    "status": "passed_locally",
+    "command": "cargo test --locked --offline -p raptors-python -p raptors-storage",
+    "passed": 19,
+    "failed": 0
+  },
+  "storage_miri": {
+    "status": "passed_locally",
+    "command": "cargo +nightly miri test --locked --offline -p raptors-storage -- --test-threads=1",
+    "passed": 18,
+    "failed": 0
+  },
+  "cargo_workspace_tests": {
       "status": "passed_serially_on_current_candidate",
       "command": "cargo test --locked --offline -- --test-threads=1",
       "parallel_rerun_anomaly": "One default-parallel workspace rerun exited with SIGTRAP in raptors-core einsum_test; the isolated target and three immediate default-parallel reruns passed."
     },
     "cross_python_and_wheel_matrix": "not_run",
-    "sanitizer_miri_and_alias_lifetime_gates": "not_run",
+  "sanitizer_miri_and_alias_lifetime_gates": "full_storage_crate_miri_passed_18_tests; extension_alias_lifetime_and_sanitizer_gates_pending",
     "preregistered_workflows": {
-      "status": "captured_post_semantic_compatibility_update_release_gate_pending",
+      "status": "captured_post_native_concatenate_and_sort_work_release_gate_pending",
       "report": "docs/benchmarks/raptors-0.4-current.json",
       "host": "macOS 26.5.2 ARM64, CPython 3.14.3, release build",
       "warmup_calls": 5,
       "timed_samples": 21,
       "median_ratios": {
-        "column_normalization": 0.9121304348,
-        "grouped_count_and_histogram": 0.3478372948,
-        "assemble_transpose_and_order": 2.6831741739
+        "column_normalization": 0.8876765499,
+        "grouped_count_and_histogram": 0.3603169681,
+        "assemble_transpose_and_order": 2.0664168394
       },
       "median_ratio_ci95": {
-        "column_normalization": [0.8867319415, 1.0],
-        "grouped_count_and_histogram": [0.3260065147, 0.3617184171],
-        "assemble_transpose_and_order": [2.3436328184, 3.0471304348]
+        "column_normalization": [0.8812437054, 0.8974834894],
+        "grouped_count_and_histogram": [0.3502128117, 0.3698146514],
+        "assemble_transpose_and_order": [2.0032621359, 2.1166400000]
       },
       "release_gate": "failed_one_of_three_workflows_meet_median_threshold; confirmation_host_and_common_operation_guardrail_pending"
     }

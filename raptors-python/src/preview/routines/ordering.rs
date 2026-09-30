@@ -20,6 +20,7 @@ fn sort(
 ) -> PyResult<PyArray> {
     validate_sort_options(kind, order, stable)?;
     let source = array(a, None, None, "K")?;
+    let fortran_order = source.inner.is_f_contiguous() && !source.inner.is_c_contiguous();
     if let Some(sorted) = sort_int32_fast(&source, axis, descending.unwrap_or(false))? {
         return Ok(sorted);
     }
@@ -30,7 +31,7 @@ fn sort(
             source.inner.byte_order(),
             shape,
             &values,
-            false,
+            fortran_order,
         )
         .map_err(map_storage_error)?,
         scalar_alias: source.scalar_alias,
@@ -47,104 +48,19 @@ fn sort_int32_fast(
     {
         return Ok(None);
     }
-    let (shape, axis) = match axis {
-        None => (vec![source.inner.size().map_err(map_storage_error)?], 0),
+    let axis = match axis {
+        None => None,
         Some(_) if source.inner.ndim() == 0 => return Ok(None),
-        Some(raw_axis) => {
-            let normalized = normalize_axis(raw_axis, source.inner.ndim())?;
-            (source.inner.shape().to_vec(), normalized)
-        }
+        Some(raw_axis) => Some(normalize_axis(raw_axis, source.inner.ndim())?),
     };
-    let count = checked_count(&shape, DType::Int32)?;
-    let source_values = source.inner.snapshot_int32().map_err(map_storage_error)?;
-    if source_values.len() != count {
-        return Ok(None);
-    }
-    let axis_length = shape[axis];
-    let outer = shape_product(&shape[..axis])?;
-    let inner = shape_product(&shape[axis + 1..])?;
-    let lane_size = axis_length
-        .checked_mul(inner)
-        .ok_or_else(|| PyValueError::new_err("array shape exceeds supported limits"))?;
-    let block_size = axis_length
-        .checked_mul(inner)
-        .ok_or_else(|| PyValueError::new_err("array shape exceeds supported limits"))?;
-    let repeated_row_halves = shape.len() == 2
-        && axis == 1
-        && shape[0] % 2 == 0
-        && source_values[..count / 2] == source_values[count / 2..];
-    let sorted_outer = if repeated_row_halves {
-        outer / 2
-    } else {
-        outer
-    };
-    if inner == 1 {
-        let mut values = source_values;
-        for row in 0..sorted_outer {
-            let start = row
-                .checked_mul(axis_length)
-                .ok_or_else(|| PyValueError::new_err("array shape exceeds supported limits"))?;
-            let end = start
-                .checked_add(axis_length)
-                .ok_or_else(|| PyValueError::new_err("array shape exceeds supported limits"))?;
-            let lane = values
-                .get_mut(start..end)
-                .ok_or_else(|| PyValueError::new_err("array shape exceeds supported limits"))?;
-            lane.sort_unstable();
-            if descending {
-                lane.reverse();
-            }
-        }
-        if repeated_row_halves {
-            values.copy_within(0..count / 2, count / 2);
-        }
-        let inner = View::from_int32_values(shape, &values).map_err(map_storage_error)?;
-        return Ok(Some(PyArray {
-            inner,
-            scalar_alias: source.scalar_alias,
-        }));
-    }
-    let mut values = vec![0_i32; count];
-    let mut lane = Vec::with_capacity(axis_length);
-    for outer_index in 0..sorted_outer {
-        let input_outer_start = outer_index
-            .checked_mul(block_size)
-            .ok_or_else(|| PyValueError::new_err("array shape exceeds supported limits"))?;
-        for inner_index in 0..inner {
-            lane.clear();
-            for axis_index in 0..axis_length {
-                let linear = input_outer_start + axis_index * inner + inner_index;
-                let Some(&value) = source_values.get(linear) else {
-                    return Ok(None);
-                };
-                lane.push(value);
-            }
-            lane.sort_unstable();
-            if descending {
-                lane.reverse();
-            }
-            let output_outer_start = outer_index * lane_size;
-            for (rank, &value) in lane.iter().enumerate() {
-                values[output_outer_start + rank * inner + inner_index] = value;
-            }
-        }
-    }
-    if repeated_row_halves {
-        values.copy_within(0..count / 2, count / 2);
-    }
-    let inner = View::from_int32_values(shape, &values).map_err(map_storage_error)?;
+    let inner = source
+        .inner
+        .sort_int32(axis, descending)
+        .map_err(map_storage_error)?;
     Ok(Some(PyArray {
         inner,
         scalar_alias: source.scalar_alias,
     }))
-}
-
-fn shape_product(shape: &[usize]) -> PyResult<usize> {
-    shape.iter().try_fold(1usize, |product, &dimension| {
-        product
-            .checked_mul(dimension)
-            .ok_or_else(|| PyValueError::new_err("array shape exceeds supported limits"))
-    })
 }
 
 #[pyfunction]

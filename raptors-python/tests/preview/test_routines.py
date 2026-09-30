@@ -202,6 +202,20 @@ def test_concatenate_matches_numpy(axis):
     assert_array_matches(np.concatenate([left, right], axis=axis), candidate)
 
 
+@pytest.mark.parametrize("axis", [0, 1, -1, None])
+def test_int32_concatenate_copies_transposed_inputs_in_logical_order(axis):
+    values = np.arange(24, dtype=np.int32).reshape(4, 6)
+    transposed = values.T
+    candidate_input = raptors.transpose(
+        raptors.array(values.tolist(), dtype=raptors.int32)
+    )
+    actual = raptors.concatenate([candidate_input, candidate_input], axis=axis)
+    expected = np.concatenate([transposed, transposed], axis=axis)
+    assert_array_matches(expected, actual)
+    assert actual.flags.c_contiguous == expected.flags.c_contiguous
+    assert actual.flags.f_contiguous == expected.flags.f_contiguous
+
+
 def test_concatenate_supports_alias_dtype_casting_and_out():
     values = [
         raptors.array([1, 2], dtype=raptors.int16),
@@ -896,6 +910,32 @@ def test_sort_and_argsort_match_numpy(axis):
     candidate = raptors.array(values.tolist(), dtype=raptors.int16)
     assert_array_matches(np.sort(values, axis=axis), raptors.sort(candidate, axis=axis))
     assert_array_matches(np.argsort(values, axis=axis), raptors.argsort(candidate, axis=axis))
+
+
+@pytest.mark.parametrize("name,np_dtype", [("int32", np.int32), ("int16", np.int16)])
+@pytest.mark.parametrize("axis", [0, 1])
+def test_sort_preserves_fortran_layout(name, np_dtype, axis):
+    values = np.asfortranarray(np.array([[9, 2, 7], [1, 8, 3]], dtype=np_dtype))
+    candidate = raptors.transpose(
+        raptors.array(values.T.tolist(), dtype=getattr(raptors, name))
+    )
+    expected = np.sort(values, axis=axis)
+    actual = raptors.sort(candidate, axis=axis)
+    assert_array_matches(expected, actual)
+    assert actual.flags.c_contiguous == expected.flags.c_contiguous
+    assert actual.flags.f_contiguous == expected.flags.f_contiguous
+
+
+def test_int32_sort_matches_numpy_for_negative_stride_input():
+    values = np.array([[9, 2, 7, 4], [1, 8, 3, 6], [5, 0, 11, 10]], dtype=np.int32)
+    reversed_values = np.flip(values, axis=1)
+    candidate = raptors.flip(
+        raptors.array(values.tolist(), dtype=raptors.int32), axis=1
+    )
+    assert_array_matches(
+        np.sort(reversed_values, axis=0),
+        raptors.sort(candidate, axis=0),
+    )
 
 
 def test_sort_and_argsort_support_descending_and_default_last_axis():
