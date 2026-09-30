@@ -1,4 +1,7 @@
 //! Bindings for the NumPy-independent 0.2 numeric array foundation.
+// ndarray methods preserve NumPy's public multi-option signatures.
+#![allow(clippy::too_many_arguments)]
+
 mod routines;
 mod ufunc;
 use pyo3::basic::CompareOp;

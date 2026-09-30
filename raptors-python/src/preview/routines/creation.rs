@@ -552,13 +552,7 @@ fn broadcast_shape(shapes: &[&[usize]]) -> PyResult<Vec<usize>> {
                     "operands could not be broadcast together",
                 ));
             }
-            output[axis] = if current == 1 {
-                dimension
-            } else if dimension == 1 {
-                current
-            } else {
-                current
-            };
+            output[axis] = if current == 1 { dimension } else { current };
         }
     }
     Ok(output)

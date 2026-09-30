@@ -2244,7 +2244,7 @@ impl View {
         let columns = self.shape[1];
         let source_start = contiguous_element_start(self)?;
         let half_rows = rows / 2;
-        let mut repeated_row_halves = rows % 2 == 0;
+        let mut repeated_row_halves = rows.is_multiple_of(2);
         let source = self
             .storage
             .read()
@@ -2615,8 +2615,7 @@ impl View {
                 rows.min(columns.saturating_sub(column_start)),
             )
         } else {
-            let row_start =
-                usize::try_from(offset.unsigned_abs()).map_err(|_| StorageError::ShapeOverflow)?;
+            let row_start = offset.unsigned_abs();
             (row_start, 0, rows.saturating_sub(row_start).min(columns))
         };
         let mut view_offset = self.offset;
@@ -3656,7 +3655,7 @@ impl View {
                     .bytes
                     .get(start..end)
                     .ok_or(StorageError::InvalidLayout)?;
-                for chunk in bytes.chunks_exact(DType::Int32.itemsize()) {
+                for chunk in bytes.as_chunks::<4>().0 {
                     values.push(i32::from_ne_bytes([chunk[0], chunk[1], chunk[2], chunk[3]]));
                 }
                 return Ok(values);
@@ -3743,11 +3742,11 @@ impl View {
             let row_start = row
                 .checked_mul(columns)
                 .ok_or(StorageError::ShapeOverflow)?;
-            for column in 0..columns {
+            for (column, sum) in sums.iter_mut().enumerate() {
                 let index = row_start
                     .checked_add(column)
                     .ok_or(StorageError::ShapeOverflow)?;
-                sums[column] += f64::from(values[index]);
+                *sum += f64::from(values[index]);
             }
         }
         let divisor = rows as f64;
@@ -3768,12 +3767,12 @@ impl View {
             let row_start = row
                 .checked_mul(columns)
                 .ok_or(StorageError::ShapeOverflow)?;
-            for column in 0..columns {
+            for (column, sum_square) in sum_squares.iter_mut().enumerate() {
                 let index = row_start
                     .checked_add(column)
                     .ok_or(StorageError::ShapeOverflow)?;
                 let difference = f64::from(values[index]) - sums[column];
-                sum_squares[column] += difference * difference;
+                *sum_square += difference * difference;
             }
         }
         let denominator = rows as f64 - ddof;

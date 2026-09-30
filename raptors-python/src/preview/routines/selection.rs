@@ -345,9 +345,8 @@ fn triangular(m: &Bound<'_, PyAny>, k: isize, upper: bool) -> PyResult<PyArray> 
     if source.inner.ndim() < 2 {
         return Err(PyValueError::new_err("input array must be at least 2-d"));
     }
-    let size = source.inner.size().map_err(map_storage_error)?;
     let mut values = source.inner.snapshot().map_err(map_storage_error)?;
-    for linear in 0..size {
+    for (linear, value) in values.iter_mut().enumerate() {
         let coordinates = coordinates_for_shape(source.inner.shape(), linear);
         let row = coordinates[coordinates.len() - 2] as isize;
         let column = coordinates[coordinates.len() - 1] as isize;
@@ -357,7 +356,7 @@ fn triangular(m: &Bound<'_, PyAny>, k: isize, upper: bool) -> PyResult<PyArray> 
             column - row <= k
         };
         if !keep {
-            values[linear] = Scalar::zero(source.inner.dtype());
+            *value = Scalar::zero(source.inner.dtype());
         }
     }
     Ok(PyArray {
@@ -696,7 +695,7 @@ fn select(
         array(default, None, Some(true), "K")?
     } else {
         let zero = PyInt::new(py, 0);
-        array(&zero.as_any(), None, Some(true), "K")?
+        array(zero.as_any(), None, Some(true), "K")?
     };
     let mut shapes = conditions
         .iter()
@@ -1139,34 +1138,28 @@ fn deletion_indices(py: Python<'_>, obj: &Bound<'_, PyAny>, length: usize) -> Py
         }
         return Ok(indices);
     }
-    let candidates = if obj.is_instance_of::<PyInt>() {
-        vec![array(obj, None, None, "K")?]
-    } else {
-        vec![array(obj, None, None, "K")?]
-    };
-    for candidate in candidates {
-        if !matches!(candidate.inner.dtype().kind(), "i" | "u") {
-            return Err(PyTypeError::new_err("index array must be integer"));
+    let candidate = array(obj, None, None, "K")?;
+    if !matches!(candidate.inner.dtype().kind(), "i" | "u") {
+        return Err(PyTypeError::new_err("index array must be integer"));
+    }
+    let size = candidate.inner.size().map_err(map_storage_error)?;
+    for linear in 0..size {
+        let value = candidate
+            .inner
+            .read_linear(linear)
+            .map_err(map_storage_error)?;
+        let index = scalar_index(&value)?;
+        let normalized = if index < 0 {
+            index.checked_add(
+                isize::try_from(length)
+                    .map_err(|_| PyValueError::new_err("array is too large for platform index"))?,
+            )
+        } else {
+            Some(index)
         }
-        let size = candidate.inner.size().map_err(map_storage_error)?;
-        for linear in 0..size {
-            let value = candidate
-                .inner
-                .read_linear(linear)
-                .map_err(map_storage_error)?;
-            let index = scalar_index(&value)?;
-            let normalized =
-                if index < 0 {
-                    index.checked_add(isize::try_from(length).map_err(|_| {
-                        PyValueError::new_err("array is too large for platform index")
-                    })?)
-                } else {
-                    Some(index)
-                }
-                .filter(|&index| index >= 0 && index < length as isize)
-                .ok_or_else(|| PyIndexError::new_err("index out of bounds"))?;
-            indices.push(normalized as usize);
-        }
+        .filter(|&index| index >= 0 && index < length as isize)
+        .ok_or_else(|| PyIndexError::new_err("index out of bounds"))?;
+        indices.push(normalized as usize);
     }
     let _ = py;
     Ok(indices)
@@ -1374,9 +1367,7 @@ fn scalar_index(value: &Scalar) -> PyResult<isize> {
         Scalar::Int32(value) => *value as i128,
         Scalar::UInt32(value) => *value as i128,
         Scalar::Int64(value) => *value as i128,
-        Scalar::UInt64(value) => {
-            i128::try_from(*value).map_err(|_| PyIndexError::new_err("index is out of bounds"))?
-        }
+        Scalar::UInt64(value) => i128::from(*value),
         _ => return Err(PyTypeError::new_err("indices must be integers")),
     };
     isize::try_from(value).map_err(|_| PyIndexError::new_err("index is out of bounds"))

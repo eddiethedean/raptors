@@ -1,4 +1,7 @@
 //! Numeric ordering, searching, set, and histogram routines.
+// The exposed unique and histogram APIs keep their multi-option NumPy signatures.
+#![allow(clippy::too_many_arguments)]
+
 use super::super::{array, default_byte_order, map_storage_error, scalar_to_python, PyArray};
 use super::stats::index_dtype;
 use super::{checked_count, coordinates_for_shape};
@@ -344,8 +347,8 @@ fn bincount(
     let index_values = indices.inner.snapshot().map_err(map_storage_error)?;
     let mut pairs = Vec::with_capacity(size);
     let mut max_index = None::<usize>;
-    for linear in 0..size {
-        let index = scalar_index(&index_values[linear])?;
+    for (linear, index_value) in index_values.iter().enumerate().take(size) {
+        let index = scalar_index(index_value)?;
         max_index = Some(max_index.map_or(index, |current| current.max(index)));
         pairs.push((index, linear));
     }
@@ -589,11 +592,11 @@ fn unique_axis(
     let count = checked_count(&output_shape, source.inner.dtype())?;
     let mut output_values = vec![Scalar::zero(source.inner.dtype()); count];
     for (unique_index, (record, _, _)) in unique_records.iter().enumerate() {
-        for linear in 0..record_size {
+        for (linear, value) in record.iter().enumerate().take(record_size) {
             let mut coordinates = coordinates_for_shape(&record_shape, linear);
             coordinates.insert(axis, unique_index);
             let output_linear = linear_for_shape(&output_shape, &coordinates)?;
-            output_values[output_linear] = record[linear].clone();
+            output_values[output_linear] = value.clone();
         }
     }
     let values = Py::new(
@@ -1278,8 +1281,8 @@ fn histogram_nd(
     for sample_index in 0..sample_count {
         let mut bin_coordinates = Vec::with_capacity(dimensions);
         let mut inside = true;
-        for dimension in 0..dimensions {
-            let value = &columns[dimension][sample_index];
+        for (dimension, column_values) in columns.iter().enumerate().take(dimensions) {
+            let value = &column_values[sample_index];
             let axis_edges = &edges[dimension];
             if value.is_nan()
                 || compare_scalar(value, &axis_edges[0]) == Ordering::Less
@@ -1333,7 +1336,7 @@ fn histogram_nd(
         }
     }
     if density {
-        for linear in 0..cell_count {
+        for (linear, count) in counts.iter_mut().enumerate().take(cell_count) {
             let coordinate = coordinates_for_shape(&shape, linear);
             let volume =
                 coordinate
@@ -1346,8 +1349,8 @@ fn histogram_nd(
                             .map_err(map_storage_error)?;
                         Ok::<_, PyErr>(volume * (high - low))
                     })?;
-            counts[linear] = Scalar::Float64(
-                counts[linear].as_f64().map_err(map_storage_error)? / (total_weight * volume),
+            *count = Scalar::Float64(
+                count.as_f64().map_err(map_storage_error)? / (total_weight * volume),
             );
         }
     }
@@ -1369,14 +1372,14 @@ fn histogram_nd(
             .collect::<PyResult<Vec<_>>>()?;
         let padded_count = checked_count(&padded_shape, result_dtype)?;
         let mut padded = vec![Scalar::zero(result_dtype); padded_count];
-        for linear in 0..cell_count {
+        for (linear, count) in counts.iter().enumerate().take(cell_count) {
             let coordinates = coordinates_for_shape(&shape, linear);
             let padded_coordinates = coordinates
                 .iter()
                 .map(|coordinate| coordinate + 1)
                 .collect::<Vec<_>>();
             let padded_linear = linear_for_shape(&padded_shape, &padded_coordinates)?;
-            padded[padded_linear] = counts[linear].clone();
+            padded[padded_linear] = count.clone();
         }
         let padded_view = View::from_values_with_layout(
             result_dtype,
@@ -1595,9 +1598,7 @@ fn scalar_index(value: &Scalar) -> PyResult<usize> {
         Scalar::Int32(value) => *value as i128,
         Scalar::UInt32(value) => *value as i128,
         Scalar::Int64(value) => *value as i128,
-        Scalar::UInt64(value) => {
-            i128::try_from(*value).map_err(|_| PyIndexError::new_err("index out of bounds"))?
-        }
+        Scalar::UInt64(value) => i128::from(*value),
         _ => return Err(PyTypeError::new_err("indices must be integers")),
     };
     usize::try_from(raw).map_err(|_| PyValueError::new_err("x must be non-negative"))
@@ -1795,7 +1796,7 @@ fn parse_kth(kth: &Bound<'_, PyAny>) -> PyResult<Vec<isize>> {
         return Ok(vec![value]);
     }
     kth.try_iter()?
-        .map(|item| item?.extract::<isize>().map_err(Into::into))
+        .map(|item| item?.extract::<isize>())
         .collect()
 }
 
@@ -1812,7 +1813,7 @@ fn parse_range(range: Option<&Bound<'_, PyAny>>) -> PyResult<Option<(f64, f64)>>
     };
     let values = range
         .try_iter()?
-        .map(|value| value?.extract::<f64>().map_err(Into::into))
+        .map(|value| value?.extract::<f64>())
         .collect::<PyResult<Vec<_>>>()?;
     if values.len() != 2
         || !values[0].is_finite()

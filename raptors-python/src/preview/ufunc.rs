@@ -2058,7 +2058,7 @@ fn call(
     let scalar_call = !operands.iter().any(|operand| operand.is_array);
     if nout == 1
         && mask_operand.is_none()
-        && out.as_ref().map_or(true, |value| value.is_none())
+        && out.as_ref().is_none_or(|value| value.is_none())
         && order == "K"
     {
         if outputs == [DType::Float32] {

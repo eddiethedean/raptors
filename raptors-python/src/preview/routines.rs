@@ -1,4 +1,7 @@
 //! Core numeric array constructors and routines introduced in phase 0.4.
+// The public bindings mirror NumPy's multi-option signatures.
+#![allow(clippy::too_many_arguments)]
+
 mod creation;
 mod ordering;
 mod selection;
@@ -76,10 +79,9 @@ fn arange(
     let explicit_dtype = dtype.map(parse_dtype_spec).transpose()?;
     let (result_dtype, byte_order, scalar_alias) = if let Some(parsed) = explicit_dtype {
         parsed
-    } else if start_int.is_some() && stop_int.is_some() && step_int.is_some() {
-        let start_value = start_int.expect("checked above");
-        let stop_value = stop_int.expect("checked above");
-        let step_value = step_int.expect("checked above");
+    } else if let (Some(start_value), Some(stop_value), Some(step_value)) =
+        (start_int, stop_int, step_int)
+    {
         let dtype = if [start_value, stop_value, step_value]
             .into_iter()
             .any(|value| value < i64::MIN as i128 || value > i64::MAX as i128)
@@ -1505,9 +1507,9 @@ fn shape_overflow() -> PyErr {
 
 fn zero_for<'py>(value: &Bound<'py, PyAny>) -> PyResult<Bound<'py, PyAny>> {
     let py = value.py();
-    Ok(PyModule::import(py, "builtins")?
+    PyModule::import(py, "builtins")?
         .getattr("int")?
-        .call1((0,))?)
+        .call1((0,))
 }
 
 fn python_integer(value: &Bound<'_, PyAny>) -> PyResult<Option<i128>> {

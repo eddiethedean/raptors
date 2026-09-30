@@ -1,4 +1,7 @@
 //! Descriptive numeric reductions and coordinate-returning routines.
+// The public reduction functions mirror NumPy's keyword-rich signatures.
+#![allow(clippy::too_many_arguments)]
+
 use super::super::{
     array, default_byte_order, map_storage_error, parse_dtype_spec, scalar_to_python,
     value_to_untyped_scalar, PyArray,
@@ -56,29 +59,29 @@ fn mean_impl(
     let reduction = Reduction::new(&source, axis, keepdims, mask.as_ref())?;
     let result_dtype = mean_dtype(source.inner.dtype(), dtype)?;
     let mut empty_slice_seen = false;
-    if !skip_nan
+    let fast_values = if !skip_nan
         && mask.is_none()
         && out.filter(|value| !value.is_none()).is_none()
         && dtype.filter(|value| !value.is_none()).is_none()
         && !keepdims
         && result_dtype == DType::Float32
+        && reduction.reduction_size > 0
     {
-        if reduction.reduction_size > 0 {
-            if let Some(fast_values) =
-                float32_axis0_statistics(&source, &reduction, 0.0, false, false)?
-            {
-                let inner = View::from_float32_values(reduction.output_shape.clone(), &fast_values)
-                    .map_err(map_storage_error)?;
-                return Ok(Py::new(
-                    py,
-                    PyArray {
-                        inner,
-                        scalar_alias: None,
-                    },
-                )?
-                .into_any());
-            }
-        }
+        float32_axis0_statistics(&source, &reduction, 0.0, false, false)?
+    } else {
+        None
+    };
+    if let Some(fast_values) = fast_values {
+        let inner = View::from_float32_values(reduction.output_shape.clone(), &fast_values)
+            .map_err(map_storage_error)?;
+        return Ok(Py::new(
+            py,
+            PyArray {
+                inner,
+                scalar_alias: None,
+            },
+        )?
+        .into_any());
     }
     let source_values = source.inner.snapshot().map_err(map_storage_error)?;
     let mut values = Vec::new();
@@ -192,7 +195,7 @@ fn variance_impl(
         validate_broadcast(mean.inner.shape(), source.inner.shape())?;
     }
     let result_dtype = variance_dtype(source.inner.dtype(), dtype)?;
-    if !skip_nan
+    let fast_values = if !skip_nan
         && mask.is_none()
         && supplied_mean.is_none()
         && out.filter(|value| !value.is_none()).is_none()
@@ -200,23 +203,24 @@ fn variance_impl(
         && !keepdims
         && result_dtype == DType::Float32
         && ddof.is_finite()
+        && reduction.reduction_size > 0
+        && ddof < reduction.reduction_size as f64
     {
-        if reduction.reduction_size > 0 && ddof < reduction.reduction_size as f64 {
-            if let Some(fast_values) =
-                float32_axis0_statistics(&source, &reduction, ddof, true, false)?
-            {
-                let inner = View::from_float32_values(reduction.output_shape.clone(), &fast_values)
-                    .map_err(map_storage_error)?;
-                return Ok(Py::new(
-                    py,
-                    PyArray {
-                        inner,
-                        scalar_alias: None,
-                    },
-                )?
-                .into_any());
-            }
-        }
+        float32_axis0_statistics(&source, &reduction, ddof, true, false)?
+    } else {
+        None
+    };
+    if let Some(fast_values) = fast_values {
+        let inner = View::from_float32_values(reduction.output_shape.clone(), &fast_values)
+            .map_err(map_storage_error)?;
+        return Ok(Py::new(
+            py,
+            PyArray {
+                inner,
+                scalar_alias: None,
+            },
+        )?
+        .into_any());
     }
     let source_values = source.inner.snapshot().map_err(map_storage_error)?;
     let supplied_mean_values = supplied_mean
@@ -249,7 +253,7 @@ fn variance_impl(
                     None
                 };
             if let Some(coordinates) = &input_coordinates {
-                if !selected(mask.as_ref(), &coordinates, source.inner.shape())? {
+                if !selected(mask.as_ref(), coordinates, source.inner.shape())? {
                     continue;
                 }
             }
@@ -317,12 +321,7 @@ fn variance_impl(
         } else {
             sum_squares / divisor
         };
-        let value = if result_dtype.kind() == "c" {
-            (variance, 0.0)
-        } else {
-            (variance, 0.0)
-        };
-        values.push(cast_stat(value, result_dtype)?);
+        values.push(cast_stat((variance, 0.0), result_dtype)?);
     }
     if degrees_of_freedom_seen {
         warn_runtime(
@@ -1374,9 +1373,9 @@ fn quantile_dtype(input: DType, method: &str) -> PyResult<DType> {
     if matches!(
         method,
         "inverted_cdf" | "closest_observation" | "lower" | "higher" | "nearest"
-    ) {
-        Ok(input)
-    } else if input.kind() == "c" || input == DType::LongDouble {
+    ) || input.kind() == "c"
+        || input == DType::LongDouble
+    {
         Ok(input)
     } else {
         Ok(DType::Float64)
@@ -1875,9 +1874,9 @@ impl Reduction {
     fn coordinates(&self, output_linear: usize) -> (Vec<usize>, Vec<usize>) {
         let output_coordinates = coordinates_for_shape(&self.output_shape, output_linear);
         let mut base = vec![0; self.input_shape.len()];
-        for axis in 0..base.len() {
-            if let Some(output_axis) = self.output_positions[axis] {
-                base[axis] = output_coordinates[output_axis];
+        for (axis, output_position) in self.output_positions.iter().enumerate() {
+            if let Some(output_axis) = output_position {
+                base[axis] = output_coordinates[*output_axis];
             }
         }
         (base, Vec::new())
@@ -2008,7 +2007,7 @@ fn parse_where_value(py: Python<'_>, value: &Bound<'_, PyAny>) -> PyResult<Optio
     if value.is_instance_of::<PyBool>() && value.is_truthy()? {
         return Ok(None);
     }
-    let source = array(&value, None, None, "K")?;
+    let source = array(value, None, None, "K")?;
     if source.inner.dtype() != DType::Bool {
         return Err(PyTypeError::new_err("where must be boolean"));
     }
