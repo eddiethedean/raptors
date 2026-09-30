@@ -4,7 +4,7 @@
 
 use super::super::{
     array, default_byte_order, map_storage_error, parse_dtype_spec, scalar_to_python,
-    value_to_untyped_scalar, PyArray,
+    value_to_untyped_scalar, warn_broadcast_array_overlap_write, PyArray,
 };
 use super::{where_kwargs, KeepdimsArg, WhereArg};
 use pyo3::exceptions::{
@@ -1294,6 +1294,7 @@ fn quantile_impl(
         }
     }
     if overwrite_input && source.inner.is_writeable() && !quantiles.is_empty() {
+        warn_broadcast_array_overlap_write(py, &source.inner)?;
         for output_linear in 0..reduction.output_size {
             let (base, reduced) = reduction.coordinates(output_linear);
             let mut destinations = Vec::new();
@@ -2306,6 +2307,7 @@ fn finish_reduction(
         let output = out
             .extract::<PyRef<'_, PyArray>>()
             .map_err(|_| PyTypeError::new_err("out must be a Raptors array"))?;
+        warn_broadcast_array_overlap_write(py, &output.inner)?;
         if output.inner.shape() != shape.as_slice() {
             return Err(PyValueError::new_err("output array has an incorrect shape"));
         }

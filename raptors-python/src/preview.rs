@@ -292,7 +292,7 @@ struct PyArray {
     scalar_alias: Option<ScalarAlias>,
 }
 
-fn warn_broadcast_array_overlap_write(py: Python<'_>, view: &View) -> PyResult<()> {
+pub(super) fn warn_broadcast_array_overlap_write(py: Python<'_>, view: &View) -> PyResult<()> {
     // Writable zero-stride layouts are how broadcast_arrays exposes overlapping results.
     let overlaps = view.is_writeable()
         && view
@@ -549,6 +549,7 @@ impl PyArray {
         stable: Option<bool>,
         descending: Option<bool>,
     ) -> PyResult<()> {
+        warn_broadcast_array_overlap_write(py, &self.inner)?;
         let kwargs = PyDict::new(py);
         kwargs.set_item("axis", axis)?;
         if let Some(kind) = kind {
@@ -610,6 +611,7 @@ impl PyArray {
         kind: &str,
         order: Option<&Bound<'_, PyAny>>,
     ) -> PyResult<()> {
+        warn_broadcast_array_overlap_write(py, &self.inner)?;
         let kwargs = PyDict::new(py);
         kwargs.set_item("axis", axis)?;
         kwargs.set_item("kind", kind)?;

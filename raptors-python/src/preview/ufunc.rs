@@ -1,6 +1,6 @@
 use super::{
     array, emit_complex_warning, map_storage_error, parse_dtype_spec, scalar_alias_from_value,
-    scalar_to_python, PyArray, ScalarAlias,
+    scalar_to_python, warn_broadcast_array_overlap_write, PyArray, ScalarAlias,
 };
 use pyo3::exceptions::{
     PyFloatingPointError, PyIndexError, PyLookupError, PyOverflowError, PyRuntimeError,
@@ -2191,11 +2191,11 @@ fn call(
                 cast_values.push(None);
                 continue;
             }
-            let view = item
+            let output = item
                 .extract::<PyRef<'_, PyArray>>()
-                .map_err(|_| PyTypeError::new_err("out entries must be Raptors arrays or None"))?
-                .inner
-                .clone();
+                .map_err(|_| PyTypeError::new_err("out entries must be Raptors arrays or None"))?;
+            warn_broadcast_array_overlap_write(py, &output.inner)?;
+            let view = output.inner.clone();
             if view.shape() != shape.as_slice() {
                 return Err(PyValueError::new_err("output array has an incorrect shape"));
             }
@@ -3249,6 +3249,7 @@ fn finish_single(
         let array = output
             .extract::<PyRef<'_, PyArray>>()
             .map_err(|_| PyTypeError::new_err("out must be a Raptors array"))?;
+        warn_broadcast_array_overlap_write(py, &array.inner)?;
         if !can_cast(dtype, array.inner.dtype(), CastingRule::SameKind) {
             return Err(PyTypeError::new_err(format!(
                 "cannot cast ufunc output from {} to {} with casting rule 'same_kind'",
@@ -3912,11 +3913,11 @@ fn outer(
     for index in 0..nout {
         let item = out_items.as_ref().map(|items| &items[index]);
         if let Some(item) = item.filter(|item| !item.is_none()) {
-            let view = item
+            let output = item
                 .extract::<PyRef<'_, PyArray>>()
-                .map_err(|_| PyTypeError::new_err("out entries must be Raptors arrays or None"))?
-                .inner
-                .clone();
+                .map_err(|_| PyTypeError::new_err("out entries must be Raptors arrays or None"))?;
+            warn_broadcast_array_overlap_write(py, &output.inner)?;
+            let view = output.inner.clone();
             if view.shape() != shape.as_slice() {
                 return Err(PyValueError::new_err("output array has an incorrect shape"));
             }

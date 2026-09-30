@@ -9,7 +9,7 @@ mod shape;
 mod stats;
 use super::{
     array, default_byte_order, map_storage_error, parse_dtype_spec, parse_shape,
-    value_to_untyped_scalar, PyArray, ScalarAlias,
+    value_to_untyped_scalar, warn_broadcast_array_overlap_write, PyArray, ScalarAlias,
 };
 use pyo3::exceptions::{PyMemoryError, PyOverflowError, PyTypeError, PyValueError};
 use pyo3::prelude::*;
@@ -1323,6 +1323,7 @@ fn concatenate_impl(
     let output = out
         .extract::<PyRef<'_, PyArray>>()
         .map_err(|_| PyTypeError::new_err("out must be a Raptors array"))?;
+    warn_broadcast_array_overlap_write(py, &output.inner)?;
     if output.inner.shape() != shape.as_slice() {
         return Err(PyValueError::new_err("output array has an incorrect shape"));
     }

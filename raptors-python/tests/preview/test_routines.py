@@ -2363,6 +2363,172 @@ def test_broadcast_arrays_overlapping_write_warning_precedes_mutation():
             assert source[0, 0] == 0
 
 
+@pytest.mark.parametrize(
+    "operation",
+    [
+        "copyto",
+        "put",
+        "putmask",
+        "place",
+        "fill_diagonal",
+        "put_along_axis",
+        "concatenate_out",
+        "stack_out",
+        "array_sort",
+        "array_partition",
+        "ufunc_out",
+        "take_out",
+        "compress_out",
+        "choose_out",
+        "sum_out",
+        "quantile_out",
+        "quantile_overwrite_input",
+        "ufunc_reduce_out",
+        "ufunc_accumulate_out",
+        "ufunc_reduceat_out",
+        "ufunc_outer_out",
+    ],
+)
+def test_broadcast_array_mutators_match_numpy_deprecation_warning(operation):
+    def make_array(library, values, dtype="int32"):
+        return library.array(values, dtype=getattr(library, dtype))
+
+    def broadcast_target(library, shape, dtype="int32"):
+        target = make_array(library, 1, dtype)
+        peer = library.zeros(shape, dtype=getattr(library, dtype))
+        return library.broadcast_arrays(target, peer)[0]
+
+    def call(library, target):
+        source = make_array(library, [[1, 2, 3], [4, 5, 6]])
+        if operation == "copyto":
+            library.copyto(target, 7)
+        elif operation == "put":
+            library.put(target, [0], [7])
+        elif operation == "putmask":
+            library.putmask(target, [[True] * 3] * 2, 7)
+        elif operation == "place":
+            library.place(target, [[True] * 3] * 2, [7])
+        elif operation == "fill_diagonal":
+            library.fill_diagonal(target, 7)
+        elif operation == "put_along_axis":
+            indices = make_array(library, [[0, 1, 2], [0, 1, 2]], "int64")
+            library.put_along_axis(target, indices, 7, axis=1)
+        elif operation == "concatenate_out":
+            output = broadcast_target(library, (4, 3))
+            library.concatenate((source, source), axis=0, out=output)
+        elif operation == "stack_out":
+            output = broadcast_target(library, (2, 2, 3))
+            library.stack((source, source), axis=0, out=output)
+        elif operation == "array_sort":
+            target.sort(axis=0)
+        elif operation == "array_partition":
+            target.partition(0, axis=0)
+        elif operation == "ufunc_out":
+            library.add(target, 1, out=target)
+        elif operation == "take_out":
+            library.take(source, [2, 1, 0], axis=1, out=target)
+        elif operation == "compress_out":
+            output = broadcast_target(library, (2, 2))
+            library.compress([True, False, True], source, axis=1, out=output)
+        elif operation == "choose_out":
+            indices = make_array(library, [[0, 1, 0], [1, 0, 1]], "int64")
+            library.choose(indices, [10, 20], out=target)
+        elif operation == "sum_out":
+            output = broadcast_target(library, (3,))
+            library.sum(source, axis=0, out=output)
+        elif operation == "quantile_out":
+            output = broadcast_target(library, (3,), "float64")
+            library.quantile(source, 0.5, axis=0, out=output)
+        elif operation == "quantile_overwrite_input":
+            floating = broadcast_target(library, (2, 3), "float64")
+            library.quantile(floating, 0.5, axis=0, overwrite_input=True)
+        elif operation == "ufunc_reduce_out":
+            output = broadcast_target(library, (3,))
+            library.add.reduce(source, axis=0, out=output)
+        elif operation == "ufunc_accumulate_out":
+            library.add.accumulate(source, axis=0, out=target)
+        elif operation == "ufunc_reduceat_out":
+            output = broadcast_target(library, (1, 3))
+            library.add.reduceat(source, [0], axis=0, out=output)
+        elif operation == "ufunc_outer_out":
+            library.add.outer([1, 2], [3, 4, 5], out=target)
+        else:
+            raise AssertionError(f"unknown mutation case: {operation}")
+
+    observed = []
+    for library in (np, raptors):
+        target_shape = (2, 3)
+        target = broadcast_target(library, target_shape)
+        with warnings.catch_warnings(record=True) as captured:
+            warnings.simplefilter("always")
+            call(library, target)
+        observed.append(
+            [
+                (type(item.message), str(item.message))
+                for item in captured
+                if issubclass(item.category, DeprecationWarning)
+            ]
+        )
+
+    assert observed[1] == observed[0], operation
+    assert len(observed[0]) == 1, operation
+
+
+@pytest.mark.parametrize(
+    "operation",
+    [
+        "copyto",
+        "putmask",
+        "put_along_axis",
+        "array_sort",
+        "ufunc_out",
+        "sum_out",
+        "concatenate_out",
+        "quantile_overwrite_input",
+    ],
+)
+def test_broadcast_array_write_warning_as_error_prevents_mutation(operation):
+    for library in (np, raptors):
+        dtype_name = "float64" if operation == "quantile_overwrite_input" else "int32"
+        dtype = getattr(library, dtype_name)
+        base = library.array([1], dtype=dtype)
+        shape = (2, 3)
+        if operation == "sum_out":
+            shape = (3,)
+        elif operation == "concatenate_out":
+            shape = (4, 3)
+        target = library.broadcast_arrays(
+            base,
+            library.zeros(shape, dtype=dtype),
+        )[0]
+        source = library.array([[1, 2, 3], [4, 5, 6]], dtype=dtype)
+
+        with warnings.catch_warnings():
+            warnings.simplefilter("error", DeprecationWarning)
+            with pytest.raises(DeprecationWarning):
+                if operation == "copyto":
+                    library.copyto(target, 7)
+                elif operation == "putmask":
+                    library.putmask(target, [[True] * 3] * 2, 7)
+                elif operation == "put_along_axis":
+                    indices = library.array([[0, 1, 2], [0, 1, 2]], dtype=getattr(library, "int64"))
+                    library.put_along_axis(target, indices, 7, axis=1)
+                elif operation == "array_sort":
+                    target.sort(axis=0)
+                elif operation == "ufunc_out":
+                    library.add(target, 1, out=target)
+                elif operation == "sum_out":
+                    library.sum(source, axis=0, out=target)
+                elif operation == "concatenate_out":
+                    library.concatenate((source, source), axis=0, out=target)
+                elif operation == "quantile_overwrite_input":
+                    library.quantile(target, 0.5, axis=0, overwrite_input=True)
+                else:
+                    raise AssertionError(f"unknown mutation case: {operation}")
+
+        assert base[0] == 1, operation
+
+
 def test_phase_04_overlap_assignment_snapshots_source_and_copy_results_do_not_alias():
     expected = np.array([1, 2, 3, 4], dtype=np.int32)
     candidate = raptors.array(expected.tolist(), dtype=raptors.int32)

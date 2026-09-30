@@ -1,5 +1,8 @@
 //! Numeric selection and mutation helpers with checked preflight.
-use super::super::{array, default_byte_order, map_storage_error, parse_array_axis_order, PyArray};
+use super::super::{
+    array, default_byte_order, map_storage_error, parse_array_axis_order,
+    warn_broadcast_array_overlap_write, PyArray,
+};
 use super::shape::normalize_axis;
 use super::{numeric_can_cast, parse_casting_rule, WhereArg};
 use pyo3::exceptions::{PyIndexError, PyMemoryError, PyTypeError, PyValueError};
@@ -107,6 +110,7 @@ fn copyto(
     let destination = dst
         .extract::<PyRef<'_, PyArray>>()
         .map_err(|_| PyTypeError::new_err("copyto destination must be a Raptors array"))?;
+    warn_broadcast_array_overlap_write(py, &destination.inner)?;
     let source = array(src, None, None, "K")?;
     let casting = parse_casting_rule(casting)?;
     if !numeric_can_cast(source.inner.dtype(), destination.inner.dtype(), casting) {
@@ -377,10 +381,16 @@ fn triangular(m: &Bound<'_, PyAny>, k: isize, upper: bool) -> PyResult<PyArray> 
 
 #[pyfunction]
 #[pyo3(signature = (a, val, wrap=false))]
-fn fill_diagonal(a: &Bound<'_, PyAny>, val: &Bound<'_, PyAny>, wrap: bool) -> PyResult<()> {
+fn fill_diagonal(
+    py: Python<'_>,
+    a: &Bound<'_, PyAny>,
+    val: &Bound<'_, PyAny>,
+    wrap: bool,
+) -> PyResult<()> {
     let destination = a
         .extract::<PyRef<'_, PyArray>>()
         .map_err(|_| PyTypeError::new_err("array must be a Raptors array"))?;
+    warn_broadcast_array_overlap_write(py, &destination.inner)?;
     let ndim = destination.inner.ndim();
     if ndim < 2 {
         return Err(PyValueError::new_err("array must be at least 2-d"));
@@ -453,6 +463,7 @@ fn fill_diagonal(a: &Bound<'_, PyAny>, val: &Bound<'_, PyAny>, wrap: bool) -> Py
 #[pyfunction]
 #[pyo3(signature = (a, ind, v, mode="raise"))]
 fn put(
+    py: Python<'_>,
     a: &Bound<'_, PyAny>,
     ind: &Bound<'_, PyAny>,
     v: &Bound<'_, PyAny>,
@@ -462,6 +473,7 @@ fn put(
     let destination = a
         .extract::<PyRef<'_, PyArray>>()
         .map_err(|_| PyTypeError::new_err("a must be a Raptors array"))?;
+    warn_broadcast_array_overlap_write(py, &destination.inner)?;
     let indices = array(ind, None, None, "K")?;
     ensure_integer_indices(&indices)?;
     let values = array(v, None, None, "K")?;
@@ -500,6 +512,7 @@ fn put(
 
 #[pyfunction]
 fn put_along_axis(
+    py: Python<'_>,
     arr: &Bound<'_, PyAny>,
     indices: &Bound<'_, PyAny>,
     values: &Bound<'_, PyAny>,
@@ -508,6 +521,7 @@ fn put_along_axis(
     let destination = arr
         .extract::<PyRef<'_, PyArray>>()
         .map_err(|_| PyTypeError::new_err("arr must be a Raptors array"))?;
+    warn_broadcast_array_overlap_write(py, &destination.inner)?;
     let indices = array(indices, None, None, "K")?;
     ensure_integer_indices(&indices)?;
     let values = array(values, None, None, "K")?;
@@ -1189,20 +1203,27 @@ fn deletion_indices(py: Python<'_>, obj: &Bound<'_, PyAny>, length: usize) -> Py
 #[pyfunction]
 #[pyo3(signature = (a, /, mask, values))]
 fn putmask(
+    py: Python<'_>,
     a: &Bound<'_, PyAny>,
     mask: &Bound<'_, PyAny>,
     values: &Bound<'_, PyAny>,
 ) -> PyResult<()> {
-    assign_masked(a, mask, values, true)
+    assign_masked(py, a, mask, values, true)
 }
 
 #[pyfunction]
 #[pyo3(signature = (arr, mask, vals))]
-fn place(arr: &Bound<'_, PyAny>, mask: &Bound<'_, PyAny>, vals: &Bound<'_, PyAny>) -> PyResult<()> {
-    assign_masked(arr, mask, vals, false)
+fn place(
+    py: Python<'_>,
+    arr: &Bound<'_, PyAny>,
+    mask: &Bound<'_, PyAny>,
+    vals: &Bound<'_, PyAny>,
+) -> PyResult<()> {
+    assign_masked(py, arr, mask, vals, false)
 }
 
 fn assign_masked(
+    py: Python<'_>,
     array_arg: &Bound<'_, PyAny>,
     mask_arg: &Bound<'_, PyAny>,
     values_arg: &Bound<'_, PyAny>,
@@ -1211,6 +1232,7 @@ fn assign_masked(
     let destination = array_arg
         .extract::<PyRef<'_, PyArray>>()
         .map_err(|_| PyTypeError::new_err("destination must be a Raptors array"))?;
+    warn_broadcast_array_overlap_write(py, &destination.inner)?;
     let mask = array(mask_arg, None, None, "K")?;
     if mask.inner.dtype() != DType::Bool {
         return Err(PyTypeError::new_err("mask must be a boolean array"));
@@ -1336,6 +1358,7 @@ fn finish_copy_result(
         let destination = out
             .extract::<PyRef<'_, PyArray>>()
             .map_err(|_| PyTypeError::new_err("out must be a Raptors array"))?;
+        warn_broadcast_array_overlap_write(py, &destination.inner)?;
         if destination.inner.shape() != shape.as_slice() {
             return Err(PyValueError::new_err("output array has an incorrect shape"));
         }

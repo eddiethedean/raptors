@@ -2445,50 +2445,74 @@ impl View {
                 }
             }
         }
-        let mut lane = Vec::new();
-        lane.try_reserve_exact(columns)
-            .map_err(|_| StorageError::AllocationFailed)?;
         let sorted_rows = if repeated_row_halves { half_rows } else { rows };
+        const ROW_TILE: usize = 16;
+        let lane_capacity = ROW_TILE
+            .min(sorted_rows)
+            .checked_mul(columns)
+            .ok_or(StorageError::ShapeOverflow)?;
+        let mut lanes = Vec::new();
+        lanes
+            .try_reserve_exact(lane_capacity)
+            .map_err(|_| StorageError::AllocationFailed)?;
         let mut destination = output
             .storage
             .write()
             .map_err(|_| StorageError::LockPoisoned)?;
-        for row in 0..sorted_rows {
-            let row_start = row
+        for first_row in (0..sorted_rows).step_by(ROW_TILE) {
+            let tile_rows = ROW_TILE.min(sorted_rows - first_row);
+            let lane_len = tile_rows
+                .checked_mul(columns)
+                .ok_or(StorageError::ShapeOverflow)?;
+            lanes.resize(lane_len, 0);
+            let row_start = first_row
                 .checked_mul(itemsize)
                 .ok_or(StorageError::ShapeOverflow)?;
-            let source_lane = source_bytes
-                .get(row_start..)
-                .ok_or(StorageError::InvalidLayout)?;
-            lane.clear();
-            for column_bytes in source_lane.chunks(column_stride_bytes).take(columns) {
-                let value_bytes = column_bytes
-                    .get(..itemsize)
+            let tile_byte_count = tile_rows
+                .checked_mul(itemsize)
+                .ok_or(StorageError::ShapeOverflow)?;
+            for column in 0..columns {
+                let column_start = column
+                    .checked_mul(column_stride_bytes)
+                    .and_then(|start| start.checked_add(row_start))
+                    .ok_or(StorageError::ShapeOverflow)?;
+                let column_end = column_start
+                    .checked_add(tile_byte_count)
+                    .ok_or(StorageError::ShapeOverflow)?;
+                let source_tile = source_bytes
+                    .get(column_start..column_end)
                     .ok_or(StorageError::InvalidLayout)?;
-                lane.push(i32::from_ne_bytes([
-                    value_bytes[0],
-                    value_bytes[1],
-                    value_bytes[2],
-                    value_bytes[3],
-                ]));
+                for (tile_row, value_bytes) in source_tile.chunks_exact(itemsize).enumerate() {
+                    lanes[tile_row * columns + column] = i32::from_ne_bytes([
+                        value_bytes[0],
+                        value_bytes[1],
+                        value_bytes[2],
+                        value_bytes[3],
+                    ]);
+                }
             }
-            if lane.len() != columns {
-                return Err(StorageError::InvalidLayout);
+            for tile_row in 0..tile_rows {
+                let lane_start = tile_row * columns;
+                let lane_end = lane_start + columns;
+                sort_int32_lane(&mut lanes[lane_start..lane_end], descending);
             }
-            sort_int32_lane(&mut lane, descending);
-            let destination_lane = destination
-                .bytes
-                .get_mut(row_start..total_bytes)
-                .ok_or(StorageError::InvalidLayout)?;
-            for (column_bytes, value) in destination_lane
-                .chunks_mut(column_stride_bytes)
-                .take(columns)
-                .zip(lane.iter().copied())
-            {
-                column_bytes
-                    .get_mut(..itemsize)
-                    .ok_or(StorageError::InvalidLayout)?
-                    .copy_from_slice(&value.to_ne_bytes());
+            for column in 0..columns {
+                let column_start = column
+                    .checked_mul(column_stride_bytes)
+                    .and_then(|start| start.checked_add(row_start))
+                    .ok_or(StorageError::ShapeOverflow)?;
+                let column_end = column_start
+                    .checked_add(tile_byte_count)
+                    .ok_or(StorageError::ShapeOverflow)?;
+                let destination_tile = destination
+                    .bytes
+                    .get_mut(column_start..column_end)
+                    .ok_or(StorageError::InvalidLayout)?;
+                for (tile_row, value_bytes) in
+                    destination_tile.chunks_exact_mut(itemsize).enumerate()
+                {
+                    value_bytes.copy_from_slice(&lanes[tile_row * columns + column].to_ne_bytes());
+                }
             }
         }
         if repeated_row_halves {
@@ -5767,6 +5791,53 @@ mod tests {
                 .unwrap(),
             descending
         );
+    }
+
+    #[test]
+    fn int32_sort_tiled_fortran_rows_match_both_directions_and_tail() {
+        for (rows, repeated_halves) in [(34, true), (35, false)] {
+            let columns = 13;
+            let values = (0..rows)
+                .flat_map(|row| {
+                    (0..columns).map(move |column| {
+                        let source_row = if repeated_halves {
+                            row % (rows / 2)
+                        } else {
+                            row
+                        };
+                        ((source_row * 31 + column * 17) % 97) as i32
+                    })
+                })
+                .collect::<Vec<_>>();
+            let source =
+                View::from_int32_values_with_layout(vec![rows, columns], &values, true).unwrap();
+
+            let mut ascending = values.clone();
+            for row in ascending.chunks_mut(columns) {
+                row.sort_unstable();
+            }
+            assert_eq!(
+                source
+                    .sort_int32(Some(1), false)
+                    .unwrap()
+                    .snapshot_int32()
+                    .unwrap(),
+                ascending
+            );
+
+            let mut descending = ascending;
+            for row in descending.chunks_mut(columns) {
+                row.reverse();
+            }
+            assert_eq!(
+                source
+                    .sort_int32(Some(1), true)
+                    .unwrap()
+                    .snapshot_int32()
+                    .unwrap(),
+                descending
+            );
+        }
     }
 
     #[test]
