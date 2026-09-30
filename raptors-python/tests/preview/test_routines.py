@@ -93,6 +93,10 @@ def test_phase_04_default_signatures_match_numpy():
         assert str(inspect.signature(getattr(raptors.Array, name))) == (
             "(self, kth, /, axis=-1, kind='introselect', order=None)"
         )
+    for name in ("std", "var"):
+        assert str(inspect.signature(getattr(raptors.Array, name))) == (
+            "(self, /, axis=None, dtype=None, out=None, ddof=0, **kwargs)"
+        )
 
 
 def test_phase_04_ndarray_positional_only_signatures_match_numpy():

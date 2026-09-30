@@ -808,7 +808,10 @@ impl PyArray {
         merge_array_method_kwargs(&kwargs, extras)?;
         call_array_api(py, "mean", self, &kwargs)
     }
-    #[pyo3(signature = (axis=None, dtype=None, out=None, ddof=0.0, **kwargs))]
+    #[pyo3(
+        signature = (axis=None, dtype=None, out=None, ddof=0.0, **kwargs),
+        text_signature = "(self, /, axis=None, dtype=None, out=None, ddof=0, **kwargs)"
+    )]
     fn var(
         &self,
         py: Python<'_>,
@@ -833,7 +836,10 @@ impl PyArray {
         merge_array_method_kwargs(&kwargs, extras)?;
         call_array_api(py, "var", self, &kwargs)
     }
-    #[pyo3(signature = (axis=None, dtype=None, out=None, ddof=0.0, **kwargs))]
+    #[pyo3(
+        signature = (axis=None, dtype=None, out=None, ddof=0.0, **kwargs),
+        text_signature = "(self, /, axis=None, dtype=None, out=None, ddof=0, **kwargs)"
+    )]
     fn std(
         &self,
         py: Python<'_>,
