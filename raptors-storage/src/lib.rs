@@ -4987,10 +4987,7 @@ mod tests {
             [1, 4, 2, 5, 3, 6, 1, 4, 2, 5, 3, 6]
         );
         joined_rows.write_at(&[0, 0], Scalar::Int32(99)).unwrap();
-        assert_eq!(
-            transposed.snapshot_int32().unwrap(),
-            [1, 4, 2, 5, 3, 6]
-        );
+        assert_eq!(transposed.snapshot_int32().unwrap(), [1, 4, 2, 5, 3, 6]);
 
         let tripled_rows = View::concatenate_int32(
             &[&transposed, &transposed, &transposed],
@@ -5001,9 +4998,7 @@ mod tests {
         .unwrap();
         assert_eq!(
             tripled_rows.snapshot_int32().unwrap(),
-            [
-                1, 4, 2, 5, 3, 6, 1, 4, 2, 5, 3, 6, 1, 4, 2, 5, 3, 6
-            ]
+            [1, 4, 2, 5, 3, 6, 1, 4, 2, 5, 3, 6, 1, 4, 2, 5, 3, 6]
         );
 
         let joined_columns =
