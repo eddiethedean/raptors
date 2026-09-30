@@ -1458,7 +1458,7 @@ fn complex_divide(left: (f64, f64), right: (f64, f64)) -> (f64, f64) {
 }
 
 #[pyfunction]
-#[pyo3(signature = (a, axis=None, out=None, keepdims=false))]
+#[pyo3(signature = (a, axis=None, out=None, *, keepdims=false))]
 fn argmin(
     py: Python<'_>,
     a: &Bound<'_, PyAny>,
@@ -1470,7 +1470,7 @@ fn argmin(
 }
 
 #[pyfunction]
-#[pyo3(signature = (a, axis=None, out=None, keepdims=false))]
+#[pyo3(signature = (a, axis=None, out=None, *, keepdims=false))]
 fn argmax(
     py: Python<'_>,
     a: &Bound<'_, PyAny>,
@@ -1482,7 +1482,7 @@ fn argmax(
 }
 
 #[pyfunction]
-#[pyo3(signature = (a, axis=None, out=None, keepdims=false))]
+#[pyo3(signature = (a, axis=None, out=None, *, keepdims=false))]
 fn nanargmin(
     py: Python<'_>,
     a: &Bound<'_, PyAny>,
@@ -1494,7 +1494,7 @@ fn nanargmin(
 }
 
 #[pyfunction]
-#[pyo3(signature = (a, axis=None, out=None, keepdims=false))]
+#[pyo3(signature = (a, axis=None, out=None, *, keepdims=false))]
 fn nanargmax(
     py: Python<'_>,
     a: &Bound<'_, PyAny>,

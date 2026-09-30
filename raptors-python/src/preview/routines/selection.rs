@@ -4,7 +4,7 @@ use super::shape::normalize_axis;
 use super::{numeric_can_cast, parse_casting_rule};
 use pyo3::exceptions::{PyIndexError, PyMemoryError, PyTypeError, PyValueError};
 use pyo3::prelude::*;
-use pyo3::types::{PyComplex, PyDict, PyFloat, PyInt, PyModule, PySlice, PyTuple};
+use pyo3::types::{PyBool, PyComplex, PyDict, PyFloat, PyInt, PyModule, PySlice, PyTuple};
 use pyo3::{Borrowed, FromPyObject};
 use raptors_storage::{DType, Scalar, View};
 
@@ -95,6 +95,7 @@ fn copy(a: &Bound<'_, PyAny>, order: &str, subok: bool) -> PyResult<PyArray> {
 #[pyfunction]
 #[pyo3(signature = (dst, src, casting="same_kind", **kwargs))]
 fn copyto(
+    py: Python<'_>,
     dst: &Bound<'_, PyAny>,
     src: &Bound<'_, PyAny>,
     casting: &str,
@@ -121,8 +122,14 @@ fn copyto(
         None
     };
     let mask = mask_arg
-        .filter(|value| !value.is_none())
-        .map(|value| array(&value, None, None, "K"))
+        .map(|value| {
+            if value.is_none() {
+                let false_value = PyBool::new(py, false);
+                array(false_value.as_any(), None, None, "K")
+            } else {
+                array(&value, None, None, "K")
+            }
+        })
         .transpose()?;
     if mask
         .as_ref()

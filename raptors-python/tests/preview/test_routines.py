@@ -73,6 +73,17 @@ def test_phase_04_ndarray_positional_only_signatures_match_numpy():
         assert str(inspect.signature(getattr(raptors.Array, name))) == signature
 
 
+def test_phase_04_arg_reduction_keepdims_is_keyword_only():
+    expected = {
+        "argmax": "(a, axis=None, out=None, *, keepdims=False)",
+        "argmin": "(a, axis=None, out=None, *, keepdims=False)",
+        "nanargmax": "(a, axis=None, out=None, *, keepdims=False)",
+        "nanargmin": "(a, axis=None, out=None, *, keepdims=False)",
+    }
+    for name, signature in expected.items():
+        assert str(inspect.signature(getattr(raptors, name))) == signature
+
+
 def test_histogram_density_none_matches_numpy_default():
     values = np.array([0.1, 0.2, 0.8, 0.9])
     expected = np.histogram(values, bins=2, density=None)
@@ -94,6 +105,21 @@ def test_histogram_bins_none_is_not_confused_with_the_default():
             reference(*args, bins=None)
         with pytest.raises(TypeError):
             candidate(*args, bins=None)
+
+
+def test_copyto_where_none_and_ndarray_reduction_masks_match_numpy():
+    values = np.array([True, False])
+    mask = np.array([False, True])
+    source = raptors.array(values.tolist(), dtype=raptors.bool_)
+    native_mask = raptors.array(mask.tolist(), dtype=raptors.bool_)
+    assert source.all(where=native_mask) == values.all(where=mask)
+    assert source.any(where=native_mask) == values.any(where=mask)
+
+    expected = np.zeros(2, dtype=np.int64)
+    np.copyto(expected, np.array([4, 5]), where=None)
+    actual = raptors.zeros(2, dtype=raptors.int64)
+    raptors.copyto(actual, raptors.array([4, 5], dtype=raptors.int64), where=None)
+    assert_array_matches(expected, actual)
 
 
 def test_reduction_where_call_forms_and_explicit_none_match_numpy():
