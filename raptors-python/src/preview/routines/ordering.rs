@@ -3,7 +3,7 @@
 #![allow(clippy::too_many_arguments)]
 
 use super::super::{array, default_byte_order, map_storage_error, scalar_to_python, PyArray};
-use super::stats::index_dtype;
+use super::stats::{index_dtype, warn_runtime};
 use super::{checked_count, coordinates_for_shape};
 use pyo3::exceptions::{PyIndexError, PyMemoryError, PyTypeError, PyValueError};
 use pyo3::prelude::*;
@@ -1066,11 +1066,25 @@ fn histogram(
                 .remove(0);
         }
         let total_weight = total_weight.as_complex().map_err(map_storage_error)?;
-        for (index, count) in counts.iter_mut().enumerate() {
+        let mut width_division_warnings = DensityDivisionWarnings::default();
+        let mut width_divided = Vec::with_capacity(counts.len());
+        for (index, count) in counts.iter().enumerate() {
             let width = edges[index + 1].as_f64().map_err(map_storage_error)?
                 - edges[index].as_f64().map_err(map_storage_error)?;
             let value = count.as_complex().map_err(map_storage_error)?;
-            let value = complex_divide((value.0 / width, value.1 / width), total_weight);
+            width_division_warnings.record(value, (width, 0.0));
+            width_divided.push((value.0 / width, value.1 / width));
+        }
+        width_division_warnings.emit(py)?;
+        let mut total_division_warnings = DensityDivisionWarnings::default();
+        for (index, count) in counts.iter_mut().enumerate() {
+            let value = width_divided[index];
+            if result_dtype.kind() == "c" {
+                total_division_warnings.record(value, total_weight);
+            } else {
+                total_division_warnings.record_real_division(value.0, total_weight.0);
+            }
+            let value = complex_divide(value, total_weight);
             *count = if result_dtype.kind() == "c" {
                 Scalar::Complex128(value.0, value.1)
                     .cast(result_dtype)
@@ -1081,6 +1095,7 @@ fn histogram(
                     .map_err(map_storage_error)?
             };
         }
+        total_division_warnings.emit(py)?;
     }
     let edge_values = edges
         .drain(..)
@@ -1130,11 +1145,55 @@ fn uniform_bin_width(edges: &[Scalar]) -> Option<f64> {
 }
 
 fn complex_divide(left: (f64, f64), right: (f64, f64)) -> (f64, f64) {
+    if right.0 == 0.0 && right.1 == 0.0 {
+        return (left.0 / right.0, left.1 / right.0);
+    }
     let denominator = right.0 * right.0 + right.1 * right.1;
     (
         (left.0 * right.0 + left.1 * right.1) / denominator,
         (left.1 * right.0 - left.0 * right.1) / denominator,
     )
+}
+
+#[derive(Default)]
+struct DensityDivisionWarnings {
+    divide_by_zero: bool,
+    invalid: bool,
+}
+
+impl DensityDivisionWarnings {
+    fn record_real_division(&mut self, numerator: f64, denominator: f64) {
+        if denominator == 0.0 {
+            if numerator == 0.0 {
+                self.invalid = true;
+            } else if numerator.is_finite() {
+                self.divide_by_zero = true;
+            }
+        } else if numerator.is_infinite() && denominator.is_infinite() {
+            self.invalid = true;
+        }
+    }
+
+    fn record(&mut self, numerator: (f64, f64), denominator: (f64, f64)) {
+        if denominator.0 == 0.0 && denominator.1 == 0.0 {
+            self.record_real_division(numerator.0, denominator.0);
+            self.record_real_division(numerator.1, denominator.0);
+        } else if (numerator.0.is_infinite() && denominator.0.is_infinite())
+            || (numerator.1.is_infinite() && denominator.1.is_infinite())
+        {
+            self.invalid = true;
+        }
+    }
+
+    fn emit(self, py: Python<'_>) -> PyResult<()> {
+        if self.divide_by_zero {
+            warn_runtime(py, "divide by zero encountered in divide")?;
+        }
+        if self.invalid {
+            warn_runtime(py, "invalid value encountered in divide")?;
+        }
+        Ok(())
+    }
 }
 
 fn histogram_sum_dtype(dtype: DType) -> DType {
@@ -1435,6 +1494,15 @@ fn histogram_nd(
         }
     }
     if density {
+        let mut total_division_warnings = DensityDivisionWarnings::default();
+        let mut total_divided = Vec::with_capacity(counts.len());
+        for count in &counts {
+            let value = count.as_f64().map_err(map_storage_error)?;
+            total_division_warnings.record_real_division(value, total_weight);
+            total_divided.push(value / total_weight);
+        }
+        total_division_warnings.emit(py)?;
+        let mut volume_division_warnings = DensityDivisionWarnings::default();
         for (linear, count) in counts.iter_mut().enumerate().take(cell_count) {
             let coordinate = coordinates_for_shape(&shape, linear);
             let volume =
@@ -1448,10 +1516,11 @@ fn histogram_nd(
                             .map_err(map_storage_error)?;
                         Ok::<_, PyErr>(volume * (high - low))
                     })?;
-            *count = Scalar::Float64(
-                count.as_f64().map_err(map_storage_error)? / (total_weight * volume),
-            );
+            let value = total_divided[linear];
+            volume_division_warnings.record_real_division(value, volume);
+            *count = Scalar::Float64(value / volume);
         }
+        volume_division_warnings.emit(py)?;
     }
     let counts_array = if density {
         make_array(

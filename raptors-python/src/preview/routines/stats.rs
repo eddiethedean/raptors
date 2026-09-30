@@ -2155,7 +2155,7 @@ fn nan_variance_kwargs<'py>(
     Ok(Some(kwargs))
 }
 
-fn warn_runtime(py: Python<'_>, message: &str) -> PyResult<()> {
+pub(super) fn warn_runtime(py: Python<'_>, message: &str) -> PyResult<()> {
     let category = py.get_type::<PyRuntimeWarning>();
     let message = CString::new(message).expect("runtime warning messages contain no NUL bytes");
     PyErr::warn(py, &category, message.as_c_str(), 2)

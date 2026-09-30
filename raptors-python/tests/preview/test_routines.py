@@ -1734,6 +1734,62 @@ def test_histogram_preserves_numpy_weight_dtypes(dtype, density):
     np.testing.assert_allclose(actual_counts, expected[0], rtol=2e-6, atol=1e-7)
 
 
+@pytest.mark.parametrize(
+    "weights, expected_warnings",
+    [
+        ([0.0, 0.0], [(RuntimeWarning, "invalid value encountered in divide")]),
+        ([1.0, -1.0], [(RuntimeWarning, "divide by zero encountered in divide")]),
+        (
+            [1.0 + 0.0j, -1.0 + 0.0j],
+            [
+                (RuntimeWarning, "divide by zero encountered in divide"),
+                (RuntimeWarning, "invalid value encountered in divide"),
+            ],
+        ),
+    ],
+)
+def test_histogram_zero_density_total_matches_numpy_warnings(weights, expected_warnings):
+    values = np.array([0.25, 0.75])
+    numpy_weights = np.asarray(weights)
+    expected, numpy_warnings = capture_warnings(
+        lambda: np.histogram(values, bins=2, range=(0, 1), weights=numpy_weights, density=True)
+    )
+    actual, actual_warnings = capture_warnings(
+        lambda: raptors.histogram(
+            raptors.array(values.tolist(), dtype=raptors.float64),
+            bins=2,
+            range=(0, 1),
+            weights=raptors.array(weights),
+            density=True,
+        )
+    )
+    assert numpy_warnings == expected_warnings
+    assert actual_warnings == numpy_warnings
+    if numpy_weights.dtype.kind == "c":
+        actual_values = np.array([complex(actual[0][index]) for index in range(2)])
+        np.testing.assert_allclose(actual_values, expected[0], equal_nan=True)
+    else:
+        assert_array_matches(expected[0], actual[0])
+    assert_array_matches(expected[1], actual[1])
+
+
+def test_empty_density_histograms_match_numpy_warnings():
+    expected, expected_warnings = capture_warnings(
+        lambda: np.histogram(np.array([]), bins=3, range=(0, 1), density=True)
+    )
+    actual, actual_warnings = capture_warnings(
+        lambda: raptors.histogram(
+            raptors.array([], dtype=raptors.float64),
+            bins=3,
+            range=(0, 1),
+            density=True,
+        )
+    )
+    assert actual_warnings == expected_warnings
+    assert_array_matches(expected[0], actual[0])
+    assert_array_matches(expected[1], actual[1])
+
+
 def test_histogram_rejects_mismatched_weight_shapes_and_multidimensional_complex_weights():
     values = np.array([[0, 1], [2, 3]], dtype=np.int64)
     candidate = raptors.array(values.tolist(), dtype=raptors.int64)
@@ -2214,6 +2270,26 @@ def test_multidimensional_histograms_match_numpy(density):
     assert_array_matches(expected_dd[0], actual_dd[0])
     for expected, actual in zip(expected_dd[1], actual_dd[1]):
         assert_array_matches(expected, actual)
+
+
+def test_empty_multidimensional_density_histograms_match_numpy_warnings():
+    samples = np.empty((0, 2), dtype=np.float64)
+    ranges = [(0, 1), (0, 1)]
+    expected, expected_warnings = capture_warnings(
+        lambda: np.histogramdd(samples, bins=2, range=ranges, density=True)
+    )
+    actual, actual_warnings = capture_warnings(
+        lambda: raptors.histogramdd(
+            raptors.array([], dtype=raptors.float64).reshape((0, 2)),
+            bins=2,
+            range=ranges,
+            density=True,
+        )
+    )
+    assert actual_warnings == expected_warnings
+    assert_array_matches(expected[0], actual[0])
+    for expected_edge, actual_edge in zip(expected[1], actual[1]):
+        assert_array_matches(expected_edge, actual_edge)
 
 
 @pytest.mark.parametrize(
