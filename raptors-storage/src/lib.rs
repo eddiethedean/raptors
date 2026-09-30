@@ -4216,26 +4216,27 @@ impl View {
         if input_bytes.len() != byte_count {
             return Err(StorageError::InvalidLayout);
         }
+        let (input_values, trailing_bytes) = input_bytes.as_chunks::<4>();
+        if !trailing_bytes.is_empty() {
+            return Err(StorageError::InvalidLayout);
+        }
 
         let mut needs_generic = false;
         let output = Self::from_float32_iter(
             self.shape.clone(),
-            input_bytes
-                .chunks_exact(4)
-                .enumerate()
-                .map(|(linear, bytes)| {
-                    let left = f32::from_ne_bytes([bytes[0], bytes[1], bytes[2], bytes[3]]);
-                    let right = right_values[linear % columns];
-                    let value = if subtract { left - right } else { left / right };
-                    // Keep exceptional inputs on the established generic path so
-                    // NumPy-compatible warnings and error state remain intact.
-                    needs_generic |= !left.is_finite()
-                        || !right.is_finite()
-                        || !value.is_finite()
-                        || value.is_subnormal()
-                        || (value == 0.0 && !subtract && left != 0.0);
-                    value
-                }),
+            input_values.iter().enumerate().map(|(linear, bytes)| {
+                let left = f32::from_ne_bytes(*bytes);
+                let right = right_values[linear % columns];
+                let value = if subtract { left - right } else { left / right };
+                // Keep exceptional inputs on the established generic path so
+                // NumPy-compatible warnings and error state remain intact.
+                needs_generic |= !left.is_finite()
+                    || !right.is_finite()
+                    || !value.is_finite()
+                    || value.is_subnormal()
+                    || (value == 0.0 && !subtract && left != 0.0);
+                value
+            }),
         )?;
         if needs_generic {
             return Ok(None);
