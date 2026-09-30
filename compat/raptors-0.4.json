@@ -80,17 +80,26 @@
     "release_gate": "pending",
     "performance_gate": "pending",
     "performance_measurement_result": "two_of_three_application_workflows_meet_median_target",
-  "focused_differential": {
-    "command": "uv run --project raptors-python --extra dev --no-sync python -m pytest raptors-python/tests/preview/test_ufunc_differential.py raptors-python/tests/preview/test_routines.py -q",
-    "status": "passed_locally",
-    "passed": 8971,
+    "cross_phase_generated_sequences": {
+      "status": "passed_locally",
+      "candidate_commit": "236afb7e3cdc6a0de65211a2ed2be29ec8205c7f",
+      "command": "uv run --project raptors-python --no-sync pytest raptors-python/tests/preview/test_properties.py -q",
+      "cases": [
+        "test_generated_composed_numeric_operation_sequence"
+      ],
+      "behavior": "Deterministic generated cases retain a reversed/stepped 0.2 view through assignment and owner destruction, then compose a 0.3 elementwise ufunc with 0.4 concatenation, sorting, and reduction; every result is compared with NumPy."
+    },
+    "focused_differential": {
+      "command": "uv run --project raptors-python --extra dev --no-sync python -m pytest raptors-python/tests/preview/test_ufunc_differential.py raptors-python/tests/preview/test_routines.py -q",
+      "status": "passed_locally",
+      "passed": 8971,
       "skipped": 7,
       "warnings": 1
     },
-  "full_python_regression": {
-    "command": "uv run --project raptors-python --extra dev --no-sync python -m pytest raptors-python/tests/preview -q",
-    "status": "passed_locally",
-    "candidate_commit": "0a5bfd565dcc90011ad14b1e11285dad570f281c",
+    "full_python_regression": {
+      "command": "uv run --project raptors-python --extra dev --no-sync python -m pytest raptors-python/tests/preview -q",
+      "status": "passed_locally",
+      "candidate_commit": "236afb7e3cdc6a0de65211a2ed2be29ec8205c7f",
     "passed": 9745,
     "skipped": 8,
     "warnings": 1
