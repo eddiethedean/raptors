@@ -5,10 +5,11 @@ use super::{numeric_can_cast, parse_casting_rule};
 use pyo3::exceptions::{PyIndexError, PyMemoryError, PyTypeError, PyValueError};
 use pyo3::prelude::*;
 use pyo3::types::{PyComplex, PyDict, PyFloat, PyInt, PyModule, PySlice, PyTuple};
+use pyo3::{Borrowed, FromPyObject};
 use raptors_storage::{DType, Scalar, View};
 
 #[pyfunction(name = "where")]
-#[pyo3(signature = (condition, x=None, y=None))]
+#[pyo3(signature = (condition, x=None, y=None, /))]
 fn where_(
     py: Python<'_>,
     condition: &Bound<'_, PyAny>,
@@ -235,13 +236,13 @@ fn take(
 }
 
 #[pyfunction]
-#[pyo3(signature = (a, indices, axis=-1))]
+#[pyo3(signature = (arr, indices, axis=-1))]
 fn take_along_axis(
-    a: &Bound<'_, PyAny>,
+    arr: &Bound<'_, PyAny>,
     indices: &Bound<'_, PyAny>,
     axis: isize,
 ) -> PyResult<PyArray> {
-    let source = array(a, None, None, "K")?;
+    let source = array(arr, None, None, "K")?;
     let indices = array(indices, None, None, "K")?;
     ensure_integer_indices(&indices)?;
     if source.inner.ndim() != indices.inner.ndim() {
@@ -291,14 +292,14 @@ fn take_along_axis(
 }
 
 #[pyfunction]
-#[pyo3(signature = (a, values, axis=None))]
+#[pyo3(signature = (arr, values, axis=None))]
 fn append(
     py: Python<'_>,
-    a: &Bound<'_, PyAny>,
+    arr: &Bound<'_, PyAny>,
     values: &Bound<'_, PyAny>,
     axis: Option<&Bound<'_, PyAny>>,
 ) -> PyResult<Py<PyAny>> {
-    let mut left = array(a, None, None, "K")?;
+    let mut left = array(arr, None, None, "K")?;
     let mut right = array(values, None, None, "K")?;
     let axis = if axis.is_none_or(|axis| axis.is_none()) {
         let left_size = left.inner.size().map_err(map_storage_error)?;
@@ -663,13 +664,28 @@ fn extract(condition: &Bound<'_, PyAny>, arr: &Bound<'_, PyAny>) -> PyResult<PyA
     })
 }
 
+enum SelectionDefault {
+    Omitted,
+    Value(Py<PyAny>),
+}
+
+impl<'a, 'py> FromPyObject<'a, 'py> for SelectionDefault {
+    type Error = PyErr;
+
+    fn extract(value: Borrowed<'a, 'py, PyAny>) -> PyResult<Self> {
+        Ok(Self::Value(
+            <Py<PyAny> as FromPyObject<'a, 'py>>::extract(value).map_err(PyErr::from)?,
+        ))
+    }
+}
+
 #[pyfunction]
-#[pyo3(signature = (condlist, choicelist, default=None))]
+#[pyo3(signature = (condlist, choicelist, default=SelectionDefault::Omitted))]
 fn select(
     py: Python<'_>,
     condlist: &Bound<'_, PyAny>,
     choicelist: &Bound<'_, PyAny>,
-    default: Option<&Bound<'_, PyAny>>,
+    default: SelectionDefault,
 ) -> PyResult<PyArray> {
     let conditions = collect_selection_arrays(condlist)?;
     let choices = collect_selection_arrays(choicelist)?;
@@ -684,18 +700,18 @@ fn select(
     {
         return Err(PyTypeError::new_err("conditions must be boolean arrays"));
     }
-    let weak_default = default
-        .filter(|default| !default.is_none())
-        .is_none_or(|default| {
-            default.is_instance_of::<PyInt>()
-                || default.is_instance_of::<PyFloat>()
-                || default.is_instance_of::<PyComplex>()
-        });
-    let default = if let Some(default) = default.filter(|default| !default.is_none()) {
-        array(default, None, Some(true), "K")?
-    } else {
-        let zero = PyInt::new(py, 0);
-        array(zero.as_any(), None, Some(true), "K")?
+    let (default, weak_default) = match default {
+        SelectionDefault::Omitted => {
+            let zero = PyInt::new(py, 0);
+            (array(zero.as_any(), None, Some(true), "K")?, true)
+        }
+        SelectionDefault::Value(value) => {
+            let value = value.bind(py);
+            let weak_default = value.is_instance_of::<PyInt>()
+                || value.is_instance_of::<PyFloat>()
+                || value.is_instance_of::<PyComplex>();
+            (array(value, None, Some(true), "K")?, weak_default)
+        }
     };
     let mut shapes = conditions
         .iter()
@@ -1166,7 +1182,7 @@ fn deletion_indices(py: Python<'_>, obj: &Bound<'_, PyAny>, length: usize) -> Py
 }
 
 #[pyfunction]
-#[pyo3(signature = (a, mask, values))]
+#[pyo3(signature = (a, /, mask, values))]
 fn putmask(
     a: &Bound<'_, PyAny>,
     mask: &Bound<'_, PyAny>,

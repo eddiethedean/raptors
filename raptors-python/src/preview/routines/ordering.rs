@@ -8,6 +8,7 @@ use super::{checked_count, coordinates_for_shape};
 use pyo3::exceptions::{PyIndexError, PyMemoryError, PyTypeError, PyValueError};
 use pyo3::prelude::*;
 use pyo3::types::{PyBool, PyInt, PyList, PyTuple};
+use pyo3::{Borrowed, FromPyObject};
 use raptors_storage::{DType, Scalar, View};
 use std::cmp::Ordering;
 
@@ -286,7 +287,7 @@ fn digitize(x: &Bound<'_, PyAny>, bins: &Bound<'_, PyAny>, right: bool) -> PyRes
 }
 
 #[pyfunction]
-#[pyo3(signature = (x, weights=None, minlength=0))]
+#[pyo3(signature = (x, /, weights=None, minlength=0))]
 fn bincount(
     x: &Bound<'_, PyAny>,
     weights: Option<&Bound<'_, PyAny>>,
@@ -854,16 +855,40 @@ fn setxor1d(
     )
 }
 
+enum HistogramBins {
+    Default,
+    Value(Py<PyAny>),
+}
+
+impl<'a, 'py> FromPyObject<'a, 'py> for HistogramBins {
+    type Error = PyErr;
+
+    fn extract(value: Borrowed<'a, 'py, PyAny>) -> PyResult<Self> {
+        Ok(Self::Value(
+            <Py<PyAny> as FromPyObject<'a, 'py>>::extract(value).map_err(PyErr::from)?,
+        ))
+    }
+}
+
+fn histogram_bins_bound<'py>(py: Python<'py>, bins: &HistogramBins) -> Option<Bound<'py, PyAny>> {
+    match bins {
+        HistogramBins::Default => None,
+        HistogramBins::Value(value) => Some(value.bind(py).clone()),
+    }
+}
+
 #[pyfunction]
-#[pyo3(signature = (a, bins=None, range=None, density=false, weights=None))]
+#[pyo3(signature = (a, bins=HistogramBins::Default, range=None, density=None, weights=None))]
 fn histogram(
     py: Python<'_>,
     a: &Bound<'_, PyAny>,
-    bins: Option<&Bound<'_, PyAny>>,
+    bins: HistogramBins,
     range: Option<&Bound<'_, PyAny>>,
-    density: bool,
+    density: Option<&Bound<'_, PyAny>>,
     weights: Option<&Bound<'_, PyAny>>,
 ) -> PyResult<Py<PyAny>> {
+    let density = parse_density(density)?;
+    let bins = histogram_bins_bound(py, &bins);
     let source = array(a, None, None, "K")?;
     if source.inner.dtype().kind() == "c" {
         return Err(PyTypeError::new_err("complex dtype is not supported"));
@@ -891,7 +916,7 @@ fn histogram(
     } else {
         source.inner.snapshot().map_err(map_storage_error)?
     };
-    let (mut edges, bins_dtype) = parse_histogram_bins(bins, &data, range_bounds)?;
+    let (mut edges, bins_dtype) = parse_histogram_bins(bins.as_ref(), &data, range_bounds)?;
     if edges.len() < 2
         || edges
             .windows(2)
@@ -1119,16 +1144,18 @@ fn uniform_bin(value: &Scalar, edges: &[Scalar], width: f64) -> Option<usize> {
 }
 
 #[pyfunction]
-#[pyo3(signature = (x, y, bins=None, range=None, density=false, weights=None))]
+#[pyo3(signature = (x, y, bins=HistogramBins::Default, range=None, density=None, weights=None))]
 fn histogram2d(
     py: Python<'_>,
     x: &Bound<'_, PyAny>,
     y: &Bound<'_, PyAny>,
-    bins: Option<&Bound<'_, PyAny>>,
+    bins: HistogramBins,
     range: Option<&Bound<'_, PyAny>>,
-    density: bool,
+    density: Option<&Bound<'_, PyAny>>,
     weights: Option<&Bound<'_, PyAny>>,
 ) -> PyResult<Py<PyAny>> {
+    let density = parse_density(density)?;
+    let bins = histogram_bins_bound(py, &bins);
     let x = array(x, None, None, "K")?;
     let y = array(y, None, None, "K")?;
     if x.inner.size().map_err(map_storage_error)? != y.inner.size().map_err(map_storage_error)? {
@@ -1138,19 +1165,21 @@ fn histogram2d(
         x.inner.snapshot().map_err(map_storage_error)?,
         y.inner.snapshot().map_err(map_storage_error)?,
     ];
-    histogram_nd(py, columns, bins, range, density, weights)
+    histogram_nd(py, columns, bins.as_ref(), range, density, weights)
 }
 
 #[pyfunction]
-#[pyo3(signature = (sample, bins=None, range=None, density=false, weights=None))]
+#[pyo3(signature = (sample, bins=HistogramBins::Default, range=None, density=None, weights=None))]
 fn histogramdd(
     py: Python<'_>,
     sample: &Bound<'_, PyAny>,
-    bins: Option<&Bound<'_, PyAny>>,
+    bins: HistogramBins,
     range: Option<&Bound<'_, PyAny>>,
-    density: bool,
+    density: Option<&Bound<'_, PyAny>>,
     weights: Option<&Bound<'_, PyAny>>,
 ) -> PyResult<Py<PyAny>> {
+    let density = parse_density(density)?;
+    let bins = histogram_bins_bound(py, &bins);
     let sample = array(sample, None, None, "K")?;
     if sample.inner.ndim() != 2 {
         return Err(PyValueError::new_err("sample must be a 2-D array"));
@@ -1168,7 +1197,7 @@ fn histogramdd(
             );
         }
     }
-    let result = histogram_nd(py, columns, bins, range, density, weights)?;
+    let result = histogram_nd(py, columns, bins.as_ref(), range, density, weights)?;
     let result = result.bind(py).cast::<PyTuple>()?;
     let histogram = result.get_item(0)?;
     let edges = result.iter().skip(1).collect::<Vec<_>>();
@@ -1206,7 +1235,10 @@ fn histogram_nd(
     {
         return Err(PyTypeError::new_err("complex dtype is not supported"));
     }
-    let bin_specs = if let Some(bins) = bins.filter(|bins| !bins.is_none()) {
+    let bin_specs = if let Some(bins) = bins {
+        if bins.is_none() {
+            return Err(PyTypeError::new_err("bins must not be None"));
+        }
         if bins.is_instance_of::<PyInt>() {
             vec![Some(bins.clone()); dimensions]
         } else {
@@ -1827,12 +1859,25 @@ fn parse_range(range: Option<&Bound<'_, PyAny>>) -> PyResult<Option<(f64, f64)>>
     Ok(Some((values[0], values[1])))
 }
 
+fn parse_density(density: Option<&Bound<'_, PyAny>>) -> PyResult<bool> {
+    density
+        .filter(|value| !value.is_none())
+        .map(|value| value.extract::<bool>())
+        .transpose()
+        .map(|density| density.unwrap_or(false))
+}
+
 fn parse_histogram_bins(
     bins: Option<&Bound<'_, PyAny>>,
     data: &[Scalar],
     range: Option<(f64, f64)>,
 ) -> PyResult<(Vec<Scalar>, DType)> {
-    if let Some(bins) = bins.filter(|bins| !bins.is_none()) {
+    if let Some(bins) = bins {
+        if bins.is_none() {
+            return Err(PyTypeError::new_err(
+                "`bins` must be an integer, a string, or an array",
+            ));
+        }
         if bins.is_instance_of::<PyInt>() {
             let count = bins.extract::<isize>()?;
             if count < 1 {

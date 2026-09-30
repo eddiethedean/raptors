@@ -494,6 +494,7 @@ impl PyArray {
         }
         call_array_api(py, "squeeze", self, &kwargs)
     }
+    #[pyo3(signature = (axis1, axis2, /))]
     fn swapaxes(&self, py: Python<'_>, axis1: isize, axis2: isize) -> PyResult<Py<PyAny>> {
         let kwargs = PyDict::new(py);
         kwargs.set_item("axis1", axis1)?;
@@ -570,7 +571,7 @@ impl PyArray {
         }
         call_array_api(py, "argsort", self, &kwargs)
     }
-    #[pyo3(signature = (kth, axis=-1, kind="introselect", order=None))]
+    #[pyo3(signature = (kth, /, axis=-1, kind="introselect", order=None))]
     fn partition(
         &self,
         py: Python<'_>,
@@ -594,7 +595,7 @@ impl PyArray {
             .assign_view(&partitioned.inner)
             .map_err(map_storage_error)
     }
-    #[pyo3(signature = (kth, axis=-1, kind="introselect", order=None))]
+    #[pyo3(signature = (kth, /, axis=-1, kind="introselect", order=None))]
     fn argpartition(
         &self,
         py: Python<'_>,
@@ -615,7 +616,7 @@ impl PyArray {
             .call((array, kth), Some(&kwargs))?
             .unbind())
     }
-    #[pyo3(signature = (v, side="left", sorter=None))]
+    #[pyo3(signature = (v, /, side="left", sorter=None))]
     fn searchsorted(
         &self,
         py: Python<'_>,
@@ -634,7 +635,7 @@ impl PyArray {
             .call((array, v), Some(&kwargs))?
             .unbind())
     }
-    #[pyo3(signature = (indices, axis=None, out=None, mode="raise"))]
+    #[pyo3(signature = (indices, /, axis=None, out=None, mode="raise"))]
     fn take(
         &self,
         py: Python<'_>,
@@ -657,7 +658,7 @@ impl PyArray {
             .call((array, indices), Some(&kwargs))?
             .unbind())
     }
-    #[pyo3(signature = (indices, values, mode="raise"))]
+    #[pyo3(signature = (indices, values, /, mode="raise"))]
     fn put(
         &self,
         py: Python<'_>,
@@ -671,7 +672,7 @@ impl PyArray {
             .call((array, indices, values, mode), None)?;
         Ok(())
     }
-    #[pyo3(signature = (repeats, axis=None))]
+    #[pyo3(signature = (repeats, /, axis=None))]
     fn repeat(
         &self,
         py: Python<'_>,
@@ -688,15 +689,13 @@ impl PyArray {
             .call((array, repeats), Some(&kwargs))?
             .unbind())
     }
-    #[pyo3(signature = (axis=None, dtype=None, out=None, keepdims=false, initial=None, **kwargs))]
+    #[pyo3(signature = (axis=None, dtype=None, out=None, **kwargs))]
     fn sum(
         &self,
         py: Python<'_>,
         axis: Option<&Bound<'_, PyAny>>,
         dtype: Option<&Bound<'_, PyAny>>,
         out: Option<&Bound<'_, PyAny>>,
-        keepdims: bool,
-        initial: Option<&Bound<'_, PyAny>>,
         kwargs: Option<&Bound<'_, PyDict>>,
     ) -> PyResult<Py<PyAny>> {
         let extras = kwargs;
@@ -710,22 +709,16 @@ impl PyArray {
         if let Some(out) = out {
             kwargs.set_item("out", out)?;
         }
-        kwargs.set_item("keepdims", keepdims)?;
-        if let Some(initial) = initial {
-            kwargs.set_item("initial", initial)?;
-        }
         merge_array_method_kwargs(&kwargs, extras)?;
         call_array_api(py, "sum", self, &kwargs)
     }
-    #[pyo3(signature = (axis=None, dtype=None, out=None, keepdims=false, initial=None, **kwargs))]
+    #[pyo3(signature = (axis=None, dtype=None, out=None, **kwargs))]
     fn prod(
         &self,
         py: Python<'_>,
         axis: Option<&Bound<'_, PyAny>>,
         dtype: Option<&Bound<'_, PyAny>>,
         out: Option<&Bound<'_, PyAny>>,
-        keepdims: bool,
-        initial: Option<&Bound<'_, PyAny>>,
         kwargs: Option<&Bound<'_, PyDict>>,
     ) -> PyResult<Py<PyAny>> {
         let extras = kwargs;
@@ -739,21 +732,15 @@ impl PyArray {
         if let Some(out) = out {
             kwargs.set_item("out", out)?;
         }
-        kwargs.set_item("keepdims", keepdims)?;
-        if let Some(initial) = initial {
-            kwargs.set_item("initial", initial)?;
-        }
         merge_array_method_kwargs(&kwargs, extras)?;
         call_array_api(py, "prod", self, &kwargs)
     }
-    #[pyo3(signature = (axis=None, out=None, keepdims=false, initial=None, **kwargs))]
+    #[pyo3(signature = (axis=None, out=None, **kwargs))]
     fn min(
         &self,
         py: Python<'_>,
         axis: Option<&Bound<'_, PyAny>>,
         out: Option<&Bound<'_, PyAny>>,
-        keepdims: bool,
-        initial: Option<&Bound<'_, PyAny>>,
         kwargs: Option<&Bound<'_, PyDict>>,
     ) -> PyResult<Py<PyAny>> {
         let extras = kwargs;
@@ -764,21 +751,15 @@ impl PyArray {
         if let Some(out) = out {
             kwargs.set_item("out", out)?;
         }
-        kwargs.set_item("keepdims", keepdims)?;
-        if let Some(initial) = initial {
-            kwargs.set_item("initial", initial)?;
-        }
         merge_array_method_kwargs(&kwargs, extras)?;
         call_array_api(py, "min", self, &kwargs)
     }
-    #[pyo3(signature = (axis=None, out=None, keepdims=false, initial=None, **kwargs))]
+    #[pyo3(signature = (axis=None, out=None, **kwargs))]
     fn max(
         &self,
         py: Python<'_>,
         axis: Option<&Bound<'_, PyAny>>,
         out: Option<&Bound<'_, PyAny>>,
-        keepdims: bool,
-        initial: Option<&Bound<'_, PyAny>>,
         kwargs: Option<&Bound<'_, PyDict>>,
     ) -> PyResult<Py<PyAny>> {
         let extras = kwargs;
@@ -789,21 +770,16 @@ impl PyArray {
         if let Some(out) = out {
             kwargs.set_item("out", out)?;
         }
-        kwargs.set_item("keepdims", keepdims)?;
-        if let Some(initial) = initial {
-            kwargs.set_item("initial", initial)?;
-        }
         merge_array_method_kwargs(&kwargs, extras)?;
         call_array_api(py, "max", self, &kwargs)
     }
-    #[pyo3(signature = (axis=None, dtype=None, out=None, keepdims=false, **kwargs))]
+    #[pyo3(signature = (axis=None, dtype=None, out=None, **kwargs))]
     fn mean(
         &self,
         py: Python<'_>,
         axis: Option<&Bound<'_, PyAny>>,
         dtype: Option<&Bound<'_, PyAny>>,
         out: Option<&Bound<'_, PyAny>>,
-        keepdims: bool,
         kwargs: Option<&Bound<'_, PyDict>>,
     ) -> PyResult<Py<PyAny>> {
         let extras = kwargs;
@@ -817,11 +793,10 @@ impl PyArray {
         if let Some(out) = out {
             kwargs.set_item("out", out)?;
         }
-        kwargs.set_item("keepdims", keepdims)?;
         merge_array_method_kwargs(&kwargs, extras)?;
         call_array_api(py, "mean", self, &kwargs)
     }
-    #[pyo3(signature = (axis=None, dtype=None, out=None, ddof=0.0, keepdims=false, correction=None, **kwargs))]
+    #[pyo3(signature = (axis=None, dtype=None, out=None, ddof=0.0, **kwargs))]
     fn var(
         &self,
         py: Python<'_>,
@@ -829,8 +804,6 @@ impl PyArray {
         dtype: Option<&Bound<'_, PyAny>>,
         out: Option<&Bound<'_, PyAny>>,
         ddof: f64,
-        keepdims: bool,
-        correction: Option<f64>,
         kwargs: Option<&Bound<'_, PyDict>>,
     ) -> PyResult<Py<PyAny>> {
         let extras = kwargs;
@@ -845,14 +818,10 @@ impl PyArray {
             kwargs.set_item("out", out)?;
         }
         kwargs.set_item("ddof", ddof)?;
-        kwargs.set_item("keepdims", keepdims)?;
-        if let Some(correction) = correction {
-            kwargs.set_item("correction", correction)?;
-        }
         merge_array_method_kwargs(&kwargs, extras)?;
         call_array_api(py, "var", self, &kwargs)
     }
-    #[pyo3(signature = (axis=None, dtype=None, out=None, ddof=0.0, keepdims=false, correction=None, **kwargs))]
+    #[pyo3(signature = (axis=None, dtype=None, out=None, ddof=0.0, **kwargs))]
     fn std(
         &self,
         py: Python<'_>,
@@ -860,8 +829,6 @@ impl PyArray {
         dtype: Option<&Bound<'_, PyAny>>,
         out: Option<&Bound<'_, PyAny>>,
         ddof: f64,
-        keepdims: bool,
-        correction: Option<f64>,
         kwargs: Option<&Bound<'_, PyDict>>,
     ) -> PyResult<Py<PyAny>> {
         let extras = kwargs;
@@ -876,10 +843,6 @@ impl PyArray {
             kwargs.set_item("out", out)?;
         }
         kwargs.set_item("ddof", ddof)?;
-        kwargs.set_item("keepdims", keepdims)?;
-        if let Some(correction) = correction {
-            kwargs.set_item("correction", correction)?;
-        }
         merge_array_method_kwargs(&kwargs, extras)?;
         call_array_api(py, "std", self, &kwargs)
     }
@@ -925,7 +888,7 @@ impl PyArray {
         merge_array_method_kwargs(&kwargs, extras)?;
         call_array_api(py, "all", self, &kwargs)
     }
-    #[pyo3(signature = (axis=None, out=None, keepdims=false))]
+    #[pyo3(signature = (axis=None, out=None, *, keepdims=false))]
     fn argmin(
         &self,
         py: Python<'_>,
@@ -943,7 +906,7 @@ impl PyArray {
         kwargs.set_item("keepdims", keepdims)?;
         call_array_api(py, "argmin", self, &kwargs)
     }
-    #[pyo3(signature = (axis=None, out=None, keepdims=false))]
+    #[pyo3(signature = (axis=None, out=None, *, keepdims=false))]
     fn argmax(
         &self,
         py: Python<'_>,

@@ -6,6 +6,7 @@ use super::super::{
     array, default_byte_order, map_storage_error, parse_dtype_spec, scalar_to_python,
     value_to_untyped_scalar, PyArray,
 };
+use super::{where_kwargs, WhereArg};
 use pyo3::exceptions::{
     PyIndexError, PyMemoryError, PyRuntimeWarning, PyTypeError, PyValueError, PyZeroDivisionError,
 };
@@ -17,7 +18,7 @@ use rust_std::collections::HashSet;
 use rust_std::ffi::CString;
 
 #[pyfunction]
-#[pyo3(signature = (a, axis=None, dtype=None, out=None, keepdims=false, **kwargs))]
+#[pyo3(signature = (a, axis=None, dtype=None, out=None, keepdims=false, *, r#where=WhereArg::Omitted))]
 fn mean(
     py: Python<'_>,
     a: &Bound<'_, PyAny>,
@@ -25,13 +26,14 @@ fn mean(
     dtype: Option<&Bound<'_, PyAny>>,
     out: Option<&Bound<'_, PyAny>>,
     keepdims: bool,
-    kwargs: Option<&Bound<'_, PyDict>>,
+    r#where: WhereArg,
 ) -> PyResult<Py<PyAny>> {
-    mean_impl(py, a, axis, dtype, out, keepdims, kwargs, false)
+    let kwargs = where_kwargs(py, &r#where)?;
+    mean_impl(py, a, axis, dtype, out, keepdims, kwargs.as_ref(), false)
 }
 
 #[pyfunction]
-#[pyo3(signature = (a, axis=None, dtype=None, out=None, keepdims=false, **kwargs))]
+#[pyo3(signature = (a, axis=None, dtype=None, out=None, keepdims=false, *, r#where=WhereArg::Omitted))]
 fn nanmean(
     py: Python<'_>,
     a: &Bound<'_, PyAny>,
@@ -39,9 +41,10 @@ fn nanmean(
     dtype: Option<&Bound<'_, PyAny>>,
     out: Option<&Bound<'_, PyAny>>,
     keepdims: bool,
-    kwargs: Option<&Bound<'_, PyDict>>,
+    r#where: WhereArg,
 ) -> PyResult<Py<PyAny>> {
-    mean_impl(py, a, axis, dtype, out, keepdims, kwargs, true)
+    let kwargs = where_kwargs(py, &r#where)?;
+    mean_impl(py, a, axis, dtype, out, keepdims, kwargs.as_ref(), true)
 }
 
 fn mean_impl(
@@ -135,7 +138,7 @@ fn mean_impl(
 }
 
 #[pyfunction]
-#[pyo3(signature = (a, axis=None, dtype=None, out=None, ddof=0.0, keepdims=false, correction=None, **kwargs))]
+#[pyo3(signature = (a, axis=None, dtype=None, out=None, ddof=0.0, keepdims=false, *, r#where=WhereArg::Omitted, mean=None, correction=None))]
 fn var(
     py: Python<'_>,
     a: &Bound<'_, PyAny>,
@@ -144,16 +147,27 @@ fn var(
     out: Option<&Bound<'_, PyAny>>,
     ddof: f64,
     keepdims: bool,
+    r#where: WhereArg,
+    mean: Option<&Bound<'_, PyAny>>,
     correction: Option<f64>,
-    kwargs: Option<&Bound<'_, PyDict>>,
 ) -> PyResult<Py<PyAny>> {
+    let kwargs = variance_kwargs(py, &r#where, mean)?;
     variance_impl(
-        py, a, axis, dtype, out, ddof, keepdims, correction, kwargs, false,
+        py,
+        a,
+        axis,
+        dtype,
+        out,
+        ddof,
+        keepdims,
+        correction,
+        kwargs.as_ref(),
+        false,
     )
 }
 
 #[pyfunction]
-#[pyo3(signature = (a, axis=None, dtype=None, out=None, ddof=0.0, keepdims=false, correction=None, **kwargs))]
+#[pyo3(signature = (a, axis=None, dtype=None, out=None, ddof=0.0, keepdims=false, *, r#where=WhereArg::Omitted, mean=None, correction=None))]
 fn nanvar(
     py: Python<'_>,
     a: &Bound<'_, PyAny>,
@@ -162,11 +176,22 @@ fn nanvar(
     out: Option<&Bound<'_, PyAny>>,
     ddof: f64,
     keepdims: bool,
+    r#where: WhereArg,
+    mean: Option<&Bound<'_, PyAny>>,
     correction: Option<f64>,
-    kwargs: Option<&Bound<'_, PyDict>>,
 ) -> PyResult<Py<PyAny>> {
+    let kwargs = variance_kwargs(py, &r#where, mean)?;
     variance_impl(
-        py, a, axis, dtype, out, ddof, keepdims, correction, kwargs, true,
+        py,
+        a,
+        axis,
+        dtype,
+        out,
+        ddof,
+        keepdims,
+        correction,
+        kwargs.as_ref(),
+        true,
     )
 }
 
@@ -356,7 +381,7 @@ fn variance_impl(
 }
 
 #[pyfunction]
-#[pyo3(signature = (a, axis=None, dtype=None, out=None, ddof=0.0, keepdims=false, correction=None, **kwargs))]
+#[pyo3(signature = (a, axis=None, dtype=None, out=None, ddof=0.0, keepdims=false, *, r#where=WhereArg::Omitted, mean=None, correction=None))]
 fn std(
     py: Python<'_>,
     a: &Bound<'_, PyAny>,
@@ -365,9 +390,11 @@ fn std(
     out: Option<&Bound<'_, PyAny>>,
     ddof: f64,
     keepdims: bool,
+    r#where: WhereArg,
+    mean: Option<&Bound<'_, PyAny>>,
     correction: Option<f64>,
-    kwargs: Option<&Bound<'_, PyDict>>,
 ) -> PyResult<Py<PyAny>> {
+    let kwargs = variance_kwargs(py, &r#where, mean)?;
     if correction.is_some() && ddof != 0.0 {
         return Err(PyValueError::new_err(
             "ddof and correction cannot be provided simultaneously",
@@ -379,7 +406,8 @@ fn std(
         .and_then(|axis| axis.extract::<isize>().ok())
         .is_some_and(|axis| axis == 0 || axis == -2);
     if requested_axis_zero
-        && kwargs.is_none()
+        && r#where.is_omitted()
+        && mean.is_none()
         && dtype.filter(|value| !value.is_none()).is_none()
         && out.filter(|value| !value.is_none()).is_none()
         && !keepdims
@@ -409,7 +437,18 @@ fn std(
             .into_any());
         }
     }
-    let result = var(py, a, axis, dtype, None, ddof, keepdims, correction, kwargs)?;
+    let result = variance_impl(
+        py,
+        a,
+        axis,
+        dtype,
+        None,
+        ddof,
+        keepdims,
+        correction,
+        kwargs.as_ref(),
+        false,
+    )?;
     let result = array(result.bind(py).as_any(), None, None, "K")?;
     let dtype = result.inner.dtype();
     if dtype == DType::Float32
@@ -464,7 +503,7 @@ fn std(
 }
 
 #[pyfunction]
-#[pyo3(signature = (a, axis=None, dtype=None, out=None, ddof=0.0, keepdims=false, correction=None, **kwargs))]
+#[pyo3(signature = (a, axis=None, dtype=None, out=None, ddof=0.0, keepdims=false, *, r#where=WhereArg::Omitted, mean=None, correction=None))]
 fn nanstd(
     py: Python<'_>,
     a: &Bound<'_, PyAny>,
@@ -473,11 +512,22 @@ fn nanstd(
     out: Option<&Bound<'_, PyAny>>,
     ddof: f64,
     keepdims: bool,
+    r#where: WhereArg,
+    mean: Option<&Bound<'_, PyAny>>,
     correction: Option<f64>,
-    kwargs: Option<&Bound<'_, PyDict>>,
 ) -> PyResult<Py<PyAny>> {
+    let kwargs = variance_kwargs(py, &r#where, mean)?;
     let variance = variance_impl(
-        py, a, axis, dtype, None, ddof, keepdims, correction, kwargs, true,
+        py,
+        a,
+        axis,
+        dtype,
+        None,
+        ddof,
+        keepdims,
+        correction,
+        kwargs.as_ref(),
+        true,
     )?;
     let variance = array(variance.bind(py).as_any(), None, None, "K")?;
     let result_dtype = variance.inner.dtype();
@@ -567,7 +617,7 @@ fn ptp(
 }
 
 #[pyfunction]
-#[pyo3(signature = (a, axis=None, out=None, keepdims=false, initial=None, **kwargs))]
+#[pyo3(signature = (a, axis=None, out=None, keepdims=false, initial=None, r#where=WhereArg::Omitted))]
 fn nanmin(
     py: Python<'_>,
     a: &Bound<'_, PyAny>,
@@ -575,13 +625,14 @@ fn nanmin(
     out: Option<&Bound<'_, PyAny>>,
     keepdims: bool,
     initial: Option<&Bound<'_, PyAny>>,
-    kwargs: Option<&Bound<'_, PyDict>>,
+    r#where: WhereArg,
 ) -> PyResult<Py<PyAny>> {
-    nan_extreme(py, a, axis, out, keepdims, initial, kwargs, false)
+    let kwargs = where_kwargs(py, &r#where)?;
+    nan_extreme(py, a, axis, out, keepdims, initial, kwargs.as_ref(), false)
 }
 
 #[pyfunction]
-#[pyo3(signature = (a, axis=None, out=None, keepdims=false, initial=None, **kwargs))]
+#[pyo3(signature = (a, axis=None, out=None, keepdims=false, initial=None, r#where=WhereArg::Omitted))]
 fn nanmax(
     py: Python<'_>,
     a: &Bound<'_, PyAny>,
@@ -589,9 +640,10 @@ fn nanmax(
     out: Option<&Bound<'_, PyAny>>,
     keepdims: bool,
     initial: Option<&Bound<'_, PyAny>>,
-    kwargs: Option<&Bound<'_, PyDict>>,
+    r#where: WhereArg,
 ) -> PyResult<Py<PyAny>> {
-    nan_extreme(py, a, axis, out, keepdims, initial, kwargs, true)
+    let kwargs = where_kwargs(py, &r#where)?;
+    nan_extreme(py, a, axis, out, keepdims, initial, kwargs.as_ref(), true)
 }
 
 fn nan_extreme(
@@ -1562,7 +1614,7 @@ fn arg_reduce(
 }
 
 #[pyfunction]
-#[pyo3(signature = (a, axis=None, keepdims=false))]
+#[pyo3(signature = (a, axis=None, *, keepdims=false))]
 fn count_nonzero(
     py: Python<'_>,
     a: &Bound<'_, PyAny>,
@@ -1969,6 +2021,19 @@ fn parse_where(py: Python<'_>, kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<O
         return Ok(None);
     };
     parse_where_value(py, &value)
+}
+
+fn variance_kwargs<'py>(
+    py: Python<'py>,
+    where_value: &WhereArg,
+    mean_value: Option<&Bound<'py, PyAny>>,
+) -> PyResult<Option<Bound<'py, PyDict>>> {
+    let Some(mean_value) = mean_value else {
+        return where_kwargs(py, where_value);
+    };
+    let kwargs = where_kwargs(py, where_value)?.unwrap_or_else(|| PyDict::new(py));
+    kwargs.set_item("mean", mean_value)?;
+    Ok(Some(kwargs))
 }
 
 fn warn_runtime(py: Python<'_>, message: &str) -> PyResult<()> {

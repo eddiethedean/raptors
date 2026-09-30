@@ -83,14 +83,14 @@
     "focused_differential": {
       "command": "uv run --project raptors-python --extra dev --no-sync python -m pytest raptors-python/tests/preview/test_ufunc_differential.py raptors-python/tests/preview/test_routines.py -q",
       "status": "passed_locally",
-      "passed": 8953,
+      "passed": 8960,
       "skipped": 7,
       "warnings": 1
     },
     "full_python_regression": {
       "command": "uv run --project raptors-python --extra dev --no-sync python -m pytest raptors-python/tests/preview -q",
       "status": "passed_locally",
-      "passed": 9727,
+      "passed": 9734,
       "skipped": 8,
       "warnings": 1
     },
@@ -122,11 +122,21 @@
     "signature_audit": {
       "status": "open",
       "command": "inspect.signature over frozen Phase 0.4 top-level routines and ndarray methods, compared with compat/numpy-api-2.5.3.json",
-      "top_level_mismatches": 62,
+      "top_level_mismatches": 38,
       "top_level_count": 127,
-      "array_method_mismatches": 20,
+      "top_level_mismatch_names": [
+        "all", "amax", "amin", "any", "arange", "argmax", "argmin", "argpartition",
+        "argsort", "average", "copyto", "eye", "histogram", "histogram2d", "histogramdd",
+        "lexsort", "max", "mean", "min", "nanargmax", "nanargmin", "nanmax", "nanmean",
+        "nanmedian", "nanmin", "nanpercentile", "nanquantile", "nanstd", "nanvar", "partition",
+        "prod", "ptp", "select", "sort", "std", "sum", "take_along_axis", "var"
+      ],
+      "array_method_mismatches": 8,
       "array_method_count": 26,
-      "note": "Differences include parameter names, positional/keyword-only markers, defaults, and later-release device/like controls; every in-scope deviation still requires review and an explicit contract boundary."
+      "array_method_mismatch_names": [
+        "all", "any", "argpartition", "argsort", "partition", "sort", "std", "var"
+      ],
+      "note": "The audit improved from 62/127 routines and 20/26 methods. Remaining differences are recorded by name above and are primarily sentinel/default representations, default integer values rendered as Ellipsis or 0.0, copyto/array-method keyword surfaces, and histogram's generic bins default. They still require review and explicit boundaries before release closure."
     },
     "extension_alias_lifetime_focused": {
       "status": "passed_locally_full_audit_pending",
@@ -178,14 +188,14 @@
       "warmup_calls": 5,
       "timed_samples": 21,
       "median_ratios": {
-        "column_normalization": 0.9117786975,
-        "grouped_count_and_histogram": 0.3682251539,
-        "assemble_transpose_and_order": 1.5150186835
+        "column_normalization": 0.8298274121,
+        "grouped_count_and_histogram": 0.3473833832,
+        "assemble_transpose_and_order": 1.6513986309
       },
       "median_ratio_ci95": {
-        "column_normalization": [0.8279135135, 0.9519519520],
-        "grouped_count_and_histogram": [0.3406649077, 0.3768129284],
-        "assemble_transpose_and_order": [1.3750081524, 1.5915410508]
+        "column_normalization": [0.7598903589, 0.8961731935],
+        "grouped_count_and_histogram": [0.3269739253, 0.3705471984],
+        "assemble_transpose_and_order": [1.4495412844, 1.8519320742]
       },
       "release_gate": "failed_one_of_three_workflows_meet_median_threshold; confirmation_host_and_common_operation_guardrail_pending"
     }

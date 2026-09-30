@@ -8,7 +8,7 @@ use pyo3::types::{PyBool, PyInt, PyList, PyTuple};
 use raptors_storage::{IndexItem, Scalar, View};
 
 #[pyfunction]
-#[pyo3(signature = (a, shape, order="C", *, copy=None))]
+#[pyo3(signature = (a, /, shape, order="C", *, copy=None))]
 fn reshape(
     a: &Bound<'_, PyAny>,
     shape: &Bound<'_, PyAny>,
@@ -517,9 +517,9 @@ fn moveaxis(
 }
 
 #[pyfunction]
-#[pyo3(signature = (a, axis=None))]
-fn flip(a: &Bound<'_, PyAny>, axis: Option<&Bound<'_, PyAny>>) -> PyResult<PyArray> {
-    let source = array(a, None, None, "K")?;
+#[pyo3(signature = (m, axis=None))]
+fn flip(m: &Bound<'_, PyAny>, axis: Option<&Bound<'_, PyAny>>) -> PyResult<PyArray> {
+    let source = array(m, None, None, "K")?;
     let ndim = source.inner.ndim();
     let axes = match axis.filter(|axis| !axis.is_none()) {
         Some(axis) => normalize_axes(&parse_axis_values(axis)?, ndim, true)?,
@@ -553,8 +553,8 @@ fn flip(a: &Bound<'_, PyAny>, axis: Option<&Bound<'_, PyAny>>) -> PyResult<PyArr
 }
 
 #[pyfunction]
-fn fliplr(a: &Bound<'_, PyAny>) -> PyResult<PyArray> {
-    let source = array(a, None, None, "K")?;
+fn fliplr(m: &Bound<'_, PyAny>) -> PyResult<PyArray> {
+    let source = array(m, None, None, "K")?;
     if source.inner.ndim() < 2 {
         return Err(PyValueError::new_err(
             "fliplr requires the input to be at least 2-D",
@@ -564,8 +564,8 @@ fn fliplr(a: &Bound<'_, PyAny>) -> PyResult<PyArray> {
 }
 
 #[pyfunction]
-fn flipud(a: &Bound<'_, PyAny>) -> PyResult<PyArray> {
-    let source = array(a, None, None, "K")?;
+fn flipud(m: &Bound<'_, PyAny>) -> PyResult<PyArray> {
+    let source = array(m, None, None, "K")?;
     if source.inner.ndim() == 0 {
         return Err(PyValueError::new_err(
             "flipud requires the input to be at least 1-D",
@@ -688,8 +688,9 @@ fn repeat(
 }
 
 #[pyfunction]
-fn tile(a: &Bound<'_, PyAny>, reps: &Bound<'_, PyAny>) -> PyResult<PyArray> {
-    let source = array(a, None, None, "K")?;
+#[allow(non_snake_case)]
+fn tile(A: &Bound<'_, PyAny>, reps: &Bound<'_, PyAny>) -> PyResult<PyArray> {
+    let source = array(A, None, None, "K")?;
     let repetitions = super::super::parse_shape(reps)?;
     let ndim = source.inner.ndim().max(repetitions.len());
     let mut padded_shape = vec![1; ndim - source.inner.ndim()];

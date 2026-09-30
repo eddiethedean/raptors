@@ -1,4 +1,5 @@
 import gc
+import inspect
 import json
 import warnings
 from pathlib import Path
@@ -30,6 +31,97 @@ def test_frozen_0_4_contract_names_are_public():
     assert not missing_methods, f"contract ndarray methods are missing: {missing_methods}"
 
 
+def test_phase_04_shape_and_join_signatures_match_numpy():
+    expected = {
+        "flip": "(m, axis=None)",
+        "fliplr": "(m)",
+        "flipud": "(m)",
+        "reshape": "(a, /, shape, order='C', *, copy=None)",
+        "tile": "(A, reps)",
+        "concat": "(arrays, /, axis=0, out=None, *, dtype=None, casting='same_kind')",
+        "concatenate": "(arrays, /, axis=0, out=None, *, dtype=None, casting='same_kind')",
+        "hstack": "(tup, *, dtype=None, casting='same_kind')",
+        "vstack": "(tup, *, dtype=None, casting='same_kind')",
+        "dstack": "(tup)",
+        "column_stack": "(tup)",
+    }
+    for name, signature in expected.items():
+        assert str(inspect.signature(getattr(raptors, name))) == signature
+
+
+def test_phase_04_selection_and_count_signatures_match_numpy():
+    expected = {
+        "where": "(condition, x=None, y=None, /)",
+        "append": "(arr, values, axis=None)",
+        "putmask": "(a, /, mask, values)",
+        "bincount": "(x, /, weights=None, minlength=0)",
+        "count_nonzero": "(a, axis=None, *, keepdims=False)",
+    }
+    for name, signature in expected.items():
+        assert str(inspect.signature(getattr(raptors, name))) == signature
+
+
+def test_phase_04_ndarray_positional_only_signatures_match_numpy():
+    expected = {
+        "put": "(self, indices, values, /, mode='raise')",
+        "repeat": "(self, repeats, /, axis=None)",
+        "searchsorted": "(self, v, /, side='left', sorter=None)",
+        "swapaxes": "(self, axis1, axis2, /)",
+        "take": "(self, indices, /, axis=None, out=None, mode='raise')",
+    }
+    for name, signature in expected.items():
+        assert str(inspect.signature(getattr(raptors.Array, name))) == signature
+
+
+def test_histogram_density_none_matches_numpy_default():
+    values = np.array([0.1, 0.2, 0.8, 0.9])
+    expected = np.histogram(values, bins=2, density=None)
+    actual = raptors.histogram(raptors.array(values.tolist()), bins=2, density=None)
+    assert_array_matches(expected[0], actual[0])
+    assert_array_matches(expected[1], actual[1])
+
+
+def test_histogram_bins_none_is_not_confused_with_the_default():
+    one_dimensional = np.array([0.1, 0.2, 0.8, 0.9])
+    two_dimensional = np.column_stack((one_dimensional, one_dimensional))
+    cases = (
+        (np.histogram, raptors.histogram, (one_dimensional,)),
+        (np.histogram2d, raptors.histogram2d, (one_dimensional, one_dimensional)),
+        (np.histogramdd, raptors.histogramdd, (two_dimensional,)),
+    )
+    for reference, candidate, args in cases:
+        with pytest.raises(TypeError):
+            reference(*args, bins=None)
+        with pytest.raises(TypeError):
+            candidate(*args, bins=None)
+
+
+def test_reduction_where_call_forms_and_explicit_none_match_numpy():
+    values = np.array([1, 2, 3], dtype=np.int64)
+    mask = np.array([True, False, True])
+    source = raptors.array(values.tolist(), dtype=raptors.int64)
+    native_mask = raptors.array(mask.tolist(), dtype=raptors.bool_)
+
+    expected = np.sum(values, None, None, None, False, 0, mask)
+    actual = raptors.sum(source, None, None, None, False, 0, native_mask)
+    assert int(actual) == int(expected)
+    assert int(raptors.sum(source, where=None)) == int(np.sum(values, where=None))
+
+    for reference, candidate in (
+        (np.mean, raptors.mean),
+        (np.var, raptors.var),
+    ):
+        with pytest.raises(TypeError):
+            reference(values, where=None)
+        with pytest.raises(TypeError):
+            candidate(source, where=None)
+
+    with pytest.raises(ValueError):
+        np.min(values, where=None)
+    with pytest.raises(ValueError):
+        raptors.min(source, where=None)
+
+
 @pytest.mark.parametrize("shape", [(), (0,), (2, 0, 3), (2, 3)])
 @pytest.mark.parametrize("dtype", [raptors.bool_, raptors.int16, raptors.float32, raptors.complex128])
 def test_ones_matches_numpy_for_numeric_dtypes_and_empty_shapes(shape, dtype):
@@ -43,6 +135,23 @@ def test_ones_preserves_requested_memory_order(order):
     expected = np.ones((2, 3, 4), dtype=np.float64, order=order)
     actual = raptors.ones((2, 3, 4), dtype=raptors.float64, order=order)
     assert_array_matches(expected, actual)
+
+
+def test_cpu_device_keyword_is_explicit_and_unsupported_dispatch_is_rejected():
+    assert_array_matches(np.ones((2, 3)), raptors.ones((2, 3), device="cpu"))
+    assert_array_matches(np.full((2,), 7), raptors.full((2,), 7, device="cpu"))
+    assert_array_matches(np.eye(3), raptors.eye(3, device="cpu"))
+    assert_array_matches(np.arange(5), raptors.arange(5, device="cpu"))
+    assert_array_matches(np.linspace(0, 1, 4), raptors.linspace(0, 1, 4, device="cpu"))
+    assert_array_matches(
+        np.ones((2, 3), dtype=np.int16),
+        raptors.ones_like(raptors.array([[1, 2, 3], [4, 5, 6]], dtype=raptors.int16), device="cpu"),
+    )
+
+    with pytest.raises(ValueError, match="cpu.*device"):
+        raptors.ones((2,), device="gpu")
+    with pytest.raises(TypeError, match="like-based dispatch"):
+        raptors.ones((2,), like=raptors.array([1, 2], dtype=raptors.int64))
 
 
 def test_full_infers_numeric_scalar_dtype_and_broadcasts_values():

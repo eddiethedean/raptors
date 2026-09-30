@@ -2,53 +2,59 @@
 use super::super::{
     array, default_byte_order, map_storage_error, parse_dtype_spec, parse_shape, PyArray, PyDType,
 };
-use super::checked_count;
+use super::{checked_count, validate_creation_controls};
 use pyo3::exceptions::{PyMemoryError, PyValueError};
 use pyo3::prelude::*;
 use pyo3::types::{PyFloat, PyTuple};
 use raptors_storage::{ByteOrder, DType, Scalar, View};
 
 #[pyfunction]
-#[pyo3(signature = (a, dtype=None, order="K", subok=true, shape=None))]
+#[pyo3(signature = (a, dtype=None, order="K", subok=true, shape=None, *, device=None))]
 fn zeros_like(
     a: &Bound<'_, PyAny>,
     dtype: Option<&Bound<'_, PyAny>>,
     order: &str,
     subok: bool,
     shape: Option<&Bound<'_, PyAny>>,
+    device: Option<&Bound<'_, PyAny>>,
 ) -> PyResult<PyArray> {
+    validate_creation_controls(device, None)?;
     let _ = subok;
     like(a, dtype, order, shape, None)
 }
 
 #[pyfunction]
-#[pyo3(signature = (a, dtype=None, order="K", subok=true, shape=None))]
+#[pyo3(signature = (a, dtype=None, order="K", subok=true, shape=None, *, device=None))]
 fn ones_like(
     a: &Bound<'_, PyAny>,
     dtype: Option<&Bound<'_, PyAny>>,
     order: &str,
     subok: bool,
     shape: Option<&Bound<'_, PyAny>>,
+    device: Option<&Bound<'_, PyAny>>,
 ) -> PyResult<PyArray> {
+    validate_creation_controls(device, None)?;
     let _ = subok;
     like(a, dtype, order, shape, Some(Scalar::Int8(1)))
 }
 
 #[pyfunction]
-#[pyo3(signature = (a, dtype=None, order="K", subok=true, shape=None))]
+#[pyo3(signature = (prototype, /, dtype=None, order="K", subok=true, shape=None, *, device=None))]
 fn empty_like(
-    a: &Bound<'_, PyAny>,
+    prototype: &Bound<'_, PyAny>,
     dtype: Option<&Bound<'_, PyAny>>,
     order: &str,
     subok: bool,
     shape: Option<&Bound<'_, PyAny>>,
+    device: Option<&Bound<'_, PyAny>>,
 ) -> PyResult<PyArray> {
+    validate_creation_controls(device, None)?;
     let _ = subok;
-    like(a, dtype, order, shape, None)
+    like(prototype, dtype, order, shape, None)
 }
 
 #[pyfunction]
-#[pyo3(signature = (a, fill_value, dtype=None, order="K", subok=true, shape=None))]
+#[pyo3(signature = (a, fill_value, dtype=None, order="K", subok=true, shape=None, *, device=None))]
 fn full_like(
     py: Python<'_>,
     a: &Bound<'_, PyAny>,
@@ -57,7 +63,9 @@ fn full_like(
     order: &str,
     subok: bool,
     shape: Option<&Bound<'_, PyAny>>,
+    device: Option<&Bound<'_, PyAny>>,
 ) -> PyResult<PyArray> {
+    validate_creation_controls(device, None)?;
     let _ = subok;
     let source = array(a, None, None, "K")?;
     let target_shape = shape
@@ -168,7 +176,7 @@ fn like_axis_order(order: &str, source: &PyArray, rank: usize) -> PyResult<Vec<u
 }
 
 #[pyfunction]
-#[pyo3(signature = (start, stop, num=50, endpoint=true, retstep=false, dtype=None, axis=0))]
+#[pyo3(signature = (start, stop, num=50, endpoint=true, retstep=false, dtype=None, axis=0, *, device=None))]
 fn linspace(
     py: Python<'_>,
     start: &Bound<'_, PyAny>,
@@ -178,7 +186,9 @@ fn linspace(
     retstep: bool,
     dtype: Option<&Bound<'_, PyAny>>,
     axis: isize,
+    device: Option<&Bound<'_, PyAny>>,
 ) -> PyResult<Py<PyAny>> {
+    validate_creation_controls(device, None)?;
     let start = array(start, None, None, "K")?;
     let stop = array(stop, None, None, "K")?;
     let target = requested_space_dtype(dtype, &[start.inner.dtype(), stop.inner.dtype()])?;

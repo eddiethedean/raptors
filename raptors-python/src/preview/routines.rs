@@ -14,15 +14,19 @@ use super::{
 use pyo3::exceptions::{PyMemoryError, PyOverflowError, PyTypeError, PyValueError};
 use pyo3::prelude::*;
 use pyo3::types::{PyBool, PyDict, PyInt, PyList, PyModule, PyTuple};
+use pyo3::{Borrowed, FromPyObject};
 use raptors_storage::{ByteOrder, DType, IndexItem, Scalar, View};
 
 #[pyfunction]
-#[pyo3(signature = (shape, dtype=None, order="C"))]
+#[pyo3(signature = (shape, dtype=None, order="C", *, device=None, like=None))]
 fn ones(
     shape: &Bound<'_, PyAny>,
     dtype: Option<&Bound<'_, PyAny>>,
     order: &str,
+    device: Option<&Bound<'_, PyAny>>,
+    like: Option<&Bound<'_, PyAny>>,
 ) -> PyResult<PyArray> {
+    validate_creation_controls(device, like)?;
     let shape = parse_shape(shape)?;
     let fortran = parse_c_or_f_order(order)?;
     let (dtype, byte_order, scalar_alias) = parse_dtype_or_default(dtype)?;
@@ -38,13 +42,16 @@ fn ones(
 }
 
 #[pyfunction]
-#[pyo3(signature = (shape, fill_value, dtype=None, order="C"))]
+#[pyo3(signature = (shape, fill_value, dtype=None, order="C", *, device=None, like=None))]
 fn full(
     shape: &Bound<'_, PyAny>,
     fill_value: &Bound<'_, PyAny>,
     dtype: Option<&Bound<'_, PyAny>>,
     order: &str,
+    device: Option<&Bound<'_, PyAny>>,
+    like: Option<&Bound<'_, PyAny>>,
 ) -> PyResult<PyArray> {
+    validate_creation_controls(device, like)?;
     let shape = parse_shape(shape)?;
     let fortran = parse_c_or_f_order(order)?;
     let fill = array(fill_value, dtype, Some(true), "K")?;
@@ -59,16 +66,19 @@ fn full(
 }
 
 #[pyfunction]
-#[pyo3(signature = (start, stop=None, step=None, dtype=None))]
+#[pyo3(signature = (start_or_stop, /, stop=None, step=None, *, dtype=None, device=None, like=None))]
 fn arange(
-    start: &Bound<'_, PyAny>,
+    start_or_stop: &Bound<'_, PyAny>,
     stop: Option<&Bound<'_, PyAny>>,
     step: Option<&Bound<'_, PyAny>>,
     dtype: Option<&Bound<'_, PyAny>>,
+    device: Option<&Bound<'_, PyAny>>,
+    like: Option<&Bound<'_, PyAny>>,
 ) -> PyResult<PyArray> {
+    validate_creation_controls(device, like)?;
     let (start, stop) = match stop {
-        Some(stop) => (start.clone(), stop.clone()),
-        None => (zero_for(start)?, start.clone()),
+        Some(stop) => (start_or_stop.clone(), stop.clone()),
+        None => (zero_for(start_or_stop)?, start_or_stop.clone()),
     };
     let start_int = python_integer(&start)?;
     let stop_int = python_integer(&stop)?;
@@ -123,7 +133,7 @@ fn arange(
 }
 
 #[pyfunction]
-#[pyo3(signature = (N, M=None, k=0, dtype=None, order="C"))]
+#[pyo3(signature = (N, M=None, k=0, dtype=None, order="C", *, device=None, like=None))]
 #[allow(non_snake_case)]
 fn eye(
     N: &Bound<'_, PyAny>,
@@ -131,7 +141,10 @@ fn eye(
     k: isize,
     dtype: Option<&Bound<'_, PyAny>>,
     order: &str,
+    device: Option<&Bound<'_, PyAny>>,
+    like: Option<&Bound<'_, PyAny>>,
 ) -> PyResult<PyArray> {
+    validate_creation_controls(device, like)?;
     let rows = parse_dimension(N)?;
     let columns = M.map(parse_dimension).transpose()?.unwrap_or(rows);
     let shape = vec![rows, columns];
@@ -174,9 +187,14 @@ fn eye(
 }
 
 #[pyfunction]
-#[pyo3(signature = (n, dtype=None))]
-fn identity(n: &Bound<'_, PyAny>, dtype: Option<&Bound<'_, PyAny>>) -> PyResult<PyArray> {
-    eye(n, None, 0, dtype, "C")
+#[pyo3(signature = (n, dtype=None, *, like=None))]
+fn identity(
+    n: &Bound<'_, PyAny>,
+    dtype: Option<&Bound<'_, PyAny>>,
+    like: Option<&Bound<'_, PyAny>>,
+) -> PyResult<PyArray> {
+    validate_creation_controls(None, like)?;
+    eye(n, None, 0, dtype, "C", None, None)
 }
 
 #[derive(Clone)]
@@ -609,7 +627,7 @@ fn broadcast_coordinates_for_shape(shape: &[usize], output: &[usize]) -> PyResul
 }
 
 #[pyfunction]
-#[pyo3(signature = (a, axis=None, dtype=None, out=None, keepdims=false, initial=None, **kwargs))]
+#[pyo3(signature = (a, axis=None, dtype=None, out=None, keepdims=false, initial=None, r#where=WhereArg::Omitted))]
 fn sum(
     py: Python<'_>,
     a: &Bound<'_, PyAny>,
@@ -618,13 +636,24 @@ fn sum(
     out: Option<&Bound<'_, PyAny>>,
     keepdims: bool,
     initial: Option<&Bound<'_, PyAny>>,
-    kwargs: Option<&Bound<'_, PyDict>>,
+    r#where: WhereArg,
 ) -> PyResult<Py<PyAny>> {
-    reduce_call("add", py, a, axis, dtype, out, keepdims, initial, kwargs)
+    let kwargs = where_kwargs(py, &r#where)?;
+    reduce_call(
+        "add",
+        py,
+        a,
+        axis,
+        dtype,
+        out,
+        keepdims,
+        initial,
+        kwargs.as_ref(),
+    )
 }
 
 #[pyfunction]
-#[pyo3(signature = (a, axis=None, dtype=None, out=None, keepdims=false, initial=None, **kwargs))]
+#[pyo3(signature = (a, axis=None, dtype=None, out=None, keepdims=false, initial=None, r#where=WhereArg::Omitted))]
 fn prod(
     py: Python<'_>,
     a: &Bound<'_, PyAny>,
@@ -633,15 +662,24 @@ fn prod(
     out: Option<&Bound<'_, PyAny>>,
     keepdims: bool,
     initial: Option<&Bound<'_, PyAny>>,
-    kwargs: Option<&Bound<'_, PyDict>>,
+    r#where: WhereArg,
 ) -> PyResult<Py<PyAny>> {
+    let kwargs = where_kwargs(py, &r#where)?;
     reduce_call(
-        "multiply", py, a, axis, dtype, out, keepdims, initial, kwargs,
+        "multiply",
+        py,
+        a,
+        axis,
+        dtype,
+        out,
+        keepdims,
+        initial,
+        kwargs.as_ref(),
     )
 }
 
 #[pyfunction]
-#[pyo3(signature = (a, axis=None, out=None, keepdims=false, initial=None, **kwargs))]
+#[pyo3(signature = (a, axis=None, out=None, keepdims=false, initial=None, r#where=WhereArg::Omitted))]
 fn min(
     py: Python<'_>,
     a: &Bound<'_, PyAny>,
@@ -649,13 +687,24 @@ fn min(
     out: Option<&Bound<'_, PyAny>>,
     keepdims: bool,
     initial: Option<&Bound<'_, PyAny>>,
-    kwargs: Option<&Bound<'_, PyDict>>,
+    r#where: WhereArg,
 ) -> PyResult<Py<PyAny>> {
-    reduce_call("minimum", py, a, axis, None, out, keepdims, initial, kwargs)
+    let kwargs = where_kwargs(py, &r#where)?;
+    reduce_call(
+        "minimum",
+        py,
+        a,
+        axis,
+        None,
+        out,
+        keepdims,
+        initial,
+        kwargs.as_ref(),
+    )
 }
 
 #[pyfunction]
-#[pyo3(signature = (a, axis=None, out=None, keepdims=false, initial=None, **kwargs))]
+#[pyo3(signature = (a, axis=None, out=None, keepdims=false, initial=None, r#where=WhereArg::Omitted))]
 fn max(
     py: Python<'_>,
     a: &Bound<'_, PyAny>,
@@ -663,34 +712,57 @@ fn max(
     out: Option<&Bound<'_, PyAny>>,
     keepdims: bool,
     initial: Option<&Bound<'_, PyAny>>,
-    kwargs: Option<&Bound<'_, PyDict>>,
+    r#where: WhereArg,
 ) -> PyResult<Py<PyAny>> {
-    reduce_call("maximum", py, a, axis, None, out, keepdims, initial, kwargs)
+    let kwargs = where_kwargs(py, &r#where)?;
+    reduce_call(
+        "maximum",
+        py,
+        a,
+        axis,
+        None,
+        out,
+        keepdims,
+        initial,
+        kwargs.as_ref(),
+    )
 }
 
 #[pyfunction]
-#[pyo3(signature = (a, axis=None, out=None, keepdims=false, **kwargs))]
+#[pyo3(signature = (a, axis=None, out=None, keepdims=false, *, r#where=WhereArg::Omitted))]
 fn any(
     py: Python<'_>,
     a: &Bound<'_, PyAny>,
     axis: Option<&Bound<'_, PyAny>>,
     out: Option<&Bound<'_, PyAny>>,
     keepdims: bool,
-    kwargs: Option<&Bound<'_, PyDict>>,
+    r#where: WhereArg,
 ) -> PyResult<Py<PyAny>> {
-    reduce_call("logical_or", py, a, axis, None, out, keepdims, None, kwargs)
+    let kwargs = where_kwargs(py, &r#where)?;
+    reduce_call(
+        "logical_or",
+        py,
+        a,
+        axis,
+        None,
+        out,
+        keepdims,
+        None,
+        kwargs.as_ref(),
+    )
 }
 
 #[pyfunction]
-#[pyo3(signature = (a, axis=None, out=None, keepdims=false, **kwargs))]
+#[pyo3(signature = (a, axis=None, out=None, keepdims=false, *, r#where=WhereArg::Omitted))]
 fn all(
     py: Python<'_>,
     a: &Bound<'_, PyAny>,
     axis: Option<&Bound<'_, PyAny>>,
     out: Option<&Bound<'_, PyAny>>,
     keepdims: bool,
-    kwargs: Option<&Bound<'_, PyDict>>,
+    r#where: WhereArg,
 ) -> PyResult<Py<PyAny>> {
+    let kwargs = where_kwargs(py, &r#where)?;
     reduce_call(
         "logical_and",
         py,
@@ -700,8 +772,41 @@ fn all(
         out,
         keepdims,
         None,
-        kwargs,
+        kwargs.as_ref(),
     )
+}
+
+pub(super) enum WhereArg {
+    Omitted,
+    Value(Py<PyAny>),
+}
+
+impl WhereArg {
+    pub(super) fn is_omitted(&self) -> bool {
+        matches!(self, Self::Omitted)
+    }
+}
+
+impl<'a, 'py> FromPyObject<'a, 'py> for WhereArg {
+    type Error = PyErr;
+
+    fn extract(value: Borrowed<'a, 'py, PyAny>) -> PyResult<Self> {
+        Ok(Self::Value(
+            <Py<PyAny> as FromPyObject<'a, 'py>>::extract(value).map_err(PyErr::from)?,
+        ))
+    }
+}
+
+fn where_kwargs<'py>(
+    py: Python<'py>,
+    where_value: &WhereArg,
+) -> PyResult<Option<Bound<'py, PyDict>>> {
+    let WhereArg::Value(value) = where_value else {
+        return Ok(None);
+    };
+    let kwargs = PyDict::new(py);
+    kwargs.set_item("where", value.bind(py))?;
+    Ok(Some(kwargs))
 }
 
 fn reduce_call(
@@ -743,7 +848,7 @@ fn cumprod(
 }
 
 #[pyfunction]
-#[pyo3(signature = (arrays, axis=0, out=None, *, dtype=None, casting="same_kind"))]
+#[pyo3(signature = (arrays, /, axis=0, out=None, *, dtype=None, casting="same_kind"))]
 fn concatenate(
     py: Python<'_>,
     arrays: &Bound<'_, PyAny>,
@@ -829,14 +934,14 @@ fn array_split(
 }
 
 #[pyfunction]
-#[pyo3(signature = (arrays, *, dtype=None, casting="same_kind"))]
+#[pyo3(signature = (tup, *, dtype=None, casting="same_kind"))]
 fn hstack(
     py: Python<'_>,
-    arrays: &Bound<'_, PyAny>,
+    tup: &Bound<'_, PyAny>,
     dtype: Option<&Bound<'_, PyAny>>,
     casting: &str,
 ) -> PyResult<Py<PyAny>> {
-    let inputs = collect_arrays(arrays)?;
+    let inputs = collect_arrays(tup)?;
     let axis = if inputs.first().is_some_and(|input| input.inner.ndim() > 1) {
         1
     } else {
@@ -846,14 +951,14 @@ fn hstack(
 }
 
 #[pyfunction]
-#[pyo3(signature = (arrays, *, dtype=None, casting="same_kind"))]
+#[pyo3(signature = (tup, *, dtype=None, casting="same_kind"))]
 fn vstack(
     py: Python<'_>,
-    arrays: &Bound<'_, PyAny>,
+    tup: &Bound<'_, PyAny>,
     dtype: Option<&Bound<'_, PyAny>>,
     casting: &str,
 ) -> PyResult<Py<PyAny>> {
-    let inputs = collect_arrays(arrays)?;
+    let inputs = collect_arrays(tup)?;
     let inputs = inputs
         .into_iter()
         .map(|input| at_least_rank(input, 2))
@@ -862,35 +967,25 @@ fn vstack(
 }
 
 #[pyfunction]
-#[pyo3(signature = (arrays, *, dtype=None, casting="same_kind"))]
-fn dstack(
-    py: Python<'_>,
-    arrays: &Bound<'_, PyAny>,
-    dtype: Option<&Bound<'_, PyAny>>,
-    casting: &str,
-) -> PyResult<Py<PyAny>> {
-    let inputs = collect_arrays(arrays)?;
+#[pyo3(signature = (tup))]
+fn dstack(py: Python<'_>, tup: &Bound<'_, PyAny>) -> PyResult<Py<PyAny>> {
+    let inputs = collect_arrays(tup)?;
     let inputs = inputs
         .into_iter()
         .map(|input| at_least_rank(input, 3))
         .collect::<PyResult<Vec<_>>>()?;
-    concatenate_impl(py, &inputs, Some(2), None, dtype, casting)
+    concatenate_impl(py, &inputs, Some(2), None, None, "same_kind")
 }
 
 #[pyfunction]
-#[pyo3(signature = (arrays, *, dtype=None, casting="same_kind"))]
-fn column_stack(
-    py: Python<'_>,
-    arrays: &Bound<'_, PyAny>,
-    dtype: Option<&Bound<'_, PyAny>>,
-    casting: &str,
-) -> PyResult<Py<PyAny>> {
-    let inputs = collect_arrays(arrays)?;
+#[pyo3(signature = (tup))]
+fn column_stack(py: Python<'_>, tup: &Bound<'_, PyAny>) -> PyResult<Py<PyAny>> {
+    let inputs = collect_arrays(tup)?;
     let inputs = inputs
         .into_iter()
         .map(columnize)
         .collect::<PyResult<Vec<_>>>()?;
-    concatenate_impl(py, &inputs, Some(1), None, dtype, casting)
+    concatenate_impl(py, &inputs, Some(1), None, None, "same_kind")
 }
 
 #[pyfunction]
@@ -1474,6 +1569,24 @@ fn checked_count(shape: &[usize], dtype: DType) -> PyResult<usize> {
         return Err(shape_overflow());
     }
     Ok(count)
+}
+
+fn validate_creation_controls(
+    device: Option<&Bound<'_, PyAny>>,
+    like: Option<&Bound<'_, PyAny>>,
+) -> PyResult<()> {
+    if let Some(device) = device.filter(|value| !value.is_none()) {
+        let device = device
+            .extract::<String>()
+            .map_err(|_| PyTypeError::new_err("device must be 'cpu' or None"))?;
+        if device != "cpu" {
+            return Err(PyValueError::new_err("only the 'cpu' device is supported"));
+        }
+    }
+    if like.is_some_and(|value| !value.is_none()) {
+        return Err(PyTypeError::new_err("like-based dispatch is not supported"));
+    }
+    Ok(())
 }
 
 fn checked_length(length: usize, dtype: DType) -> PyResult<usize> {
