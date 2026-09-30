@@ -1790,6 +1790,38 @@ def test_empty_density_histograms_match_numpy_warnings():
     assert_array_matches(expected[1], actual[1])
 
 
+def test_complex_histogram_density_avoids_intermediate_overflow():
+    values = np.array([0.25, 0.75], dtype=np.float64)
+    weights = np.array([1.0e200 + 1.0e200j, 1.0e200 + 1.0e200j], dtype=np.complex128)
+    expected, expected_warnings = capture_warnings(
+        lambda: np.histogram(values, bins=2, range=(0, 1), weights=weights, density=True)
+    )
+    actual, actual_warnings = capture_warnings(
+        lambda: raptors.histogram(
+            raptors.array(values.tolist(), dtype=raptors.float64),
+            bins=2,
+            range=(0, 1),
+            weights=raptors.array(weights.tolist(), dtype=raptors.complex128),
+            density=True,
+        )
+    )
+    assert expected_warnings == []
+    assert actual_warnings == expected_warnings
+    actual_values = np.array([complex(actual[0][index]) for index in range(2)])
+    np.testing.assert_allclose(actual_values, expected[0], rtol=1e-12, atol=1e-12)
+
+
+def test_weighted_average_complex_division_avoids_intermediate_overflow():
+    values = np.array([2.0 + 1.0j, 4.0 + 3.0j], dtype=np.complex128)
+    weights = np.array([1.0e200 + 1.0e200j, 1.0e200 + 1.0e200j], dtype=np.complex128)
+    expected = np.average(values, weights=weights)
+    actual = raptors.average(
+        raptors.array(values.tolist(), dtype=raptors.complex128),
+        weights=raptors.array(weights.tolist(), dtype=raptors.complex128),
+    )
+    np.testing.assert_allclose(complex(actual), expected, rtol=1e-12, atol=1e-12)
+
+
 def test_histogram_rejects_mismatched_weight_shapes_and_multidimensional_complex_weights():
     values = np.array([[0, 1], [2, 3]], dtype=np.int64)
     candidate = raptors.array(values.tolist(), dtype=raptors.int64)

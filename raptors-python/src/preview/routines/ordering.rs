@@ -1148,11 +1148,21 @@ fn complex_divide(left: (f64, f64), right: (f64, f64)) -> (f64, f64) {
     if right.0 == 0.0 && right.1 == 0.0 {
         return (left.0 / right.0, left.1 / right.0);
     }
-    let denominator = right.0 * right.0 + right.1 * right.1;
-    (
-        (left.0 * right.0 + left.1 * right.1) / denominator,
-        (left.1 * right.0 - left.0 * right.1) / denominator,
-    )
+    if right.0.abs() >= right.1.abs() {
+        let ratio = right.1 / right.0;
+        let denominator = right.0 + right.1 * ratio;
+        (
+            (left.0 + left.1 * ratio) / denominator,
+            (left.1 - left.0 * ratio) / denominator,
+        )
+    } else {
+        let ratio = right.0 / right.1;
+        let denominator = right.1 + right.0 * ratio;
+        (
+            (left.0 * ratio + left.1) / denominator,
+            (left.1 * ratio - left.0) / denominator,
+        )
+    }
 }
 
 #[derive(Default)]
