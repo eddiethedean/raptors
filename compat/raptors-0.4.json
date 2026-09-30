@@ -237,10 +237,10 @@
       "behavior": "All 127 contracted top-level signatures have matching parameter order and kinds; only the exact 28 documented defaults differ, and every permitted difference is checked against its frozen sentinel/default category. All 26 ndarray method signatures match NumPy exactly."
     },
     "native_allocation_profile": {
-      "status": "passed_locally_for_15_representative_routine_cases_and_3_workflows; all_153_entry_coverage_open",
-      "candidate_commit": "6eb73b7ec0c42e9dea9a6f6b61f52061599961f9",
-      "command": "uv run --project raptors-python --no-sync python scripts/profile_0_4_native_allocations.py",
-      "report": "docs/benchmarks/raptors-0.4-native-allocations.json",
+      "status": "passed_on_current_tree_for_15_representative_routine_cases_and_3_workflows; all_153_entry_coverage_open",
+      "candidate_commit": "015306362516dd807f8ea9614a8b1f644883bb80",
+      "command": "uv run --project raptors-python --extra dev --no-sync maturin develop --release --features alloc-profile --manifest-path raptors-python/Cargo.toml && uv run --project raptors-python --extra dev --no-sync python scripts/profile_0_4_native_allocations.py --output docs/benchmarks/raptors-0.4-native-allocations-0153063.json",
+      "report": "docs/benchmarks/raptors-0.4-native-allocations-0153063.json",
       "host": "macOS 26.5.2 ARM64, CPython 3.14.3, release extension with alloc-profile feature",
       "routine_cases": 15,
       "routine_families": 7,
