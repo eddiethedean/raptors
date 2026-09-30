@@ -262,6 +262,31 @@ def test_histogram_density_none_matches_numpy_default():
     assert_array_matches(expected[1], actual[1])
 
 
+def test_uniform_int64_histogram_matches_numpy_for_offset_empty_and_strided_views():
+    owner = raptors.array(
+        [90, -1, 0, 1, 2, 9, 10, 11, 80], dtype=raptors.int64
+    )
+    offset = owner[1:-1]
+    values = np.array([-1, 0, 1, 2, 9, 10, 11], dtype=np.int64)
+    expected = np.histogram(values, bins=5, range=(0, 10))
+    actual = raptors.histogram(offset, bins=5, range=(0, 10))
+    assert_array_matches(expected[0], actual[0])
+    assert_array_matches(expected[1], actual[1])
+
+    empty = raptors.array([], dtype=raptors.int64)
+    expected_empty = np.histogram(np.array([], dtype=np.int64), bins=5, range=(0, 10))
+    actual_empty = raptors.histogram(empty, bins=5, range=(0, 10))
+    assert_array_matches(expected_empty[0], actual_empty[0])
+    assert_array_matches(expected_empty[1], actual_empty[1])
+
+    strided_owner = raptors.array([0, 90, 2, 91, 4, 92], dtype=raptors.int64)
+    strided = strided_owner[::2]
+    expected_strided = np.histogram(np.array([0, 2, 4]), bins=3, range=(0, 6))
+    actual_strided = raptors.histogram(strided, bins=3, range=(0, 6))
+    assert_array_matches(expected_strided[0], actual_strided[0])
+    assert_array_matches(expected_strided[1], actual_strided[1])
+
+
 def test_histogram_bins_none_is_not_confused_with_the_default():
     one_dimensional = np.array([0.1, 0.2, 0.8, 0.9])
     two_dimensional = np.column_stack((one_dimensional, one_dimensional))
@@ -327,6 +352,105 @@ def test_reduction_where_call_forms_and_explicit_none_match_numpy():
         np.min(values, where=None)
     with pytest.raises(ValueError):
         raptors.min(source, where=None)
+
+
+@pytest.mark.parametrize(
+    "name,reference",
+    [
+        ("all", np.all),
+        ("amax", np.amax),
+        ("amin", np.amin),
+        ("any", np.any),
+        ("average", np.average),
+        ("count_nonzero", np.count_nonzero),
+        ("max", np.max),
+        ("mean", np.mean),
+        ("min", np.min),
+        ("nanmax", np.nanmax),
+        ("nanmean", np.nanmean),
+        ("nanmin", np.nanmin),
+        ("nanstd", np.nanstd),
+        ("nanvar", np.nanvar),
+        ("prod", np.prod),
+        ("ptp", np.ptp),
+        ("std", np.std),
+        ("sum", np.sum),
+        ("var", np.var),
+    ],
+)
+@pytest.mark.parametrize("keepdims", [0, 1, 2])
+def test_reduction_keepdims_uses_numpy_integer_semantics(name, reference, keepdims):
+    values = np.array([[1.0, 2.0], [3.0, 4.0]])
+    source = raptors.array(values.tolist(), dtype=raptors.float64)
+    expected = reference(values, axis=1, keepdims=keepdims)
+    actual = getattr(raptors, name)(source, axis=1, keepdims=keepdims)
+    assert_array_matches(expected, actual)
+
+
+@pytest.mark.parametrize(
+    "name,reference",
+    [
+        ("all", np.all),
+        ("any", np.any),
+        ("average", np.average),
+        ("count_nonzero", np.count_nonzero),
+        ("mean", np.mean),
+        ("nanmean", np.nanmean),
+        ("sum", np.sum),
+    ],
+)
+@pytest.mark.parametrize("keepdims", [None, "truthy", []])
+def test_reduction_keepdims_rejects_non_integer_values_like_numpy(
+    name, reference, keepdims
+):
+    values = np.array([[1.0, 2.0], [3.0, 4.0]])
+    source = raptors.array(values.tolist(), dtype=raptors.float64)
+    with pytest.raises(TypeError) as expected_error:
+        reference(values, axis=1, keepdims=keepdims)
+    with pytest.raises(type(expected_error.value)) as actual_error:
+        getattr(raptors, name)(source, axis=1, keepdims=keepdims)
+    assert str(actual_error.value) == str(expected_error.value)
+
+
+@pytest.mark.parametrize(
+    "name,reference,args",
+    [
+        ("argmax", np.argmax, ()),
+        ("argmin", np.argmin, ()),
+        ("median", np.median, ()),
+        ("nanargmax", np.nanargmax, ()),
+        ("nanargmin", np.nanargmin, ()),
+        ("nanmedian", np.nanmedian, ()),
+        ("nanpercentile", np.nanpercentile, (50,)),
+        ("nanquantile", np.nanquantile, (0.5,)),
+        ("percentile", np.percentile, (50,)),
+        ("quantile", np.quantile, (0.5,)),
+    ],
+)
+@pytest.mark.parametrize("keepdims", [None, 0, 1, "truthy", []])
+def test_arg_and_quantile_keepdims_uses_numpy_truth_semantics(
+    name, reference, args, keepdims
+):
+    values = np.array([[1.0, 2.0], [3.0, 4.0]])
+    source = raptors.array(values.tolist(), dtype=raptors.float64)
+    expected = reference(values, *args, axis=1, keepdims=keepdims)
+    actual = getattr(raptors, name)(source, *args, axis=1, keepdims=keepdims)
+    assert_array_matches(expected, actual)
+
+
+def test_ndarray_keepdims_coercion_matches_numpy():
+    values = np.array([[1, 2], [3, 4]], dtype=np.int64)
+    source = raptors.array(values.tolist(), dtype=raptors.int64)
+    for name in ("all", "any", "sum"):
+        for keepdims in (0, 1):
+            expected = getattr(values, name)(axis=1, keepdims=keepdims)
+            actual = getattr(source, name)(axis=1, keepdims=keepdims)
+            assert_array_matches(expected, actual)
+
+    for keepdims in (None, 0, 1, "truthy", []):
+        expected = values.argmax(axis=1, keepdims=keepdims)
+        actual = source.argmax(axis=1, keepdims=keepdims)
+        assert_array_matches(expected, actual)
 
 
 def test_nan_statistics_treat_explicit_none_where_as_an_empty_mask():
@@ -1569,6 +1693,97 @@ def test_histogram_matches_numpy_with_integer_edges_and_weights(density):
     )
     assert_array_matches(expected[0], actual[0])
     assert_array_matches(expected[1], actual[1])
+
+
+@pytest.mark.parametrize(
+    "dtype",
+    [raptors.bool_, raptors.int32, raptors.float32, raptors.complex64],
+)
+@pytest.mark.parametrize("density", [False, True])
+def test_histogram_preserves_numpy_weight_dtypes(dtype, density):
+    values = np.array([0, 0, 1, 2, 3], dtype=np.int64)
+    weight_values = [1, 2, 3, 4, 5]
+    if dtype.kind == "c":
+        weight_values = [complex(value, value / 2) for value in weight_values]
+    weights = np.asarray(weight_values, dtype=dtype.name)
+    expected = np.histogram(
+        values,
+        bins=4,
+        range=(0, 4),
+        weights=weights,
+        density=density,
+    )
+    actual = raptors.histogram(
+        raptors.array(values.tolist(), dtype=raptors.int64),
+        bins=4,
+        range=(0, 4),
+        weights=raptors.array(weight_values, dtype=dtype),
+        density=density,
+    )
+    assert_array_matches(expected[0], actual[0], values=False)
+    assert_array_matches(expected[1], actual[1])
+    actual_counts = np.asarray(
+        [
+            actual[0][index].item()
+            if hasattr(actual[0][index], "item")
+            else actual[0][index]
+            for index in range(actual[0].shape[0])
+        ],
+        dtype=expected[0].dtype,
+    )
+    np.testing.assert_allclose(actual_counts, expected[0], rtol=2e-6, atol=1e-7)
+
+
+def test_histogram_rejects_mismatched_weight_shapes_and_multidimensional_complex_weights():
+    values = np.array([[0, 1], [2, 3]], dtype=np.int64)
+    candidate = raptors.array(values.tolist(), dtype=raptors.int64)
+    with pytest.raises(ValueError) as expected_shape_error:
+        np.histogram(values, bins=4, range=(0, 4), weights=np.arange(4))
+    with pytest.raises(type(expected_shape_error.value)) as actual_shape_error:
+        raptors.histogram(
+            candidate,
+            bins=4,
+            range=(0, 4),
+            weights=raptors.array([0, 1, 2, 3], dtype=raptors.int64),
+        )
+    assert str(actual_shape_error.value) == str(expected_shape_error.value)
+
+    x = np.array([0.0, 1.0, 2.0])
+    y = np.array([0.0, 1.0, 2.0])
+    complex_weights = np.array([1.0, 2.0, 3.0], dtype=np.complex64)
+    for reference, candidate_call in (
+        (
+            lambda: np.histogram2d(
+                x, y, bins=2, range=((0, 2), (0, 2)), weights=complex_weights
+            ),
+            lambda: raptors.histogram2d(
+                raptors.array(x.tolist(), dtype=raptors.float64),
+                raptors.array(y.tolist(), dtype=raptors.float64),
+                bins=2,
+                range=((0, 2), (0, 2)),
+                weights=raptors.array(complex_weights.tolist(), dtype=raptors.complex64),
+            ),
+        ),
+        (
+            lambda: np.histogramdd(
+                np.column_stack((x, y)),
+                bins=2,
+                range=((0, 2), (0, 2)),
+                weights=complex_weights,
+            ),
+            lambda: raptors.histogramdd(
+                raptors.array(np.column_stack((x, y)).tolist(), dtype=raptors.float64),
+                bins=2,
+                range=((0, 2), (0, 2)),
+                weights=raptors.array(complex_weights.tolist(), dtype=raptors.complex64),
+            ),
+        ),
+    ):
+        with pytest.raises(TypeError) as expected_error:
+            reference()
+        with pytest.raises(type(expected_error.value)) as actual_error:
+            candidate_call()
+        assert str(actual_error.value) == str(expected_error.value)
 
 
 def test_put_and_put_along_axis_match_numpy_mutation():

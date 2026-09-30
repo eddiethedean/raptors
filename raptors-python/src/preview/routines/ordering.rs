@@ -893,7 +893,6 @@ fn histogram(
     if source.inner.dtype().kind() == "c" {
         return Err(PyTypeError::new_err("complex dtype is not supported"));
     }
-    let source_size = source.inner.size().map_err(map_storage_error)?;
     let weights = weights
         .filter(|weights| !weights.is_none())
         .map(|weights| array(weights, None, None, "K"))
@@ -904,19 +903,20 @@ fn histogram(
         .transpose()?;
     if weights
         .as_ref()
-        .is_some_and(|weights| weights.inner.size().ok() != Some(source_size))
+        .is_some_and(|weights| weights.inner.shape() != source.inner.shape())
     {
         return Err(PyValueError::new_err(
-            "weights should have the same shape as a",
+            "weights should have the same shape as a.",
         ));
     }
     let range_bounds = parse_range(range)?;
-    let data = if range_bounds.is_some() {
+    let range_was_supplied = range_bounds.is_some();
+    let bin_data = if range_was_supplied {
         Vec::new()
     } else {
         source.inner.snapshot().map_err(map_storage_error)?
     };
-    let (mut edges, bins_dtype) = parse_histogram_bins(bins.as_ref(), &data, range_bounds)?;
+    let (mut edges, bins_dtype) = parse_histogram_bins(bins.as_ref(), &bin_data, range_bounds)?;
     if edges.len() < 2
         || edges
             .windows(2)
@@ -926,10 +926,13 @@ fn histogram(
     }
     let number = edges.len() - 1;
     let uniform_bin_width = uniform_bin_width(&edges);
-    let result_dtype = if density || weights.is_some() {
-        DType::Float64
+    let accumulation_dtype = weights
+        .as_ref()
+        .map_or_else(index_dtype, |weights| weights.inner.dtype());
+    let result_dtype = if density {
+        accumulation_dtype.promote(DType::Float64)
     } else {
-        index_dtype()
+        accumulation_dtype
     };
     if !density
         && weights.is_none()
@@ -938,24 +941,35 @@ fn histogram(
         && source.inner.byte_order().is_native()
     {
         if let Some((minimum, maximum, width)) = integral_uniform_edges(&edges) {
-            let values = source.inner.snapshot_int64().map_err(map_storage_error)?;
-            let mut counts = vec![0_i64; number];
-            for value in values {
-                if value < minimum || value > maximum {
-                    continue;
-                }
-                let bin = if value == maximum {
-                    number - 1
-                } else {
-                    usize::try_from((i128::from(value) - i128::from(minimum)) / i128::from(width))
+            let counts_view = if let Some(counts_view) = source
+                .inner
+                .histogram_int64_uniform(minimum, maximum, width, number)
+                .map_err(map_storage_error)?
+            {
+                counts_view
+            } else {
+                let values = source.inner.snapshot_int64().map_err(map_storage_error)?;
+                let mut counts = vec![0_i64; number];
+                for value in values {
+                    if value < minimum || value > maximum {
+                        continue;
+                    }
+                    let bin = if value == maximum {
+                        number - 1
+                    } else {
+                        usize::try_from(
+                            (i128::from(value) - i128::from(minimum)) / i128::from(width),
+                        )
                         .map_err(|_| PyValueError::new_err("histogram bin index is out of range"))?
-                };
-                if let Some(count) = counts.get_mut(bin) {
-                    *count = count.wrapping_add(1);
-                } else {
-                    return Err(PyValueError::new_err("histogram bin index is out of range"));
+                    };
+                    if let Some(count) = counts.get_mut(bin) {
+                        *count = count.wrapping_add(1);
+                    } else {
+                        return Err(PyValueError::new_err("histogram bin index is out of range"));
+                    }
                 }
-            }
+                View::from_int64_values(vec![number], &counts).map_err(map_storage_error)?
+            };
             let edge_values = edges
                 .drain(..)
                 .map(|value| value.cast(bins_dtype).map_err(map_storage_error))
@@ -963,8 +977,7 @@ fn histogram(
             let counts = Py::new(
                 py,
                 PyArray {
-                    inner: View::from_int64_values(vec![number], &counts)
-                        .map_err(map_storage_error)?,
+                    inner: counts_view,
                     scalar_alias: None,
                 },
             )?
@@ -982,8 +995,12 @@ fn histogram(
             return Ok(PyTuple::new(py, [counts, edges])?.into_any().unbind());
         }
     }
-    let mut counts = vec![Scalar::zero(result_dtype); number];
-    let mut inside_total = 0.0;
+    let data = if range_was_supplied {
+        source.inner.snapshot().map_err(map_storage_error)?
+    } else {
+        bin_data
+    };
+    let mut counts = vec![Scalar::zero(accumulation_dtype); number];
     for (linear, value) in data.iter().enumerate() {
         if value.is_nan() {
             continue;
@@ -1022,28 +1039,47 @@ fn histogram(
             }
             low
         };
-        let weight = if let Some(weights) = &weight_values {
-            weights[linear].as_f64().map_err(map_storage_error)?
-        } else {
-            1.0
-        };
-        inside_total += weight;
-        if result_dtype == DType::Float64 {
-            counts[bin] =
-                Scalar::Float64(counts[bin].as_f64().map_err(map_storage_error)? + weight);
+        if let Some(weights) = &weight_values {
+            let weight = weights[linear].clone();
+            counts[bin] = raptors_storage::ufunc::binary(
+                "add",
+                counts[bin].clone(),
+                weight,
+                accumulation_dtype,
+            )
+            .map_err(map_storage_error)?
+            .remove(0);
         } else {
             let count = counts[bin].as_f64().map_err(map_storage_error)? as u64;
             counts[bin] = Scalar::UInt64(count.wrapping_add(1))
-                .cast(result_dtype)
+                .cast(accumulation_dtype)
                 .map_err(map_storage_error)?;
         }
     }
     if density {
+        let total_dtype = histogram_sum_dtype(accumulation_dtype);
+        let mut total_weight = Scalar::zero(total_dtype);
+        for count in &counts {
+            let value = count.cast(total_dtype).map_err(map_storage_error)?;
+            total_weight = raptors_storage::ufunc::binary("add", total_weight, value, total_dtype)
+                .map_err(map_storage_error)?
+                .remove(0);
+        }
+        let total_weight = total_weight.as_complex().map_err(map_storage_error)?;
         for (index, count) in counts.iter_mut().enumerate() {
             let width = edges[index + 1].as_f64().map_err(map_storage_error)?
                 - edges[index].as_f64().map_err(map_storage_error)?;
-            let value = count.as_f64().map_err(map_storage_error)? / (inside_total * width);
-            *count = Scalar::Float64(value);
+            let value = count.as_complex().map_err(map_storage_error)?;
+            let value = complex_divide((value.0 / width, value.1 / width), total_weight);
+            *count = if result_dtype.kind() == "c" {
+                Scalar::Complex128(value.0, value.1)
+                    .cast(result_dtype)
+                    .map_err(map_storage_error)?
+            } else {
+                Scalar::Float64(value.0)
+                    .cast(result_dtype)
+                    .map_err(map_storage_error)?
+            };
         }
     }
     let edge_values = edges
@@ -1091,6 +1127,22 @@ fn uniform_bin_width(edges: &[Scalar]) -> Option<f64> {
         .enumerate()
         .all(|(index, value)| *value == first + width * index as f64)
         .then_some(width)
+}
+
+fn complex_divide(left: (f64, f64), right: (f64, f64)) -> (f64, f64) {
+    let denominator = right.0 * right.0 + right.1 * right.1;
+    (
+        (left.0 * right.0 + left.1 * right.1) / denominator,
+        (left.1 * right.0 - left.0 * right.1) / denominator,
+    )
+}
+
+fn histogram_sum_dtype(dtype: DType) -> DType {
+    match dtype {
+        DType::Bool | DType::Int8 | DType::Int16 | DType::Int32 => DType::Int64,
+        DType::UInt8 | DType::UInt16 | DType::UInt32 => DType::UInt64,
+        dtype => dtype,
+    }
 }
 
 fn integral_uniform_edges(edges: &[Scalar]) -> Option<(i64, i64, i64)> {
@@ -1285,6 +1337,15 @@ fn histogram_nd(
         weights.inner.ndim() != 1 || weights.inner.shape()[0] != sample_count
     }) {
         return Err(PyValueError::new_err("weights should have shape (N,)"));
+    }
+    if let Some(weights) = weights
+        .as_ref()
+        .filter(|weights| weights.inner.dtype().kind() == "c")
+    {
+        return Err(PyTypeError::new_err(format!(
+            "Cannot cast array data from dtype('{}') to dtype('float64') according to the rule 'safe'",
+            weights.inner.dtype().name()
+        )));
     }
     let mut edges = Vec::with_capacity(dimensions);
     let mut edge_dtypes = Vec::with_capacity(dimensions);

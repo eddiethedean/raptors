@@ -865,7 +865,7 @@ impl PyArray {
         call_array_api(py, "std", self, &kwargs)
     }
     #[pyo3(
-        signature = (axis=None, out=None, keepdims=false, *, r#where=routines::WhereArg::Omitted),
+        signature = (axis=None, out=None, keepdims=routines::KeepdimsArg::DefaultFalse, *, r#where=routines::WhereArg::Omitted),
         text_signature = "(self, /, axis=None, out=None, keepdims=False, *, where=True)"
     )]
     fn any(
@@ -873,7 +873,7 @@ impl PyArray {
         py: Python<'_>,
         axis: Option<&Bound<'_, PyAny>>,
         out: Option<&Bound<'_, PyAny>>,
-        keepdims: bool,
+        keepdims: routines::KeepdimsArg,
         r#where: routines::WhereArg,
     ) -> PyResult<Py<PyAny>> {
         let kwargs = PyDict::new(py);
@@ -883,14 +883,14 @@ impl PyArray {
         if let Some(out) = out {
             kwargs.set_item("out", out)?;
         }
-        kwargs.set_item("keepdims", keepdims)?;
+        kwargs.set_item("keepdims", keepdims.reduction_bool(py)?)?;
         if let routines::WhereArg::Value(where_value) = r#where {
             kwargs.set_item("where", where_value.bind(py))?;
         }
         call_array_api(py, "any", self, &kwargs)
     }
     #[pyo3(
-        signature = (axis=None, out=None, keepdims=false, *, r#where=routines::WhereArg::Omitted),
+        signature = (axis=None, out=None, keepdims=routines::KeepdimsArg::DefaultFalse, *, r#where=routines::WhereArg::Omitted),
         text_signature = "(self, /, axis=None, out=None, keepdims=False, *, where=True)"
     )]
     fn all(
@@ -898,7 +898,7 @@ impl PyArray {
         py: Python<'_>,
         axis: Option<&Bound<'_, PyAny>>,
         out: Option<&Bound<'_, PyAny>>,
-        keepdims: bool,
+        keepdims: routines::KeepdimsArg,
         r#where: routines::WhereArg,
     ) -> PyResult<Py<PyAny>> {
         let kwargs = PyDict::new(py);
@@ -908,19 +908,22 @@ impl PyArray {
         if let Some(out) = out {
             kwargs.set_item("out", out)?;
         }
-        kwargs.set_item("keepdims", keepdims)?;
+        kwargs.set_item("keepdims", keepdims.reduction_bool(py)?)?;
         if let routines::WhereArg::Value(where_value) = r#where {
             kwargs.set_item("where", where_value.bind(py))?;
         }
         call_array_api(py, "all", self, &kwargs)
     }
-    #[pyo3(signature = (axis=None, out=None, *, keepdims=false))]
+    #[pyo3(
+        signature = (axis=None, out=None, *, keepdims=routines::KeepdimsArg::DefaultFalse),
+        text_signature = "(self, /, axis=None, out=None, *, keepdims=False)"
+    )]
     fn argmin(
         &self,
         py: Python<'_>,
         axis: Option<&Bound<'_, PyAny>>,
         out: Option<&Bound<'_, PyAny>>,
-        keepdims: bool,
+        keepdims: routines::KeepdimsArg,
     ) -> PyResult<Py<PyAny>> {
         let kwargs = PyDict::new(py);
         if let Some(axis) = axis {
@@ -929,16 +932,19 @@ impl PyArray {
         if let Some(out) = out {
             kwargs.set_item("out", out)?;
         }
-        kwargs.set_item("keepdims", keepdims)?;
+        kwargs.set_item("keepdims", keepdims.truthy(py)?)?;
         call_array_api(py, "argmin", self, &kwargs)
     }
-    #[pyo3(signature = (axis=None, out=None, *, keepdims=false))]
+    #[pyo3(
+        signature = (axis=None, out=None, *, keepdims=routines::KeepdimsArg::DefaultFalse),
+        text_signature = "(self, /, axis=None, out=None, *, keepdims=False)"
+    )]
     fn argmax(
         &self,
         py: Python<'_>,
         axis: Option<&Bound<'_, PyAny>>,
         out: Option<&Bound<'_, PyAny>>,
-        keepdims: bool,
+        keepdims: routines::KeepdimsArg,
     ) -> PyResult<Py<PyAny>> {
         let kwargs = PyDict::new(py);
         if let Some(axis) = axis {
@@ -947,7 +953,7 @@ impl PyArray {
         if let Some(out) = out {
             kwargs.set_item("out", out)?;
         }
-        kwargs.set_item("keepdims", keepdims)?;
+        kwargs.set_item("keepdims", keepdims.truthy(py)?)?;
         call_array_api(py, "argmax", self, &kwargs)
     }
     #[pyo3(signature = (axis=None, dtype=None, out=None))]

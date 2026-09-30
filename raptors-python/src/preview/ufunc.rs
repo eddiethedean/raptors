@@ -2987,7 +2987,7 @@ fn method_parameter<'py>(
     Ok(keyword)
 }
 
-fn reduce_keepdims(value: &Bound<'_, PyAny>) -> PyResult<bool> {
+pub(super) fn reduce_keepdims(value: &Bound<'_, PyAny>) -> PyResult<bool> {
     // NumPy's reduce parser accepts integer-like values (including bool and
     // objects implementing __index__), rather than requiring a Python bool.
     let index = match PyModule::import(value.py(), "operator")?.call_method1("index", (value,)) {

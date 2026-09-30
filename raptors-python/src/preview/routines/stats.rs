@@ -6,7 +6,7 @@ use super::super::{
     array, default_byte_order, map_storage_error, parse_dtype_spec, scalar_to_python,
     value_to_untyped_scalar, PyArray,
 };
-use super::{where_kwargs, WhereArg};
+use super::{where_kwargs, KeepdimsArg, WhereArg};
 use pyo3::exceptions::{
     PyIndexError, PyMemoryError, PyRuntimeWarning, PyTypeError, PyValueError, PyZeroDivisionError,
 };
@@ -17,30 +17,6 @@ use raptors_storage::{DType, IndexItem, Scalar, View};
 extern crate std as rust_std;
 use rust_std::collections::HashSet;
 use rust_std::ffi::CString;
-
-enum KeepdimsArg {
-    DefaultFalse,
-    Value(Py<PyAny>),
-}
-
-impl KeepdimsArg {
-    fn truthy(&self, py: Python<'_>) -> PyResult<bool> {
-        match self {
-            Self::DefaultFalse => Ok(false),
-            Self::Value(value) => value.bind(py).is_truthy(),
-        }
-    }
-}
-
-impl<'a, 'py> FromPyObject<'a, 'py> for KeepdimsArg {
-    type Error = PyErr;
-
-    fn extract(value: Borrowed<'a, 'py, PyAny>) -> PyResult<Self> {
-        Ok(Self::Value(
-            <Py<PyAny> as FromPyObject<'a, 'py>>::extract(value).map_err(PyErr::from)?,
-        ))
-    }
-}
 
 enum CorrectionArg {
     Omitted,
@@ -98,33 +74,51 @@ fn parse_correction(
 }
 
 #[pyfunction]
-#[pyo3(signature = (a, axis=None, dtype=None, out=None, keepdims=false, *, r#where=WhereArg::Omitted))]
+#[pyo3(signature = (a, axis=None, dtype=None, out=None, keepdims=KeepdimsArg::DefaultFalse, *, r#where=WhereArg::Omitted), text_signature = "(a, axis=None, dtype=None, out=None, keepdims=False, *, where=...)")]
 fn mean(
     py: Python<'_>,
     a: &Bound<'_, PyAny>,
     axis: Option<&Bound<'_, PyAny>>,
     dtype: Option<&Bound<'_, PyAny>>,
     out: Option<&Bound<'_, PyAny>>,
-    keepdims: bool,
+    keepdims: KeepdimsArg,
     r#where: WhereArg,
 ) -> PyResult<Py<PyAny>> {
     let kwargs = where_kwargs(py, &r#where)?;
-    mean_impl(py, a, axis, dtype, out, keepdims, kwargs.as_ref(), false)
+    mean_impl(
+        py,
+        a,
+        axis,
+        dtype,
+        out,
+        keepdims.reduction_bool(py)?,
+        kwargs.as_ref(),
+        false,
+    )
 }
 
 #[pyfunction]
-#[pyo3(signature = (a, axis=None, dtype=None, out=None, keepdims=false, *, r#where=WhereArg::Omitted))]
+#[pyo3(signature = (a, axis=None, dtype=None, out=None, keepdims=KeepdimsArg::DefaultFalse, *, r#where=WhereArg::Omitted), text_signature = "(a, axis=None, dtype=None, out=None, keepdims=False, *, where=...)")]
 fn nanmean(
     py: Python<'_>,
     a: &Bound<'_, PyAny>,
     axis: Option<&Bound<'_, PyAny>>,
     dtype: Option<&Bound<'_, PyAny>>,
     out: Option<&Bound<'_, PyAny>>,
-    keepdims: bool,
+    keepdims: KeepdimsArg,
     r#where: WhereArg,
 ) -> PyResult<Py<PyAny>> {
     let kwargs = where_kwargs(py, &r#where)?;
-    mean_impl(py, a, axis, dtype, out, keepdims, kwargs.as_ref(), true)
+    mean_impl(
+        py,
+        a,
+        axis,
+        dtype,
+        out,
+        keepdims.reduction_bool(py)?,
+        kwargs.as_ref(),
+        true,
+    )
 }
 
 fn mean_impl(
@@ -219,7 +213,7 @@ fn mean_impl(
 
 #[pyfunction]
 #[pyo3(
-    signature = (a, axis=None, dtype=None, out=None, ddof=0.0, keepdims=false, *, r#where=WhereArg::Omitted, mean=None, correction=CorrectionArg::Omitted),
+    signature = (a, axis=None, dtype=None, out=None, ddof=0.0, keepdims=KeepdimsArg::DefaultFalse, *, r#where=WhereArg::Omitted, mean=None, correction=CorrectionArg::Omitted),
     text_signature = "(a, axis=None, dtype=None, out=None, ddof=0, keepdims=False, *, where=..., mean=None, correction=None)"
 )]
 fn var(
@@ -229,13 +223,14 @@ fn var(
     dtype: Option<&Bound<'_, PyAny>>,
     out: Option<&Bound<'_, PyAny>>,
     ddof: f64,
-    keepdims: bool,
+    keepdims: KeepdimsArg,
     r#where: WhereArg,
     mean: Option<&Bound<'_, PyAny>>,
     correction: CorrectionArg,
 ) -> PyResult<Py<PyAny>> {
     let correction = parse_correction(py, &correction, ddof, false)?;
     let kwargs = variance_kwargs(py, &r#where, mean)?;
+    let keepdims = keepdims.reduction_bool(py)?;
     variance_impl(
         py,
         a,
@@ -252,7 +247,7 @@ fn var(
 
 #[pyfunction]
 #[pyo3(
-    signature = (a, axis=None, dtype=None, out=None, ddof=0.0, keepdims=false, *, r#where=WhereArg::Omitted, mean=MeanArg::Omitted, correction=CorrectionArg::Omitted),
+    signature = (a, axis=None, dtype=None, out=None, ddof=0.0, keepdims=KeepdimsArg::DefaultFalse, *, r#where=WhereArg::Omitted, mean=MeanArg::Omitted, correction=CorrectionArg::Omitted),
     text_signature = "(a, axis=None, dtype=None, out=None, ddof=0, keepdims=False, *, where=..., mean=None, correction=None)"
 )]
 fn nanvar(
@@ -262,13 +257,14 @@ fn nanvar(
     dtype: Option<&Bound<'_, PyAny>>,
     out: Option<&Bound<'_, PyAny>>,
     ddof: f64,
-    keepdims: bool,
+    keepdims: KeepdimsArg,
     r#where: WhereArg,
     mean: MeanArg,
     correction: CorrectionArg,
 ) -> PyResult<Py<PyAny>> {
     let correction = parse_correction(py, &correction, ddof, true)?;
     let kwargs = nan_variance_kwargs(py, &r#where, &mean)?;
+    let keepdims = keepdims.reduction_bool(py)?;
     variance_impl(
         py,
         a,
@@ -465,7 +461,7 @@ fn variance_impl(
 
 #[pyfunction]
 #[pyo3(
-    signature = (a, axis=None, dtype=None, out=None, ddof=0.0, keepdims=false, *, r#where=WhereArg::Omitted, mean=None, correction=CorrectionArg::Omitted),
+    signature = (a, axis=None, dtype=None, out=None, ddof=0.0, keepdims=KeepdimsArg::DefaultFalse, *, r#where=WhereArg::Omitted, mean=None, correction=CorrectionArg::Omitted),
     text_signature = "(a, axis=None, dtype=None, out=None, ddof=0, keepdims=False, *, where=..., mean=None, correction=None)"
 )]
 fn std(
@@ -475,13 +471,14 @@ fn std(
     dtype: Option<&Bound<'_, PyAny>>,
     out: Option<&Bound<'_, PyAny>>,
     ddof: f64,
-    keepdims: bool,
+    keepdims: KeepdimsArg,
     r#where: WhereArg,
     mean: Option<&Bound<'_, PyAny>>,
     correction: CorrectionArg,
 ) -> PyResult<Py<PyAny>> {
     let correction = parse_correction(py, &correction, ddof, false)?;
     let kwargs = variance_kwargs(py, &r#where, mean)?;
+    let keepdims = keepdims.reduction_bool(py)?;
     let effective_ddof = correction.unwrap_or(ddof);
     let requested_axis_zero = axis
         .filter(|axis| !axis.is_none())
@@ -586,7 +583,7 @@ fn std(
 
 #[pyfunction]
 #[pyo3(
-    signature = (a, axis=None, dtype=None, out=None, ddof=0.0, keepdims=false, *, r#where=WhereArg::Omitted, mean=MeanArg::Omitted, correction=CorrectionArg::Omitted),
+    signature = (a, axis=None, dtype=None, out=None, ddof=0.0, keepdims=KeepdimsArg::DefaultFalse, *, r#where=WhereArg::Omitted, mean=MeanArg::Omitted, correction=CorrectionArg::Omitted),
     text_signature = "(a, axis=None, dtype=None, out=None, ddof=0, keepdims=False, *, where=..., mean=None, correction=None)"
 )]
 fn nanstd(
@@ -596,13 +593,14 @@ fn nanstd(
     dtype: Option<&Bound<'_, PyAny>>,
     out: Option<&Bound<'_, PyAny>>,
     ddof: f64,
-    keepdims: bool,
+    keepdims: KeepdimsArg,
     r#where: WhereArg,
     mean: MeanArg,
     correction: CorrectionArg,
 ) -> PyResult<Py<PyAny>> {
     let correction = parse_correction(py, &correction, ddof, true)?;
     let kwargs = nan_variance_kwargs(py, &r#where, &mean)?;
+    let keepdims = keepdims.reduction_bool(py)?;
     let variance = variance_impl(
         py,
         a,
@@ -647,16 +645,16 @@ fn nanstd(
 }
 
 #[pyfunction]
-#[pyo3(signature = (a, axis=None, out=None, keepdims=false))]
+#[pyo3(signature = (a, axis=None, out=None, keepdims=KeepdimsArg::DefaultFalse), text_signature = "(a, axis=None, out=None, keepdims=False)")]
 fn ptp(
     py: Python<'_>,
     a: &Bound<'_, PyAny>,
     axis: Option<&Bound<'_, PyAny>>,
     out: Option<&Bound<'_, PyAny>>,
-    keepdims: bool,
+    keepdims: KeepdimsArg,
 ) -> PyResult<Py<PyAny>> {
     let source = array(a, None, None, "K")?;
-    let reduction = Reduction::new(&source, axis, keepdims, None)?;
+    let reduction = Reduction::new(&source, axis, keepdims.reduction_bool(py)?, None)?;
     let dtype = source.inner.dtype();
     let mut values = Vec::new();
     values
@@ -703,33 +701,51 @@ fn ptp(
 }
 
 #[pyfunction]
-#[pyo3(signature = (a, axis=None, out=None, keepdims=false, initial=None, r#where=WhereArg::Omitted))]
+#[pyo3(signature = (a, axis=None, out=None, keepdims=KeepdimsArg::DefaultFalse, initial=None, r#where=WhereArg::Omitted), text_signature = "(a, axis=None, out=None, keepdims=False, initial=None, where=...)")]
 fn nanmin(
     py: Python<'_>,
     a: &Bound<'_, PyAny>,
     axis: Option<&Bound<'_, PyAny>>,
     out: Option<&Bound<'_, PyAny>>,
-    keepdims: bool,
+    keepdims: KeepdimsArg,
     initial: Option<&Bound<'_, PyAny>>,
     r#where: WhereArg,
 ) -> PyResult<Py<PyAny>> {
     let kwargs = where_kwargs(py, &r#where)?;
-    nan_extreme(py, a, axis, out, keepdims, initial, kwargs.as_ref(), false)
+    nan_extreme(
+        py,
+        a,
+        axis,
+        out,
+        keepdims.reduction_bool(py)?,
+        initial,
+        kwargs.as_ref(),
+        false,
+    )
 }
 
 #[pyfunction]
-#[pyo3(signature = (a, axis=None, out=None, keepdims=false, initial=None, r#where=WhereArg::Omitted))]
+#[pyo3(signature = (a, axis=None, out=None, keepdims=KeepdimsArg::DefaultFalse, initial=None, r#where=WhereArg::Omitted), text_signature = "(a, axis=None, out=None, keepdims=False, initial=None, where=...)")]
 fn nanmax(
     py: Python<'_>,
     a: &Bound<'_, PyAny>,
     axis: Option<&Bound<'_, PyAny>>,
     out: Option<&Bound<'_, PyAny>>,
-    keepdims: bool,
+    keepdims: KeepdimsArg,
     initial: Option<&Bound<'_, PyAny>>,
     r#where: WhereArg,
 ) -> PyResult<Py<PyAny>> {
     let kwargs = where_kwargs(py, &r#where)?;
-    nan_extreme(py, a, axis, out, keepdims, initial, kwargs.as_ref(), true)
+    nan_extreme(
+        py,
+        a,
+        axis,
+        out,
+        keepdims.reduction_bool(py)?,
+        initial,
+        kwargs.as_ref(),
+        true,
+    )
 }
 
 fn nan_extreme(
@@ -814,14 +830,14 @@ fn nan_extreme(
 }
 
 #[pyfunction]
-#[pyo3(signature = (a, axis=None, weights=None, returned=false, *, keepdims=false))]
+#[pyo3(signature = (a, axis=None, weights=None, returned=false, *, keepdims=KeepdimsArg::DefaultFalse), text_signature = "(a, axis=None, weights=None, returned=False, *, keepdims=False)")]
 fn average(
     py: Python<'_>,
     a: &Bound<'_, PyAny>,
     axis: Option<&Bound<'_, PyAny>>,
     weights: Option<&Bound<'_, PyAny>>,
     returned: bool,
-    keepdims: bool,
+    keepdims: KeepdimsArg,
 ) -> PyResult<Py<PyAny>> {
     let source = array(a, None, None, "K")?;
     let axes = normalize_axes(axis, source.inner.ndim())?;
@@ -829,7 +845,7 @@ fn average(
         .filter(|weights| !weights.is_none())
         .map(|weights| aligned_weights(weights, &source, axis, &axes))
         .transpose()?;
-    let reduction = Reduction::new(&source, axis, keepdims, None)?;
+    let reduction = Reduction::new(&source, axis, keepdims.reduction_bool(py)?, None)?;
     let dtype = mean_dtype(
         weight.as_ref().map_or(source.inner.dtype(), |weight| {
             source.inner.dtype().promote(weight.dtype())
@@ -1700,15 +1716,15 @@ fn arg_reduce(
 }
 
 #[pyfunction]
-#[pyo3(signature = (a, axis=None, *, keepdims=false))]
+#[pyo3(signature = (a, axis=None, *, keepdims=KeepdimsArg::DefaultFalse), text_signature = "(a, axis=None, *, keepdims=False)")]
 fn count_nonzero(
     py: Python<'_>,
     a: &Bound<'_, PyAny>,
     axis: Option<&Bound<'_, PyAny>>,
-    keepdims: bool,
+    keepdims: KeepdimsArg,
 ) -> PyResult<Py<PyAny>> {
     let source = array(a, None, None, "K")?;
-    let reduction = Reduction::new(&source, axis, keepdims, None)?;
+    let reduction = Reduction::new(&source, axis, keepdims.reduction_bool(py)?, None)?;
     let dtype = index_dtype();
     let mut values = Vec::new();
     values

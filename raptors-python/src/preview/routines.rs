@@ -620,14 +620,14 @@ fn broadcast_shape_pair(left: &[usize], right: &[usize]) -> Option<Vec<usize>> {
 }
 
 #[pyfunction]
-#[pyo3(signature = (a, axis=None, dtype=None, out=None, keepdims=false, initial=None, r#where=WhereArg::Omitted))]
+#[pyo3(signature = (a, axis=None, dtype=None, out=None, keepdims=KeepdimsArg::DefaultFalse, initial=None, r#where=WhereArg::Omitted), text_signature = "(a, axis=None, dtype=None, out=None, keepdims=False, initial=None, where=...)")]
 fn sum(
     py: Python<'_>,
     a: &Bound<'_, PyAny>,
     axis: Option<&Bound<'_, PyAny>>,
     dtype: Option<&Bound<'_, PyAny>>,
     out: Option<&Bound<'_, PyAny>>,
-    keepdims: bool,
+    keepdims: KeepdimsArg,
     initial: Option<&Bound<'_, PyAny>>,
     r#where: WhereArg,
 ) -> PyResult<Py<PyAny>> {
@@ -639,21 +639,21 @@ fn sum(
         axis,
         dtype,
         out,
-        keepdims,
+        keepdims.reduction_bool(py)?,
         initial,
         kwargs.as_ref(),
     )
 }
 
 #[pyfunction]
-#[pyo3(signature = (a, axis=None, dtype=None, out=None, keepdims=false, initial=None, r#where=WhereArg::Omitted))]
+#[pyo3(signature = (a, axis=None, dtype=None, out=None, keepdims=KeepdimsArg::DefaultFalse, initial=None, r#where=WhereArg::Omitted), text_signature = "(a, axis=None, dtype=None, out=None, keepdims=False, initial=None, where=...)")]
 fn prod(
     py: Python<'_>,
     a: &Bound<'_, PyAny>,
     axis: Option<&Bound<'_, PyAny>>,
     dtype: Option<&Bound<'_, PyAny>>,
     out: Option<&Bound<'_, PyAny>>,
-    keepdims: bool,
+    keepdims: KeepdimsArg,
     initial: Option<&Bound<'_, PyAny>>,
     r#where: WhereArg,
 ) -> PyResult<Py<PyAny>> {
@@ -665,20 +665,20 @@ fn prod(
         axis,
         dtype,
         out,
-        keepdims,
+        keepdims.reduction_bool(py)?,
         initial,
         kwargs.as_ref(),
     )
 }
 
 #[pyfunction]
-#[pyo3(signature = (a, axis=None, out=None, keepdims=false, initial=None, r#where=WhereArg::Omitted))]
+#[pyo3(signature = (a, axis=None, out=None, keepdims=KeepdimsArg::DefaultFalse, initial=None, r#where=WhereArg::Omitted), text_signature = "(a, axis=None, out=None, keepdims=False, initial=None, where=...)")]
 fn min(
     py: Python<'_>,
     a: &Bound<'_, PyAny>,
     axis: Option<&Bound<'_, PyAny>>,
     out: Option<&Bound<'_, PyAny>>,
-    keepdims: bool,
+    keepdims: KeepdimsArg,
     initial: Option<&Bound<'_, PyAny>>,
     r#where: WhereArg,
 ) -> PyResult<Py<PyAny>> {
@@ -690,20 +690,20 @@ fn min(
         axis,
         None,
         out,
-        keepdims,
+        keepdims.reduction_bool(py)?,
         initial,
         kwargs.as_ref(),
     )
 }
 
 #[pyfunction]
-#[pyo3(signature = (a, axis=None, out=None, keepdims=false, initial=None, r#where=WhereArg::Omitted))]
+#[pyo3(signature = (a, axis=None, out=None, keepdims=KeepdimsArg::DefaultFalse, initial=None, r#where=WhereArg::Omitted), text_signature = "(a, axis=None, out=None, keepdims=False, initial=None, where=...)")]
 fn max(
     py: Python<'_>,
     a: &Bound<'_, PyAny>,
     axis: Option<&Bound<'_, PyAny>>,
     out: Option<&Bound<'_, PyAny>>,
-    keepdims: bool,
+    keepdims: KeepdimsArg,
     initial: Option<&Bound<'_, PyAny>>,
     r#where: WhereArg,
 ) -> PyResult<Py<PyAny>> {
@@ -715,20 +715,20 @@ fn max(
         axis,
         None,
         out,
-        keepdims,
+        keepdims.reduction_bool(py)?,
         initial,
         kwargs.as_ref(),
     )
 }
 
 #[pyfunction]
-#[pyo3(signature = (a, axis=None, out=None, keepdims=false, *, r#where=WhereArg::Omitted))]
+#[pyo3(signature = (a, axis=None, out=None, keepdims=KeepdimsArg::DefaultFalse, *, r#where=WhereArg::Omitted), text_signature = "(a, axis=None, out=None, keepdims=False, *, where=...)")]
 fn any(
     py: Python<'_>,
     a: &Bound<'_, PyAny>,
     axis: Option<&Bound<'_, PyAny>>,
     out: Option<&Bound<'_, PyAny>>,
-    keepdims: bool,
+    keepdims: KeepdimsArg,
     r#where: WhereArg,
 ) -> PyResult<Py<PyAny>> {
     let kwargs = where_kwargs(py, &r#where)?;
@@ -739,20 +739,20 @@ fn any(
         axis,
         None,
         out,
-        keepdims,
+        keepdims.reduction_bool(py)?,
         None,
         kwargs.as_ref(),
     )
 }
 
 #[pyfunction]
-#[pyo3(signature = (a, axis=None, out=None, keepdims=false, *, r#where=WhereArg::Omitted))]
+#[pyo3(signature = (a, axis=None, out=None, keepdims=KeepdimsArg::DefaultFalse, *, r#where=WhereArg::Omitted), text_signature = "(a, axis=None, out=None, keepdims=False, *, where=...)")]
 fn all(
     py: Python<'_>,
     a: &Bound<'_, PyAny>,
     axis: Option<&Bound<'_, PyAny>>,
     out: Option<&Bound<'_, PyAny>>,
-    keepdims: bool,
+    keepdims: KeepdimsArg,
     r#where: WhereArg,
 ) -> PyResult<Py<PyAny>> {
     let kwargs = where_kwargs(py, &r#where)?;
@@ -763,7 +763,7 @@ fn all(
         axis,
         None,
         out,
-        keepdims,
+        keepdims.reduction_bool(py)?,
         None,
         kwargs.as_ref(),
     )
@@ -772,6 +772,37 @@ fn all(
 pub(super) enum WhereArg {
     Omitted,
     Value(Py<PyAny>),
+}
+
+pub(super) enum KeepdimsArg {
+    DefaultFalse,
+    Value(Py<PyAny>),
+}
+
+impl KeepdimsArg {
+    pub(super) fn truthy(&self, py: Python<'_>) -> PyResult<bool> {
+        match self {
+            Self::DefaultFalse => Ok(false),
+            Self::Value(value) => value.bind(py).is_truthy(),
+        }
+    }
+
+    pub(super) fn reduction_bool(&self, py: Python<'_>) -> PyResult<bool> {
+        match self {
+            Self::DefaultFalse => Ok(false),
+            Self::Value(value) => super::ufunc::reduce_keepdims(value.bind(py)),
+        }
+    }
+}
+
+impl<'a, 'py> FromPyObject<'a, 'py> for KeepdimsArg {
+    type Error = PyErr;
+
+    fn extract(value: Borrowed<'a, 'py, PyAny>) -> PyResult<Self> {
+        Ok(Self::Value(
+            <Py<PyAny> as FromPyObject<'a, 'py>>::extract(value).map_err(PyErr::from)?,
+        ))
+    }
 }
 
 impl WhereArg {

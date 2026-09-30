@@ -4129,6 +4129,88 @@ impl View {
         Ok(Some(Self::from_int64_values(vec![result_len], &counts)?))
     }
 
+    /// Builds unweighted histogram counts directly in checked native int64
+    /// storage for a C-contiguous input and a uniform integral range.
+    pub fn histogram_int64_uniform(
+        &self,
+        minimum: i64,
+        maximum: i64,
+        width: i64,
+        bin_count: usize,
+    ) -> Result<Option<Self>, StorageError> {
+        if self.dtype != DType::Int64
+            || !self.byte_order.is_native()
+            || !self.is_c_contiguous()
+            || width <= 0
+            || maximum < minimum
+            || bin_count == 0
+            || i128::from(width)
+                .checked_mul(bin_count as i128)
+                .is_none_or(|span| span != i128::from(maximum) - i128::from(minimum))
+        {
+            return Ok(None);
+        }
+        let size = self.size()?;
+        let itemsize = DType::Int64.itemsize();
+        let byte_count = size
+            .checked_mul(itemsize)
+            .ok_or(StorageError::ShapeOverflow)?;
+        let byte_start = contiguous_element_start(self)?
+            .checked_mul(itemsize)
+            .ok_or(StorageError::ShapeOverflow)?;
+        let byte_end = byte_start
+            .checked_add(byte_count)
+            .ok_or(StorageError::ShapeOverflow)?;
+        let source_storage = self
+            .storage
+            .read()
+            .map_err(|_| StorageError::LockPoisoned)?;
+        let source_bytes = source_storage
+            .bytes
+            .get(byte_start..byte_end)
+            .ok_or(StorageError::InvalidLayout)?;
+        let output = Self::zeros(DType::Int64, vec![bin_count])?;
+        let mut output_storage = output
+            .storage
+            .write()
+            .map_err(|_| StorageError::LockPoisoned)?;
+        for value_bytes in source_bytes.chunks_exact(itemsize) {
+            let value = i64::from_ne_bytes([
+                value_bytes[0],
+                value_bytes[1],
+                value_bytes[2],
+                value_bytes[3],
+                value_bytes[4],
+                value_bytes[5],
+                value_bytes[6],
+                value_bytes[7],
+            ]);
+            if value < minimum || value > maximum {
+                continue;
+            }
+            let bin = if value == maximum {
+                bin_count - 1
+            } else {
+                usize::try_from((i128::from(value) - i128::from(minimum)) / i128::from(width))
+                    .map_err(|_| StorageError::InvalidLayout)?
+            };
+            let count_bytes = output_storage.element_bytes_mut(bin)?;
+            let count = i64::from_ne_bytes([
+                count_bytes[0],
+                count_bytes[1],
+                count_bytes[2],
+                count_bytes[3],
+                count_bytes[4],
+                count_bytes[5],
+                count_bytes[6],
+                count_bytes[7],
+            ]);
+            count_bytes.copy_from_slice(&count.wrapping_add(1).to_ne_bytes());
+        }
+        drop(output_storage);
+        Ok(Some(output))
+    }
+
     pub fn float32_axis0_statistics(
         &self,
         ddof: f64,
@@ -5300,6 +5382,42 @@ mod tests {
     }
 
     #[test]
+    fn int64_uniform_histogram_counts_offset_contiguous_bytes() {
+        let owner = View::from_int64_values(vec![9], &[90, -1, 0, 1, 2, 9, 10, 11, 80]).unwrap();
+        let source = owner
+            .index(&[IndexItem::Slice {
+                start: 1,
+                step: 1,
+                len: 7,
+            }])
+            .unwrap();
+        let counts = source
+            .histogram_int64_uniform(0, 10, 2, 5)
+            .unwrap()
+            .unwrap();
+        assert_eq!(counts.snapshot_int64().unwrap(), [2, 1, 0, 0, 2]);
+
+        assert!(source
+            .histogram_int64_uniform(0, 10, 0, 5)
+            .unwrap()
+            .is_none());
+        assert!(source
+            .histogram_int64_uniform(0, 10, 3, 5)
+            .unwrap()
+            .is_none());
+        assert!(source
+            .index(&[IndexItem::Slice {
+                start: 0,
+                step: 2,
+                len: 4,
+            }])
+            .unwrap()
+            .histogram_int64_uniform(0, 10, 2, 5)
+            .unwrap()
+            .is_none());
+    }
+
+    #[test]
     fn float32_last_axis_broadcast_reads_contiguous_offset_bytes() {
         let owner = View::from_float32_values(
             vec![4, 2],
@@ -5615,6 +5733,40 @@ mod tests {
         let flattened = f_order.sort_int32(None, false).unwrap();
         assert_eq!(flattened.shape(), [6]);
         assert_eq!(flattened.snapshot_int32().unwrap(), [1, 2, 3, 7, 8, 9]);
+    }
+
+    #[test]
+    fn int32_sort_short_fortran_rows_match_both_directions() {
+        let values = (0..64)
+            .map(|index| (index * 37 + index / 32 * 11) % 101)
+            .collect::<Vec<_>>();
+        let source = View::from_int32_values_with_layout(vec![2, 32], &values, true).unwrap();
+
+        let mut ascending = values.clone();
+        for row in ascending.chunks_mut(32) {
+            row.sort_unstable();
+        }
+        assert_eq!(
+            source
+                .sort_int32(Some(1), false)
+                .unwrap()
+                .snapshot_int32()
+                .unwrap(),
+            ascending
+        );
+
+        let mut descending = ascending;
+        for row in descending.chunks_mut(32) {
+            row.reverse();
+        }
+        assert_eq!(
+            source
+                .sort_int32(Some(1), true)
+                .unwrap()
+                .snapshot_int32()
+                .unwrap(),
+            descending
+        );
     }
 
     #[test]
